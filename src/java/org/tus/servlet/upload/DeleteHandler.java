@@ -2,6 +2,7 @@ package org.tus.servlet.upload;
  
 
 import javax.servlet.http.HttpServletRequest;
+import static javax.servlet.http.HttpServletResponse.SC_NO_CONTENT;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +57,7 @@ public class DeleteHandler extends BaseHandler
 			throw new TusException.NotFound();
 		}
 		datastore.terminate(id);
-		response.setStatus(Response.NO_CONTENT);
+		response.setStatus(SC_NO_CONTENT);
 	}
 
 

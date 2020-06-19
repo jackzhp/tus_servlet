@@ -46,10 +46,14 @@ public interface Datastore
 	public void terminate(String id) throws Exception;
 
 
-	/*
-		If there's any work to do when the upload is finished, this is where it's done. 
-	*/
-	public void finish(String id) throws Exception;
+        /**
+         * If there's any work to do when the upload is finished, this is where it's done. 
+         * 
+         * @param id
+         * @return sha256 verified
+         * @throws Exception 
+         */
+	public boolean finish(FileInfo id) throws Exception;
 
 	/*
 		Shutdown the datastore service

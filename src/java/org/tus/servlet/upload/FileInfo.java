@@ -28,17 +28,18 @@ public class FileInfo
 	public String metadata;
 	public String suggestedFilename;
 	public String username;
+        public boolean sha256Checked;
 	public Map<String, String> decodedMetadata;
 
 	// This ctor is used by post method to create the FileInfo
 	public FileInfo(long entityLength, String metadata, String username)
 	{
 		this.entityLength = entityLength;
-		this.id = UUID.randomUUID().toString();
-		this.id = this.id.replace("-", "_");
 		this.metadata = metadata;
 		this.decodedMetadata = parseMetadata(metadata);
 		this.username = username;
+		this.id =decodedMetadata.get("sha256");// UUID.randomUUID().toString();
+		this.id = this.id.replace("-", "_");
 
 		// See if client sent suggested filename in metadata and log it.
 		this.suggestedFilename = decodedMetadata.get("filename");

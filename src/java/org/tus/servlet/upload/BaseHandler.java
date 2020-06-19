@@ -71,7 +71,7 @@ public abstract class BaseHandler
 		Matcher matcher = pattern.matcher(pathInfo);
 		if (!matcher.matches())
 		{
-			log.debug("URL doesn't have form of an upload endpoint."); 
+			log.debug("URL "+pathInfo+" doesn't have form of an upload endpoint."); 
 			return null;
 		}
 		String id = matcher.group(1);
