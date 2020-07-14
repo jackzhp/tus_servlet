@@ -243,13 +243,12 @@ var player = {
         self.play.onclick();
         self.resumeCtx();
       });
+      return Promise.reject("should not be used");
     } else {
-      self.decodeData(audioData).then(buffer => {
+      return self.decodeData(audioData).then(buffer => {
         self.buffer = buffer;
         self.onDataReady();
         self.startPlay();
-      }).catch(e => {
-        alert("Error with decoding audio data" + e.error);
       });
     }
   },
@@ -419,12 +418,14 @@ var tester = {
     p.then((dataAudio) => {
       self.testCurrent = self.testNext;//  self.pathPlaying = self.pathLast;
       // self.testNext=null; //this is not needed.
-      player.decodeDataAndPlay(dataAudio);
+      return player.decodeDataAndPlay(dataAudio);
+    }).then(tf => {
       if (self.preloadNext) {
         self.getTest();
       }
-    }).catch(e => {
-      document.querySelector('#songLength').innerHTML = e;
+    }).catch(ex => {
+      e.innerHTML = self.tests.length + ":" + self.testCurrent.fn + ":" + self.testNext.fn + ":" + ex;
+      //document.querySelector('#songLength').innerHTML = ex;
       // alert("failed to load data:" + self.pathLast + ":" + e);
     });
   },
@@ -444,7 +445,7 @@ var tester = {
       p = self.getData(path);
       if (self.tests.length == 0) {
         self.getTests().then(tf => {
-          alert("what to do?");
+          alert("all test has been preloaded, now what to reload?");
         }).catch(e => {
           alert(e);
         });
@@ -488,7 +489,11 @@ var tester = {
   },
   getTests: function () {
     var self = this;
-    //self.tests = ["assets/outfoxing.mp3","assets/257.mp3"];
+    if (false) { //as test
+      //self.tests = ["assets/outfoxing.mp3","assets/257.mp3"]; very old
+      self.tests = [{ fn: "arigato.mp3", key: "" }];
+      return Promise.resolve(true);
+    }
     return new Promise((resolve, reject) => {
       try {
         request = new XMLHttpRequest();
