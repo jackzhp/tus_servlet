@@ -23,12 +23,16 @@ var player = {
   playSpeed: 1.0,
   loopStart: null, loopEnd: null, //these 2 are not needed, use source.loopStart and source.loopEnd directly.
   tsStartCtx: null,
-  isStopped: null, //no longer needed
+  isStopped: null, //tells whether the sound is going on? no longer needed. previous to show the timestamp
   nTimes: 0, //how many times played
+  p_stop_resolve: null, //when really stopped, this should be called if succeeded
+  p_reject_resolve: null,  //  this should be called if failed.
+  stopRequested: false,//user wanted to stop playing the current test.
+
   init: function () {
     var self = this;
     self.play = document.querySelector('#pauseCtx'); //class  .play
-    var stop = document.querySelector('.stop');
+    // var stop = document.querySelector('.stop');
 
     self.e_playbackControl = document.querySelector('.playback-rate-control');
     self.e_playbackValue = document.querySelector('.playback-rate-value');
@@ -42,74 +46,27 @@ var player = {
     self.e_loopendValue = document.querySelector('.loopend-value');
     self.e_loopendControl.setAttribute('disabled', 'disabled');
     self.play.onclick = function () {
-      if (self.dataReady) {
-        if (self.isStarted) {
-          if (self.audioCtx.state === 'running') {
-            self.pauseCtx();
-          } else if (self.audioCtx.state === 'suspended') {
-            self.resumeCtx();
-          }
-        } else {
-          self.tsStartCtx = self.audioCtx.currentTime + 1;
-          if (false) {
-            // console.log(when + " " + source.loopStart + "->" + source.loopEnd);
-            /* be noted that: loop start and end works after play started.
-                 but seems not working when set before play started.
-                 it works. according to the web audio api specification, the offset & duration is always being used.
-                   if the loop region is inside the start region, then it will be looped.
-                 */
-            // source.start(when); //, offset, duration
-            //the built in loop is not good. there is no delay before rewind to the loopStart
-            var doLoop = true; //TODO: get it from control
-            if (doLoop) {
-              self.source.loopStart = self.loopStart;  //put it off
-              self.source.loopEnd = self.loopEnd;// songLength;
-              self.source.loop = true;
-            } else {
-              self.source.loopStart = self.loopStart;  //put it off
-              self.source.loopEnd = self.loopEnd;// songLength;
-              self.source.loop = false;
-            }
-            self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
-            var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
-            console.log(when + " " + offset + "+" + duration);
-            // source.start(when, offset, duration); //with this, does not do loop
-            self.isStopped = false;
-            self.source.start(when); //with this, do loop?
-          } else {
-            //the built in loop is not good. there is no delay before rewind to the loopStart
-            self.source.loop = false;
-            self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
-            var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
-            console.log(when + " " + offset + "+" + duration);
-            self.isStopped = false;
-            self.source.start(when, offset, duration); //with this, does not do loop
-          }
-          self.onPlayStarted();
-        }
-      } else {
-        alert("please load data before play");
-      }
+      self.onPauseResumeClicked();
     };
 
     //stop is not really needed for this application.
-    stop.onclick = function () {
-      //if use stop, then the source can not be reused
-      if (false) {
-        source.stop(0);
-        play.removeAttribute('disabled');
-        e_playbackControl.setAttribute('disabled', 'disabled');
-        e_loopstartControl.setAttribute('disabled', 'disabled');
-        e_loopendControl.setAttribute('disabled', 'disabled');
-        dataReady = false;
-        //TODO: or we can just reload the current data.
-        isStopped = true;
-        getData(pathCurrent);
-      } else { //suspend the context
+    // stop.onclick = function () {
+    //   //if use stop, then the source can not be reused
+    //   if (false) {
+    //     source.stop(0);
+    //     play.removeAttribute('disabled');
+    //     e_playbackControl.setAttribute('disabled', 'disabled');
+    //     e_loopstartControl.setAttribute('disabled', 'disabled');
+    //     e_loopendControl.setAttribute('disabled', 'disabled');
+    //     dataReady = false;
+    //     //TODO: or we can just reload the current data.
+    //     isStopped = true;
+    //     getData(pathCurrent);
+    //   } else { //suspend the context
 
 
-      }
-    };
+    //   }
+    // };
 
     self.e_playbackControl.oninput = function () {
       self.source.playbackRate.value = self.e_playbackControl.value; //TODO: this should be put off
@@ -188,6 +145,57 @@ var player = {
     //     e_stopBtn.setAttribute('disabled', 'disabled');
     //   });
     // };
+  },
+  onPauseResumeClicked: function () {
+    var self = this;
+    if (self.dataReady) {
+      if (self.isStarted) {
+        if (self.audioCtx.state === 'running') {
+          self.pauseCtx();
+        } else if (self.audioCtx.state === 'suspended') {
+          self.resumeCtx();
+        }
+      } else {
+        self.tsStartCtx = self.audioCtx.currentTime + 1;
+        if (false) {
+          // console.log(when + " " + source.loopStart + "->" + source.loopEnd);
+          /* be noted that: loop start and end works after play started.
+               but seems not working when set before play started.
+               it works. according to the web audio api specification, the offset & duration is always being used.
+                 if the loop region is inside the start region, then it will be looped.
+               */
+          // source.start(when); //, offset, duration
+          //the built in loop is not good. there is no delay before rewind to the loopStart
+          var doLoop = true; //TODO: get it from control
+          if (doLoop) {
+            self.source.loopStart = self.loopStart;  //put it off
+            self.source.loopEnd = self.loopEnd;// songLength;
+            self.source.loop = true;
+          } else {
+            self.source.loopStart = self.loopStart;  //put it off
+            self.source.loopEnd = self.loopEnd;// songLength;
+            self.source.loop = false;
+          }
+          self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
+          var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
+          console.log(when + " " + offset + "+" + duration);
+          // source.start(when, offset, duration); //with this, does not do loop
+          self.isStopped = false;
+          self.source.start(when); //with this, do loop?
+        } else {
+          //the built in loop is not good. there is no delay before rewind to the loopStart
+          self.source.loop = false;
+          self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
+          var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
+          console.log(when + " " + offset + "+" + duration);
+          self.isStopped = false;
+          self.source.start(when, offset, duration); //with this, does not do loop
+        }
+        self.onPlayStarted();
+      }
+    } else {
+      alert("please load data before play");
+    }
   },
   displayTime: function () {
     if (true) { //discard all stuff related to this. since it is not meaningful.
@@ -304,6 +312,7 @@ var player = {
     var self = this;
     // self.loopStart = 0;  //put this off
     // self.loopEnd = self.songLength;
+    self.audioCtx.destination.disconnect();
     self.source = self.audioCtx.createBufferSource();
     self.source.buffer = self.buffer;
     self.source.connect(self.audioCtx.destination);
@@ -332,24 +341,42 @@ var player = {
   },
   closeSource: function () {
     var self = this;
-    return new Promise((resolve, reject) => {
-      self.p_stop_resolve = resolve;
-      self.p_reject_resolve = reject;
-      self.stopRequested = true; //self.source.stop(0); //then onend handler will be called
-      // self.source.disconnect(self.audioCtx.destination); in the onend handler
-    });
+    var p;
+    if (self.isStarted) { //the meaning of it? source can not be started twice.
+      var state = self.audioCtx.state;
+      if (state === "running" || state === "suspended") {
+        p = new Promise((resolve, reject) => {
+          self.p_stop_resolve = resolve;
+          self.p_reject_resolve = reject;
+          self.stopRequested = true; //self.source.stop(0); //then onend handler will be called
+          // self.source.disconnect(self.audioCtx.destination); in the onend handler
+        });
+        if (state === "suspended") {
+          //I have to make it up, otherwise, it won't be called.
+          self.onPlayEnded();
+        }
+      } else {
+        var s = state === "closed" ? "state is closed" : "unknown state:" + state;
+        p = Promise.reject(s);
+      }
+    } else {
+      p = Promise.resolve(true);
+    }
+    return p;
   },
   pauseCtx: function () {
     var self = this;
-    var state = self.audioCtx.state;
-    if (state === 'running') {
-      self.audioCtx.suspend().then(function () {
-        self.isSuspended = true;
-        // self.isPlaying = false;
-        self.play.textContent = 'Resume context'; //susresBtn
-      });
-    } else {
-      console.log("state is not running, but " + state);
+    if (self.audioCtx) {
+      var state = self.audioCtx.state; // self.audioCtx.onstatechange  handler can be added
+      if (state === 'running') {
+        self.audioCtx.suspend().then(function () {
+          self.isSuspended = true;
+          // self.isPlaying = false;
+          self.play.textContent = 'Resume context'; //susresBtn
+        });
+      } else {
+        console.log("state is not running, but " + state);
+      }
     }
   },
   resumeCtx: function () {
@@ -386,6 +413,18 @@ var tester = {
     var self = this;
     self.e_good = document.querySelector('#result_good');
     self.e_good.onclick = function () {
+      player.pauseCtx();
+      document.querySelector('#testkey').focus();
+    };
+    self.e_bad = document.querySelector('#result_bad');
+    self.e_bad.onclick = function () {
+      //I will have to present some info about this test.
+      var e = document.querySelector('#info');
+      e.innerHTML = self.testCurrent.fn; //.pathPlaying;// player.pathCurrent;
+    };
+    self.e_presentTest = document.querySelector('#presentTest');
+    self.e_presentTest.onclick = function () {
+      // self.presentTest();
       try {
         // player.pauseCtx(); //this is not good. the source should be closed
         player.closeSource().then(tf => {
@@ -402,21 +441,11 @@ var tester = {
         alert(e);
       }
     };
-    self.e_bad = document.querySelector('#result_bad');
-    self.e_bad.onclick = function () {
-      //I will have to present some info about this test.
-      var e = document.querySelector('#info');
-      e.innerHTML = self.testCurrent.fn; //.pathPlaying;// player.pathCurrent;
-    };
-    self.e_presentTest = document.querySelector('#presentTest');
-    self.e_presentTest.onclick = function () {
-      self.presentTest();
-    };
 
   },
   presentTest: function () {
     var e = document.querySelector('#info');
-    e.innerHTML = "";//self.testCurrent.fn; // self.pathPlaying;// player.pathCurrent;
+    e.innerHTML = "";//clear any info for previous test
     var self = this;
     var p;
     if (self.preloadNext) {
@@ -482,7 +511,7 @@ var tester = {
         request.open('GET', webPath + "files?fn=" + self.testNext.fn, true); //path
         request.responseType = 'arraybuffer';
         request.onload = function () {
-          console.log("data loaded, will decode it");
+          console.log("data loaded, will decode it:" + typeof (request.response));
           resolve(request.response);
           // if(self.preloadNext){
           //   self.dataPreloaded=request.response;
@@ -501,7 +530,15 @@ var tester = {
     var self = this;
     if (false) { //as test
       //self.tests = ["assets/outfoxing.mp3","assets/257.mp3"]; very old
-      self.tests = [{ fn: "arigato.mp3", key: "" }];
+      // self.tests = [{ fn: "arigato.mp3", key: "" }];  //indeeded can not be decoded
+      /* why shortened ?
+      when it is alone, it is not shortened. 
+      so when it is not alone, there is some where messed up.
+
+      now I know, sometimes the record is shortened, but why?
+      */
+      self.tests = [{ fn: "25-watashiwanekogasuki.mp3", key: "" }];
+
       return Promise.resolve(true);
     }
     return new Promise((resolve, reject) => {
@@ -554,9 +591,13 @@ function onload() {
   var loadData = document.querySelector('#loadData');
   console.log(loadData);
   loadData.onclick = function () { //TODO: this should be moved outside?!!!
-    var path = 'outfoxing.mp3';
-    console.log(this);
-    self.getData(path);
+    if (false) {
+      var path = 'outfoxing.mp3';
+      console.log(this);
+      self.getData(path);
+    } else {
+      tester.start();
+    }
   };
 
   player.init();

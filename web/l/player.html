@@ -1,81 +1,94 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        
-    <title>AudioContext states demo</title>
 
-    <link rel="stylesheet" href="">
-    <!--[if lt IE 9]>
-      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-<style>
-h1   {color: blue;}
-p    {color: red;}
-    .loop-control{
-      width: 100%;
-      color: red;
-    }
-</style>
+        <title>AudioContext states demo</title>
+
+        <link rel="stylesheet" href="">
+        <!--[if lt IE 9]>
+          <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+        <style>
+            h1   {color: blue;}
+            p    {color: red;}
+            .loop-control{
+                width: 100%;
+                color: red;
+            }
+            #result_good{
+                width: 50px;
+                height: 50px;
+            }
+        </style>
         <script type="text/javascript" src="player.js"></script>        
 
-  </head>
+    </head>
 
-  <body onload="onload();">
-<!--
-  <button>Create context</button>
-  <button>Stop context</button> -->
-
-
-<br/>
-<br/>
-<br/>
-<br/>
-    <h1>A test</h1>
-
-    <button id="loadData"> load data </button>
-    <button id="presentTest"> test </button>
-
-    <!-- <button class="play">Play</button> -->
-    <button id="pauseCtx">Play/Pause</button>
-    <button class="stop">Stop</button> <!-- stop is not needed  -->
-<br/>
-<p id="info"></p>
-  
-<p>
-time location:
-    <span id="tsCurrent">No context exists</span>.</p>
+    <body onload="onload();">
+        <!--
+          <button>Create context</button>
+          <button>Stop context</button> -->
 
 
-    <!-- Set loop start and loop end -->
-    <span id="songLength"></span>
-<br/>
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+        <h1>A test</h1>
 
-    <!-- Set the rate for playback speed. 1: the original speed, 2: faster, 0.5: slower -->
-    <input class="playback-rate-control" type="range" min="0.25" max="3" step="0.05" value="1">
-    <span class="playback-rate-value">1.0</span>
+        <button id="loadData"> load data </button>
+        <button id="presentTest"> test </button>
 
-<label for="loopstart-control">loop Start:</label>
-    <input class="loop-control" id="loopstart-control" type="range" min="0" max="100" step="1" value="0">
-    <span class="loopstart-value">0</span>
-<br>
-<label for="loopend-control">loop End:</label>
-    <input class="loop-control" id="loopend-control" type="range" min="0" max="100" step="1" value="0">
-    <span class="loopend-value">0</span>
-    <br/>
+        <!-- <button class="play">Play</button> -->
+        <button id="pauseCtx">Play/Pause</button>
+        <button class="stop">Stop</button> <!-- stop is not needed  -->
+        <br/>
+        <p id="info"></p>
 
-  <button id="result_good">I know, good</button>
-  <button id="result_bad">forgot, do not understand, bad</button>
-<br/>
-the meaning
+        <p>
+            time location:
+            <span id="tsCurrent">No context exists</span>.</p>
 
-  
-  
-  
 
-  </body>
+        <!-- Set loop start and loop end -->
+        <span id="songLength"></span>
+        <br/>
+
+        <!-- Set the rate for playback speed. 1: the original speed, 2: faster, 0.5: slower -->
+        <input class="playback-rate-control" type="range" min="0.25" max="3" step="0.05" value="1">
+        <span class="playback-rate-value">1.0</span>
+
+        <label for="loopstart-control">loop Start:</label>
+        <input class="loop-control" id="loopstart-control" type="range" min="0" max="100" step="1" value="0">
+        <span class="loopstart-value">0</span>
+        <br>
+        <label for="loopend-control">loop End:</label>
+        <input class="loop-control" id="loopend-control" type="range" min="0" max="100" step="1" value="0">
+        <span class="loopend-value">0</span>
+        <br/>
+
+        <button id="result_good">I know, good</button>
+        <input id="testkey" type="text">  <button id="testkey_check">check key</button>
+        <label id="testkey_given"></label> <button id="testkey_assign">take mine</button>
+
+        <br/>
+        <button id="result_bad">forgot, do not understand, bad</button>
+
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+
+
+
+
+
+    </body>
 </html>
 
 
