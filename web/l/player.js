@@ -276,6 +276,29 @@ var player = {
       return self.audioCtx.decodeAudioData(audioData);
     }
   },
+  onPlayEnded: function () {
+    self.isStarted = false;
+    self.nTimes++;
+    console.log("played " + self.nTimes + " times");
+    try {
+      // self.source.stop(0);
+      self.source.disconnect(self.audioCtx.destination);
+      self.source = null;
+    } catch (e) {
+      console.log(e);
+    }
+    if (self.stopRequested) {
+      self.p_stop_resolve(true);
+    } else {
+      setTimeout(function () {
+        if (self.stopRequested) {
+          self.p_stop_resolve(true);
+        } else {
+          self.startPlay();
+        }
+      }, self.delayUponEnded);
+    }
+  },
   startPlay: function () {
     var self = this;
     // self.loopStart = 0;  //put this off
@@ -284,21 +307,7 @@ var player = {
     self.source.buffer = self.buffer;
     self.source.connect(self.audioCtx.destination);
     self.source.onended = function () {
-      self.isStarted = false;
-      self.nTimes++;
-      console.log("played " + self.nTimes + " times");
-      try {
-        // self.source.stop(0);
-        self.source.disconnect(self.audioCtx.destination);
-        self.source = null;
-      } catch (e) {
-        console.log(e);
-      }
-      if (self.stopRequested) {
-        self.p_stop_resolve(true);
-      } else {
-        setTimeout(function () { self.startPlay(); }, self.delayUponEnded);
-      }
+      self.onPlayEnded();
     };
     // source.loopStart = 0;  //put it off
     // source.loopEnd = songLength;
@@ -554,10 +563,3 @@ function onload() {
   tester.start();
 
 }
-
-
-
-
-
-
-
