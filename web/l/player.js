@@ -11,7 +11,7 @@ var player = {
   e_loopstartValue: null,
   e_loopendControl: null,
   e_loopendValue: null,
-  delayUponEnded: 1000, //1 second delay
+  delayUponEnded: 1000, //1 second delay. TODO: should be adjustable by the user.
   // define variables
   // pathCurrent: null, //TODO: rename it to pathCurrent.
   dataReady: false, //loaded and decoded, so ready to be played
@@ -277,6 +277,7 @@ var player = {
     }
   },
   onPlayEnded: function () {
+    var self = this;
     self.isStarted = false;
     self.nTimes++;
     console.log("played " + self.nTimes + " times");
