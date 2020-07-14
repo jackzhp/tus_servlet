@@ -42,23 +42,13 @@ public class ETest {
     @Element(column = "id_kp")
     Set<EKP> kps;
 
-    void save() { //TODO: just as test
+
+    void save() { 
         PersistenceManager pm = App.getPM();
         Transaction tx = pm.currentTransaction();
         try {
             tx.begin();
-            ETest test = new ETest();
-            test.fn = "a.mp3";
-            test.info = "「俺はスーパマン」と言いました。";
-            EKP kp = new EKP(); //"Sony Discman", "A standard discman from Sony", 49.99);
-            kp.desc = "とas quotation";
-            test.kps.add(kp);
-            kp.tests.add(test);
-            kp = new EKP();
-            kp.desc = "言う→言います→言いました";
-            test.kps.add(kp);
-            kp.tests.add(test);
-            pm.makePersistent(test);
+            pm.makePersistent(this);
             tx.commit();
         } finally {
             if (tx.isActive()) {

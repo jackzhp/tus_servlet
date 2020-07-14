@@ -76,6 +76,11 @@ public class Analyzer {
                     System.out.println(fn + " exists");
                 } else {
                     download(srcurl, fdst);
+                    if (fdst.exists()) {
+                        ETest test = new ETest();
+                        test.fn =fn;
+                        test.save();
+                    }
                 }
                 return;
             }
@@ -137,7 +142,6 @@ public class Analyzer {
             String cmd = "curl " + url + " -o " + foutput.getAbsolutePath();
             System.out.println(cmd);
             Runtime.getRuntime().exec(cmd);
-
         }
 
     }
