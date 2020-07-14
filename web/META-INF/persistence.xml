@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<persistence xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
+        http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd" version="2.1">
+
+    <!-- JDO tutorial "unit" -->
+    <persistence-unit name="langs">
+        <class>com.zede.ls.ETest</class>
+        <class>com.zede.ls.EKP</class>
+        <exclude-unlisted-classes/>
+        <properties>
+            <!-- org.apache.derby.jdbc.EmbeddedDriver -->
+
+            <property name="javax.jdo.option.ConnectionURL" value="jdbc:derby:japanese;create=true"/>
+            <property name="javax.jdo.option.ConnectionUserName" value="sa"/>
+            <property name="javax.jdo.option.ConnectionPassword" value=""/>
+            <property name="datanucleus.schema.autoCreateAll" value="true"/>            
+        </properties>
+    </persistence-unit>
+</persistence>
