@@ -53,4 +53,11 @@ public class App {
         }
     }
 
+    public static void main(String[] args) {
+        try {
+            new App().testSave();
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
 }

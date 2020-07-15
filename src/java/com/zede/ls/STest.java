@@ -1,9 +1,16 @@
 package com.zede.ls;
 
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Set;
 import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -15,6 +22,8 @@ import javax.servlet.http.HttpServletResponse;
  *
  */
 public class STest extends HttpServlet {
+
+    String dir = "/Users/yogi/jack/japanese"; //TODO: from config
 
     /**
      * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -54,7 +63,48 @@ public class STest extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+//        processRequest(request, response);
+        try {
+            new App().testSave();
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+        
+        File fdir = new File(dir);
+        String[] afn = fdir.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".mp3");
+            }
+        });
+        System.out.println("# of files:" + afn.length);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//        StringWriter sw=new StringWriter();
+        JsonFactory factory = new JsonFactory();
+//            JsonGenerator g = factory.createGenerator(sw);
+        JsonGenerator g = factory.createGenerator(baos, JsonEncoding.UTF8);
+        g.writeStartObject();
+        g.writeNumberField("ireason", 5);
+//generator.writeStringField("brand", "Mercedes");
+        g.writeArrayFieldStart("tests");
+        for (String fn : afn) {
+            g.writeStartObject();
+            g.writeStringField("fn", fn);
+            g.writeStringField("key", ""); //the key word of the record.
+            //many other fields.
+            g.writeEndObject();
+        }
+        g.writeEndArray();
+        g.writeEndObject();
+        g.flush();
+        g.close();
+        int size = baos.size();
+        response.setContentLength(size);
+        response.setContentType("application/javascript;charset=UTF-8");
+        ServletOutputStream sos = response.getOutputStream();
+        sos.write(baos.toByteArray());
+        sos.flush();
+        sos.close();
     }
 
     /**
@@ -68,7 +118,7 @@ public class STest extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+//        processRequest(request, response);
 
         String action = "result";
         ETest test = null;

@@ -26,10 +26,10 @@
         </init-param>
         <load-on-startup>1</load-on-startup>
     </servlet>
-    <servlet>
+    <!-- servlet>
         <servlet-name>Tests</servlet-name>
         <servlet-class>com.zede.ls.Tests</servlet-class>
-    </servlet>
+    </servlet -->
     <servlet>
         <servlet-name>Files</servlet-name>
         <servlet-class>com.zede.ls.SFiles</servlet-class>
@@ -42,10 +42,10 @@
         <servlet-name>upload</servlet-name>
         <url-pattern>/files/*</url-pattern>
     </servlet-mapping>
-    <servlet-mapping>
+    <!-- servlet-mapping>
         <servlet-name>Tests</servlet-name>
         <url-pattern>/Tests</url-pattern>
-    </servlet-mapping>
+    </servlet-mapping -->
     <servlet-mapping>
         <servlet-name>Files</servlet-name>
         <url-pattern>/files</url-pattern>

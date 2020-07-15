@@ -544,7 +544,7 @@ var tester = {
     return new Promise((resolve, reject) => {
       try {
         request = new XMLHttpRequest();
-        request.open('GET', webPath + "Tests", true);
+        request.open('GET', webPath + "STest", true);
         request.responseType = 'json';
         request.onload = function () {
           self.tests = request.response.tests;
