@@ -165,13 +165,31 @@ public class ETest {
     }
 
     @Deprecated
-    public CompletableFuture<EKP> newKP(String desc, String grade, EUser user) throws IOException {
+    public CompletableFuture<EKP> newKP_cf(String desc, String grade, EUser user) throws IOException {
         ELevelSystem sys = user.target.sys;
         ELevel level = ELevel.get_m(sys, grade);
-        return newKP(desc, level, user);
+        return newKP_cf(desc, level, user);
     }
 
-    public CompletableFuture<EKP> newKP(String desc, ELevel level, EUser user) {
+    public EKP newKP(String desc, ELevel level, EUser user) {
+        try {
+//TODO: in the future, I should check the KP should not a really new one.
+            ELevelSystem sys = user.target.sys;
+            EKP kp = new EKP(null);
+            kp.newID();
+            kp.desc = desc;
+            kp.in(this);
+            kp.toBeApplied = true;
+            kp.hmLevels.put(sys, level);
+            kp.getBundle_m();
+            return kp;
+        } catch (Throwable t) {
+            throw new IllegalStateException(t);
+        }
+    }
+
+    public CompletableFuture<EKP> newKP_cf(String desc, ELevel level, EUser user) {
+        CompletableFuture<EKP> cf = new CompletableFuture<>();
         try {
 //TODO: in the future, I should check the KP should not a really new one.
             ELevelSystem sys = user.target.sys;
@@ -198,20 +216,23 @@ public class ETest {
                             kps.add(kp); //Yes. use kps
                             kp.apply(); //TODO: to put it off, or at least check the role of the user.
                             save(100);
-                            return kp; //return save_cf();
+                            return true; //return save_cf();
                         } else {
 //            CompletableFuture cf=CompletableFuture();
 //            cf.completeExceptionally(t);
 //            return cf;
-                            return null; //CompletableFuture.completedFuture(false);
+                            return false; //CompletableFuture.completedFuture(false);
                         }
-                    });
+                    }).thenCompose(tf -> {
+                return save_cf();
+            }).thenApply(tf -> {
+                return kp;
+            });
 //        .exceptionally(t -> {
 //            t.printStackTrace();
 //            return null;
 //        });
         } catch (Throwable t) {
-            CompletableFuture<EKP> cf = new CompletableFuture<EKP>();
             cf.completeExceptionally(t);
             return cf;
         }
@@ -720,7 +741,7 @@ public class ETest {
         @Override
         public Boolean apply(ETest test) {
             if (test.kps.isEmpty()) {
-                if (level != null) { //do repair
+                if (level != null) { //do repair. use ETest.info as EKP.desc
                     test.newKP(test.info, level, null);
                 }
                 return true;

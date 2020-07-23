@@ -460,7 +460,7 @@ var tester = {
       self.e_submitNew = document.querySelector('#submitNew');
       self.e_submitNew.onclick = function () {
         var selected = self.getKPsSelected();
-        var url = "user?act=result&idtest=" + self.currentTest.id + "&bads=" + selected;
+        var url = "user?act=result&idtest=" + self.testCurrent.id + "&bads=" + selected;
         self.postReq(url);
       };
     };
@@ -675,6 +675,31 @@ var tester = {
       }
     });
   },
+  updateTest: function () {
+    var self = this;
+    return new Promise((resolve, reject) => {
+      try {
+        var request = new XMLHttpRequest();
+        var url = webPath + "test?act=test&testid=" + self.testCurrent.id;
+        request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
+        request.responseType = 'json';
+        request.onload = function () {
+          var ojson = request.response;
+          if (ojson.ireason) {
+            reject(url + " returns: " + JSON.stringify(ojson));
+          } else {
+            self.tests[0] = ojson; // request.response.tests;
+            self.testCurrent = ojson;
+            resolve(true);
+          }
+        };
+        // request.onFailed;  //TODO: ....
+        request.send();
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
   getTests1: function () {
     var self = this;
     return new Promise((resolve, reject) => {
@@ -697,6 +722,12 @@ var tester = {
       } catch (e) {
         reject(e);
       }
+    });
+  },
+  updateTestInfo: function () {
+    var self = this;
+    return self.updateTest().then(tf => {
+      self.presentTestInfo();
     });
   },
   presentTestInfo: function () {
@@ -723,7 +754,11 @@ var tester = {
   deleteKP: function (kpid) {
     var self = this;
     var url = "test?act=deleteKP&idtest=" + self.testCurrent.id + "&idkp=" + kpid;
-    self.postReq(url);
+    self.postReq(url).then(tf => {
+      self.updateTestInfo();
+    }).catch(e => {
+      alert(e);
+    });
     var e = document.querySelector("#likp" + kpid);
     e.parentNode.removeChild(e);
   },
@@ -738,8 +773,34 @@ var tester = {
     var e = document.querySelector("#kp" + kpid);
     var desc = e.value;
     var url = "kp?act=chgKPdesc&idkp=" + kpid + "&desc=" + encodeURIComponent(desc);
-    self.postReq(url);
-
+    self.postReq(url).then(tf => {
+      self.updateTestInfo();
+    }).catch(e => {
+      alert(e);
+    });
+  },
+  newKP: function () {
+    var self = this;
+    var ekps = document.querySelector("#kps");
+    var enew = document.createElement("li");
+    enew.setAttribute("id", "likpnew");
+    var kpid = "new";
+    ekps.insertBefore(enew, ekps.children[0]);
+    enew.innerHTML = '<input type="text" id="kp' + kpid + '" value="description of the KP"/> <input type="text" id="kplevel' + kpid + '" value="1.1"/> <button onclick="tester.newKPdone()">Done</button>'; //\'' + kpid + '\'
+  },
+  newKPdone: function () {
+    //this KP might exist already, so I have to allow the user to choose one of the exists.
+    var self = this;
+    var e = document.querySelector("#kpnew");
+    var desc = e.value;
+    var e = document.querySelector("#kplevelnew");
+    var level = e.value;
+    var url = "test?act=addKP&idtest=" + self.testCurrent.id + "&desc=" + encodeURIComponent(desc) + "&level=" + encodeURIComponent(level);
+    self.postReq(url).then(tf => {
+      self.updateTestInfo();
+    }).catch(e => {
+      alert(e);
+    });
   },
   start: function () {
     //get a list

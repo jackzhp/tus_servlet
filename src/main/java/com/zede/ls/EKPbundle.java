@@ -92,11 +92,27 @@ public class EKPbundle {
     int idFirst;
     String fn;
     HashSet<EKP> kps = new HashSet<>(); //ArrayList<EKP> kps = new ArrayList<>();
+    static EKPbundle last;
 
     EKPbundle(int idFirst) {
         this.idFirst = idFirst;
     }
-    static EKPbundle last;
+
+    @Override
+    public boolean equals(Object o) {
+        if (o != null) {
+            if (o instanceof EKPbundle) {
+                EKPbundle b2 = (EKPbundle) o;
+                return this.idFirst == b2.idFirst;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return idFirst;
+    }
 
     static CompletableFuture<EKPbundle> getLast() {
         CompletableFuture<EKPbundle> cf = new CompletableFuture<>();
@@ -211,7 +227,7 @@ public class EKPbundle {
 //        System.out.println("is loading from " + f.getAbsolutePath());
 //TODO: java.io.FileNotFoundException:    because of concurrency.
 //    this a big problem. not just for efficiency.
-        JsonParser p = App.getJSONparser(f); 
+        JsonParser p = App.getJSONparser(f);
         JsonToken t = p.nextToken(); //.getCurrentToken(); will give null
         String sreason = null;
         if (t != JsonToken.START_OBJECT) {

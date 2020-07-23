@@ -22,8 +22,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -299,10 +301,22 @@ public class App {
             test.fnAudio = "40-orewasu-pamanto.mp3";
             test.info = "「俺はスーパマン」と言いました。";
             ELevel level = null;
-            test.newKP("とas quotation", level, user);
-            test.newKP("言う→言います→言いました", level, user);
-            test.newKP("superman", level, user);
-            test.save_cf().thenApply(tf -> {
+            HashSet<EKPbundle> bs=new HashSet<>();
+            int i=0;
+            EKP kp=test.newKP("とas quotation", level, user);
+            bs.add(kp.bundle);
+            kp=test.newKP("言う→言います→言いました", level, user);
+            bs.add(kp.bundle);
+            kp=test.newKP("superman", level, user);
+            bs.add(kp.bundle);
+            @SuppressWarnings("unchecked")
+            CompletableFuture<Boolean>[] acf=new CompletableFuture[bs.size()];
+            for(EKPbundle b:bs){
+                acf[i++]=b.save_cf();
+            }
+            CompletableFuture.allOf(acf).thenCompose(v->{
+                return test.save_cf();
+            }).thenApply(tf -> {
                 System.out.println("test saved");
                 return true;
             }).exceptionally(t -> {

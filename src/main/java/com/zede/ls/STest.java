@@ -179,20 +179,27 @@ public class STest extends HttpServlet {
                 if ("chgInfo".equals(action)) {
                     String info = request.getParameter("info");
                     test.chgInfo(info, user);
+                    App.sendFailed(ireason, sreason, response);
                 } else if ("addKP".equals(action)) {
+                    //TODO: turn into async mode.
                     String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
-                    ELevel level = null;
-                    test.newKP(desc, level, user);
+                    ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
+                    test.newKP_cf(desc, level, user).exceptionally(t->{
+                        t.printStackTrace();
+                        return null;
+                    });
+                    App.sendFailed(ireason, sreason, response);
                 } else if ("deleteKP".equals(action)) {
                     id_s = request.getParameter("idkp");
                     id = Integer.parseInt(id_s);
                     EKP kp = EKP.getByID(id);
-                    test.deleteKP(kp, user).thenAccept(tf->{
-                        
-                    }).exceptionally(t->{
+                    test.deleteKP(kp, user).thenAccept(tf -> {
+
+                    }).exceptionally(t -> {
                         t.printStackTrace();
                         return null;
                     });
+                    App.sendFailed(ireason, sreason, response);
                 } else {
                     throw new Exception("unknown action:" + action);
                 }

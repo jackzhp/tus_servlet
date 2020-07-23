@@ -201,6 +201,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                 id = ++idLast;
             }
         }
+        cache(this);
         this.bundle = EKPbundle.getByID_m(id);
         this.bundle.set(this);
     }

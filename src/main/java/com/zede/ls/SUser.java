@@ -184,6 +184,7 @@ public class SUser extends HttpServlet {
                 long lts = System.currentTimeMillis();
                 //test.onTested(user, lts, bads);
                 user.onTested(lts, testid, bads);
+                App.sendFailed(ireason, sreason, response);
             } else if ("authenticate".equals(action)) { //copied from STest
 //                String username = request.getParameter("username");
                 EUser.deauthenticate(user);

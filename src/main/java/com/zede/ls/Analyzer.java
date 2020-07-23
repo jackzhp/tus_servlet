@@ -103,7 +103,7 @@ public class Analyzer {
                             int iloc = fn.lastIndexOf(".mp3");
                             test.info = fn.substring(0, iloc);
                             ETest ot = test;
-                            return test.newKP(test.info, level, user).thenCompose((kp) -> {
+                            return test.newKP_cf(test.info, level, user).thenCompose((kp) -> {
                                 System.out.println(" EKP saved, now will save ETest");
                                 return ot.save_cf();
                             }).thenApply((tf) -> {
