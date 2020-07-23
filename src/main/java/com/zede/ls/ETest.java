@@ -1,0 +1,760 @@
+package com.zede.ls;
+
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+//import javax.jdo.PersistenceManager;
+//import javax.jdo.Transaction;
+//import javax.jdo.annotations.Element;
+//import javax.jdo.annotations.IdGeneratorStrategy;
+//import javax.jdo.annotations.Join;
+//import javax.jdo.annotations.PersistenceCapable;
+//import javax.jdo.annotations.Persistent;
+//import javax.jdo.annotations.PrimaryKey;
+//import javax.jdo.annotations.Unique;
+
+/**
+ *
+ */
+//@PersistenceCapable
+public class ETest {
+
+//    @PrimaryKey
+//    @Persistent(valueStrategy = IdGeneratorStrategy.INCREMENT)
+    int id;
+
+    //TODO: how to specify it to be unique?
+//    @Persistent
+//    @Unique(name = "idx_fn")
+    String fnAudio; //for the audio file. not the json file
+    String fsha; //sha256
+//    @Persistent
+    String source; //where the material came from. TODO: make it an object
+
+//    @Persistent
+    String info; //TODO: this is language(instruction) dependent. 
+    boolean isDeleted; //set at last step. when this is true, this ETest does not have to be saved.
+    /*
+    if an ETest does not have any EKP, then 
+    itself is just an EKP, i.e. the ETest contains only 1 EKP.
+    
+    when ETest contains more than 1 EKP, the default one could be modified.
+     */
+//    @Persistent(table = "tests_kps")
+//    @Join(column = "id_test")
+//    @Element(column = "id_kp")
+//    Set<EKP> kps;
+    HashSet<EKP> kps;//ArrayList<EKP> kps; //used to save to json file. TODO: turn this into HashSet
+//    int[] kps0; //TODO: when loaded from json file. do I need this? No!
+
+    static int[] idsIdle; //TODO: save them, and load them.
+    static int idLast = -2;
+    //TODO: should be of WeakReferenc
+    private final static ConcurrentHashMap<Integer, WeakReference<ETest>> cached = new ConcurrentHashMap<>();
+
+    public ETest() {
+        kps = new HashSet<>();// new ArrayList<>();// new HashSet<>();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o != null) {
+            if (o instanceof ETest) {
+                ETest t2 = (ETest) o;
+                return this.id == t2.id;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return id;
+    }
+
+    /**
+     * TODO: unless the caller want to ensure the save, I should delay the save
+     * 10 seconds. then the changes to a test entails only 1 save. this could
+     * improve performance.
+     *
+     *
+     * @return
+     */
+    CompletableFuture<Boolean> save_cf() {
+        CompletableFuture<Boolean> cf = new CompletableFuture<>();
+        try {
+            if (false) {
+//                PersistenceManager pm = App.getPM();
+//                Transaction tx = pm.currentTransaction();
+//                try {
+//                    tx.begin();
+//                    pm.makePersistent(this);
+//                    tx.commit();
+//                } finally {
+//                    if (tx.isActive()) {
+//                        tx.rollback();
+//                    }
+//                    pm.close();
+//                }
+            } else {
+//                BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(f));
+//        StringWriter sw=new StringWriter();
+//            JsonGenerator g = factory.createGenerator(sw);
+                this.saveRequested = System.currentTimeMillis();
+                save();
+            }
+            cf.complete(true); //CompletableFuture.completedFuture(true); //TODO: for temp.
+        } catch (Throwable t) {
+            cf.completeExceptionally(t);
+        }
+        return cf;
+    }
+
+    EKP[] getKPs() {
+        return kps.toArray(new EKP[0]);
+    }
+
+    CompletableFuture<EKP[]> getKPs_cf() {
+        return null;
+    }
+
+//    void onTested(EUser user, long lts, Set<EKP> bads) {
+//    void onTested(EUser user, long lts, int[] bads) {
+//        for (EKP kp : kps) {
+//            boolean good = true; //false;// = bads.contains(kp) == false;
+//            for (int bpidBad : bads) {
+//                if (kp.id == bpidBad) {
+//                    good = false;
+//                    break;
+//                }
+//            }
+////            R_User_KP r = null; //find it by user, kp
+////            if (r == null) {
+////                r = new R_User_KP();
+////                r.user = user;
+////                r.kp = kp;
+////            }
+////            r.onTested(lts, this, good);
+//            user.onTested(lts, kp, this.id, good);
+//        }
+//    }
+    /**
+     *
+     * @param kp why not use kpid? since when this ETest is in the memory. the
+     * EKP must be in memory.
+     * @param user
+     */
+    public CompletableFuture<Boolean> deleteKP(EKP kp, EUser user) {
+        //TODO: check user's role.
+        kps.remove(kp);
+        //TODO: if the EKP is not used by any ETest, then delete the EKP.
+        return save_cf();
+    }
+
+    @Deprecated
+    public CompletableFuture<EKP> newKP(String desc, String grade, EUser user) throws IOException {
+        ELevelSystem sys = user.target.sys;
+        ELevel level = ELevel.get_m(sys, grade);
+        return newKP(desc, level, user);
+    }
+
+    public CompletableFuture<EKP> newKP(String desc, ELevel level, EUser user) {
+        try {
+//TODO: in the future, I should check the KP should not a really new one.
+            ELevelSystem sys = user.target.sys;
+            EKP kp = new EKP(null);
+            kp.newID();
+            kp.desc = desc;
+            kp.in(this);
+            kp.toBeApplied = true;
+            kp.hmLevels.put(sys, level);
+            return kp.getBundle_m().save_cf().
+                    //               thenAccept((Boolean tf)->{
+                    //       }).
+                    //               handle((Boolean tf, Throwable t)->{
+                    //           if(t!=null){
+                    //               t.printStackTrace();
+                    //               return false;
+                    //           }else{
+                    //               return true;
+                    //           }
+                    //       }).
+                    thenApply((Boolean tf) -> {
+                        if (tf) { //we save this side only after the otherside succeeded.
+                            //TODO: I can postpone this.
+                            kps.add(kp); //Yes. use kps
+                            kp.apply(); //TODO: to put it off, or at least check the role of the user.
+                            save(100);
+                            return kp; //return save_cf();
+                        } else {
+//            CompletableFuture cf=CompletableFuture();
+//            cf.completeExceptionally(t);
+//            return cf;
+                            return null; //CompletableFuture.completedFuture(false);
+                        }
+                    });
+//        .exceptionally(t -> {
+//            t.printStackTrace();
+//            return null;
+//        });
+        } catch (Throwable t) {
+            CompletableFuture<EKP> cf = new CompletableFuture<EKP>();
+            cf.completeExceptionally(t);
+            return cf;
+        }
+    }
+
+    void newID() throws IOException {
+        if (idLast == -2) {
+            idLast = getIDlast();
+        }
+        synchronized (EKP.class) {
+            if (idsIdle != null) {
+                id = idsIdle[0];
+                if (idsIdle.length > 1) {
+                    int[] ids = new int[idsIdle.length - 1];
+                    System.arraycopy(idsIdle, 1, ids, 0, ids.length);
+                    idsIdle = ids;
+                } else {
+                    idsIdle = null;
+                }
+            } else {
+                id = ++idLast;
+            }
+        }
+    }
+
+    static File getFileByID(int id, boolean extnew) {
+        String s = Integer.toString(id);
+        StringBuilder sb = new StringBuilder();
+        for (int n = 5 - s.length(); n >= 0; n--) {
+            sb.append('0');
+        }
+        sb.append(s).append(".json");
+        String fn = sb.toString();
+        if (extnew) {
+            fn += ".new";
+        }
+        File f = new File(App.dirTests(), fn);
+        if (extnew) {
+            if (f.exists()) {
+                f.delete();
+            }
+        }
+        return f;
+    }
+
+    File getFile(boolean extnew) {
+        return getFileByID(id, extnew);
+    }
+
+    void chgInfo(String info, EUser user) {
+        this.info = info;
+        save(20);
+//.exceptionally((Throwable t) -> {
+//            t.printStackTrace();
+//            return null;
+//        });
+    }
+    HashMap<ELevelSystem, ELevel> levelsHighest = new HashMap<>();
+
+    /* the level change can change up or down, hence we just recalculate it.
+    if we know up or down, then we might have shortcut.
+     */
+    void onLevelChanged(EKP kp, ELevel level) {
+        highestLevel_cal(level.sys);
+    }
+
+    ELevel highestLevel_cal(ELevelSystem sys) {
+        ELevel highest = sys.getLevel_m(1, 1); //the lowest one is always 1.1
+//        HashSet<EKP> kps=null;
+        for (EKP kp : kps) {
+            ELevel lt = kp.getLevel(sys);
+            if (sys.c.compare(lt, highest) > 0) {
+                highest = lt;
+            }
+        }
+        levelsHighest.put(sys, highest);
+//        save(15);  //this is not needed since we do not save levelsHighest.
+        return highest;
+    }
+
+    ELevel highestLevel(ELevelSystem sys) {
+        ELevel level = levelsHighest.get(sys);
+        if (level == null) {
+            /* if it is null, we can update it, what if it is not null, but need update.
+            so this update should be done when any EKP's level is changed.
+            then this make up is not needed.
+            
+            we always use this make up since we do not save levelsHighest.
+             */
+            level = highestLevel_cal(sys);
+        }
+        return level;
+    }
+
+    static ETest getByID(int id) {
+        ETest test = null;
+        WeakReference<ETest> wr = cached.get(id);
+        if (wr != null) {
+            test = wr.get();
+        }
+        return test;
+    }
+
+    static ETest loadByID_m(int id) {
+        try {
+            ETest test = getByID(id);// cached.get(id);
+            if (test == null) {
+                File f = getFileByID(id, false);
+                if (f.exists()) {
+                    test = new ETest();
+                    test.id = id;
+                    WeakReference<ETest> wr = new WeakReference<>(test);
+                    boolean shouldLoad = true;
+                    WeakReference<ETest> wrO = cached.putIfAbsent(id, wr);
+                    if (wrO != null) {
+                        ETest testO = wrO.get();
+                        if (testO != null) {
+                            test = testO;
+                            shouldLoad = false;
+                        } else {
+                            cached.put(id, wr); ////retry putIfAbsent
+                            //shouldLoad=true;
+                        }
+                    } else {
+                        //shouldLoad=true;
+                    }
+                    if (shouldLoad) {
+                        test.load(f);
+                    }
+                }
+            }
+            return test;
+        } catch (Throwable t) {
+            t.printStackTrace();
+            throw new IllegalStateException(t);
+        }
+    }
+
+    static CompletableFuture<ETest> getByID_cf(int id) {
+        CompletableFuture<ETest> cf = new CompletableFuture<ETest>();
+        try {
+            cf.complete(loadByID_m(id));
+        } catch (Throwable t) {
+            cf.completeExceptionally(t);
+        }
+        return cf;
+    }
+
+    void load(File f) throws IOException {
+//        System.out.println("load ETest from " + f.getAbsolutePath());
+//        if (id == 0) {
+//            source = "";
+//            source = null;
+//        }
+        JsonParser p = App.getJSONparser(f);
+        JsonToken t = p.nextToken();
+        if (t == JsonToken.START_OBJECT) {
+            while (true) {
+                t = p.nextToken();
+                if (t == JsonToken.FIELD_NAME) {
+                    String name = p.getCurrentName();
+                    t = p.nextToken();
+                    if ("kps".equals(name)) {
+                        if (false) { //use array
+                            if (t == JsonToken.START_ARRAY) {
+                                EKP kp = new EKP(null);
+                                kp.parse(p);
+                                kp.isRedundant = true;
+                                EKP.cache(kp);
+                            } else {
+                                throw new IllegalStateException("expecting start object, but " + t);
+                            }
+                        } else { //use object
+                            EKPbundle.parse(p, kps, null);
+                        }
+
+                    } else if ("id".equals(name)) {
+                        id = p.getValueAsInt();
+                    } else if ("deleted".equals(name)) {
+                        this.isDeleted = p.getValueAsBoolean();
+                    } else {
+                        String value = p.getValueAsString();
+                        if ("fnAudio".equals(name)) {
+                            this.fnAudio = value;
+                        } else if ("fsha".equals(name)) {
+                            this.fsha = value;
+                        } else if ("info".equals(name)) {
+                            this.info = value;
+                        } else if ("source".equals(name)) {
+                            this.source = value;
+                        } else {
+                            throw new IllegalStateException("unexpected name:" + name);
+                        }
+                    }
+                } else if (t == JsonToken.END_OBJECT) {
+                    break;
+                } else {
+                    throw new IllegalStateException("expecting end object, but " + t);
+                }
+            }
+        } else {
+            throw new IllegalStateException("expecting start object, but " + t);
+        }
+    }
+    long saveRequested, saveLast, saveNext; //the next means the next saving must be after that.
+    boolean nextScheduled;
+    AtomicBoolean saving = new AtomicBoolean();
+    private static long saveDelayDefault = 30; //seconds
+
+    void save(long delay) { //this method is same for all 
+        long ltsnow = System.currentTimeMillis();
+        saveRequested = ltsnow;
+        if (nextScheduled) {
+        } else {
+            long delay2 = saveNext - ltsnow;
+            delay2 /= 1000; //now it is seconds
+            delay2++;
+            if (delay < delay2) {
+                delay = delay2;
+            }
+            App.getExecutor().schedule(() -> {
+                try {
+                    nextScheduled = false;
+                    save();
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+            }, delay, TimeUnit.SECONDS);
+            nextScheduled = true;
+        }
+    }
+
+    private void save() throws IOException {
+        if (saving.compareAndSet(false, true)) {
+            try {
+                if (saveRequested >= saveLast) {
+                    if (id == 0) {
+                        source = "";
+                        source = null;
+                    }
+                    File fnew = getFile(true);
+                    JsonGenerator g = App.getJSONgenerator(fnew);
+                    saveLast = System.currentTimeMillis();
+                    saveNext = saveLast + saveDelayDefault;
+                    json(g);
+                    g.flush();
+                    g.close();
+                    File f = getFile(false);
+                    if (f.exists()) {
+                        f.delete();
+                    }
+                    fnew.renameTo(f);
+                }
+            } finally {
+                saving.set(false);
+            }
+        }
+    }
+
+    /**
+     *
+     *
+     *
+     * @param sha
+     * @return
+     */
+    static ETest getByFileAudio(String sha) {
+        try {
+            File dir = App.dirTests();
+            File[] af = dir.listFiles(new FilenameFilter() {
+                @Override
+                public boolean accept(File dir, String name) {
+                    return name.endsWith(".json");
+                }
+            });
+            byte[] target = (",\"sha\":\"" + sha + "\",").getBytes("utf8"); //TODO: am I sure no space after/before ':'?
+            byte[] bytes = new byte[4096];
+            for (File f : af) {
+                try {
+                    if (App.contains(f, target, bytes)) {
+                        String fn = f.getName();
+                        String[] as = fn.split("\\.");
+                        int id = Integer.parseInt(as[0]);
+                        return getByID(id);
+                    }
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+            }
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+        return null;
+    }
+
+    static int getIDlast() {
+        try {
+            File dir = App.dirTests();
+            String[] af = dir.list(new FilenameFilter() {
+                @Override
+                public boolean accept(File dir, String name) {
+                    return name.endsWith(".json");
+                }
+            });
+            Arrays.sort(af);
+            String fn = af[af.length - 1];
+            String[] as = fn.split("\\.");
+            System.out.println(fn + " -> " + as[0]);
+            return Integer.parseInt(as[0]);
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+        return -1;
+    }
+
+    /**
+     */
+    static ArrayList<ETest> EKP_none() {
+        ELevel levelRepair = ELevelSystem.getByName("misc").getLevel_m(1, 1);
+        Function<ETest, Boolean> f = new FunctionEKPNone(levelRepair);
+        return filter(f);
+    }
+
+    static ArrayList<ETest> EKP_half() {
+        Function<ETest, Boolean> f = new FunctionEKPHalf(true);
+        return filter(f);
+    }
+
+    static ArrayList<ETest> filter(Function<ETest, Boolean> f) {
+        File dir = App.dirTests();
+        String[] af = dir.list(App.ff_json);
+        ArrayList<ETest> tests = new ArrayList<>(); //TODO: rename it.
+        for (String fn : af) {
+            String[] as = fn.split("\\.");
+            int id = Integer.parseInt(as[0]);
+            ETest test = loadByID_m(id);
+            if (f.apply(test)) {
+                tests.add(test);
+            }
+        }
+        return tests;
+    }
+
+    boolean withEKP() {
+//        int[] aid = kps0;
+//        if (aid != null) {
+//            return aid.length > 0;
+//        }
+//        ArrayList<EKP> al = kps;
+////        if (al != null) {
+//        return al.size() > 0;
+////        }
+////        return false;
+        return kps.size() > 0;
+    }
+
+    boolean contains(EKP kp) {
+        //the list of kps will not be long, so I do not use HashSet
+        for (EKP kpt : kps) {
+            if (kpt.id == kp.id) { //kpt.equals(kp)
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void add(EKP kp) {
+        kps.add(kp);
+    }
+
+    /*
+    this method should not be used since I do not save levelsHighest.
+    so all with none, and the highest level should be calculated.
+     */
+    static ArrayList<ETest> ELevel_none(ELevelSystem sys) {
+        Function<ETest, Boolean> f = new FunctionELevelNone(sys, true);
+        return filter(f);
+    }
+
+    static ArrayList<ETest> ELevel_half(ELevelSystem sys) {
+        Function<ETest, Boolean> f = new FunctionELevelHalf(sys, true);
+        return filter(f);
+    }
+
+    /**
+     *
+     * delete this ETest.
+     *
+     * do I want it to be recoverable? deleted by whom, and when?
+     *
+     */
+    void delete() {
+        //no EKP should not refer to this
+        //all ELevel should not refer to this
+
+        //at last step.
+        //this.isDeleted = true;
+    }
+
+    /**
+     * merge test into this Object.
+     *
+     * @param test
+     */
+    void merge(ETest test) {
+
+    }
+
+    static void distinctAudioFile() { //TODO: ....
+
+    }
+
+    //to merge remove into keep.
+    void replace(EKP remove, EKP keep) {
+        kps.add(keep);
+        kps.remove(remove);
+    }
+
+    void json(JsonGenerator g) throws IOException {
+        g.writeStartObject();
+        g.writeNumberField("id", id);
+        g.writeBooleanField("deleted", isDeleted);
+        g.writeStringField("fnAudio", fnAudio);
+        g.writeStringField("fsha", fsha);
+        g.writeStringField("info", info); //the key word of the record.
+        g.writeStringField("source", source); //the key word of the record.
+//        g.writeNumberField("ireason", 5);
+//generator.writeStringField("brand", "Mercedes");
+        if (false) {
+            g.writeArrayFieldStart("kps");
+            for (EKP kp : kps) {
+                //Be noted: EKP does saved here, but this is only for convenience, EKP's storage is the one reliable.
+                kp.json(g);
+            }
+            g.writeEndArray();
+        } else {
+            g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
+            EKPbundle.json(g, kps);
+            g.writeEndObject(); //g.writeEndArray();
+        }
+        g.writeEndObject();
+    }
+
+    static class FunctionELevelNone implements Function<ETest, Boolean> {
+
+        private final ELevelSystem sys;
+        private final boolean repair;
+
+        FunctionELevelNone(ELevelSystem sys, boolean repair) {
+            this.sys = sys;
+            this.repair = repair;
+        }
+
+        @Override
+        public Boolean apply(ETest test) {
+            ELevel level = test.levelsHighest.get(sys);
+            if (level == null) {
+                if (repair) {
+                    test.highestLevel_cal(sys);
+                }
+                return true;
+            }
+            return false;
+        }
+
+    }
+
+    static class FunctionELevelHalf implements Function<ETest, Boolean> {
+
+        private final ELevelSystem sys;
+        private boolean repair;
+
+        FunctionELevelHalf(ELevelSystem sys, boolean repair) {
+            this.sys = sys;
+            this.repair = repair;
+        }
+
+        @Override
+        public Boolean apply(ETest test) {
+            ELevel level = test.levelsHighest.get(sys);
+            if (level != null) {
+                if (level.tests.contains(test.id)) {
+                    return false;
+                } else {
+                    if (repair) {
+                        level.tests.add(test.id);
+                        level.sys.save(10);
+                    }
+                    return true;
+                }
+            } else {
+                return false;
+            }
+        }
+
+    }
+
+    static class FunctionEKPNone implements Function<ETest, Boolean> {
+
+        ELevel level;        //        private boolean repair;
+
+        FunctionEKPNone(ELevel level) { //boolean repair
+            this.level = level;;//this.repair = repair;
+        }
+
+        @Override
+        public Boolean apply(ETest test) {
+            if (test.kps.isEmpty()) {
+                if (level != null) { //do repair
+                    test.newKP(test.info, level, null);
+                }
+                return true;
+            }
+            return false;
+        }
+
+    }
+
+    static class FunctionEKPHalf implements Function<ETest, Boolean> {
+
+        private boolean repair;
+
+        FunctionEKPHalf(boolean repair) {
+            this.repair = repair;
+        }
+
+        @Override
+        public Boolean apply(ETest test) {
+            if (test.kps.isEmpty()) {
+                return false;
+            }
+            int nhalf = 0;
+            for (EKP kp : test.kps) {
+                if (kp.withETest(test)) {
+                } else {
+                    nhalf++;
+                    if (repair) {
+                        kp.add(test);
+                    }
+                }
+            }
+            return nhalf > 0;
+        }
+
+    }
+}
