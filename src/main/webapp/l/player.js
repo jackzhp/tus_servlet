@@ -421,49 +421,96 @@ var tester = {
     self.e_bad.onclick = function () {
       self.presentTestInfo();
     };
-    self.e_presentTest = document.querySelector('#presentTest');
-    self.e_presentTest.onclick = function () {
-      // self.presentTest();
-      try {
-        // player.pauseCtx(); //this is not good. the source should be closed
-        player.closeSource().then(tf => {
-          //TODO: check the test's key if possible.
-          //    and other fields.
+    // self.e_presentTest = document.querySelector('#presentTest');
+    // self.e_presentTest.onclick = function () {
+    //   // self.presentTest();      
+    //   try {
+    //     // player.pauseCtx(); //this is not good. the source should be closed
+    //     player.closeSource().then(tf => {
+    //       //TODO: check the test's key if possible.
+    //       //    and other fields.
 
-          //TODO: send the test result to server. player.nTimes played.
-          self.presentTest(); //present the next test
-
-        }).catch(e => {
-          alert("close error:" + e);
-        });
-      } catch (e) {
-        alert(e);
+    //       //TODO: send the test result to server. player.nTimes played.
+    //       self.presentTest(); //present the next test
+    //     }).catch(e => {
+    //       alert("close error:" + e);
+    //     });
+    //   } catch (e) {
+    //     alert(e);
+    //   }
+    //   // self.e_selectAll = document.querySelector('#selectAll');
+    //   // self.e_selectAll.onclick = function () {
+    //   // for (var kpid in self.testCurrent.kps) {
+    //   //   var kp = self.testCurrent.kps[kpid];
+    //   //   // console.log(kpid + ":" + kp);
+    //   //   if (kp.deleted) { } else {
+    //   //     var eid = "kp" + kpid;
+    //   //     var e = document.querySelector('#' + eid);
+    //   //     e.checked = true;
+    //   //   }
+    //   // }
+    //   // };
+    //   // self.e_mergeSelected = document.querySelector('#mergeSelected');
+    //   // self.e_mergeSelected.onclick = function () {
+    //   //   // var selected = self.getKPsSelected();
+    //   //   // var url = "kp?act=mergeKPs&kpids=" + selected;
+    //   //   // self.postReq(url);
+    //   // };
+    //   // self.e_submitNew = document.querySelector('#submitNew');
+    //   // self.e_submitNew.onclick = function () {
+    //   //   var selected = self.getKPsSelected();
+    //   //   var url = "user?act=result&idtest=" + self.testCurrent.id + "&bads=" + selected;
+    //   //   self.postReq(url);
+    //   // };
+    // };
+  },
+  presentTestNext_do: function () {
+    var self = this;
+    return player.closeSource().then(tf => {
+      //TODO: check the test's key if possible.
+      //    and other fields.
+      //TODO: send the test result to server. player.nTimes played.
+      self.presentTest(); //present the next test
+    });
+  },
+  presentTestNext: function () {
+    var self = this;
+    try {
+      // player.pauseCtx(); //this is not good. the source should be closed
+      self.presentTestNext_do().catch(e => {
+        alert("close error:" + e);
+      });
+    } catch (e) {
+      alert(e);
+    }
+  },
+  mergeSelected: function () {
+    var self = this;
+    var selected = self.getKPsSelected();
+    var url = "kp?act=mergeKPs&kpids=" + selected;
+    self.postReq(url);
+  },
+  selectAllKPs: function () {
+    var self = this;
+    for (var kpid in self.testCurrent.kps) {
+      var kp = self.testCurrent.kps[kpid];
+      // console.log(kpid + ":" + kp);
+      if (kp.deleted) { } else {
+        var eid = "kp" + kpid;
+        var e = document.querySelector('#' + eid);
+        e.checked = true;
       }
-      self.e_selectAll = document.querySelector('#selectAll');
-      self.e_selectAll.onclick = function () {
-        for (var kpid in self.testCurrent.kps) {
-          var kp = self.testCurrent.kps[kpid];
-          // console.log(kpid + ":" + kp);
-          if (kp.deleted) { } else {
-            var eid = "kp" + kpid;
-            var e = document.querySelector('#' + eid);
-            e.checked = true;
-          }
-        }
-      };
-      self.e_mergeSelected = document.querySelector('#mergeSelected');
-      self.e_mergeSelected.onclick = function () {
-        var selected = self.getKPsSelected();
-        var url = "kp?act=mergeKPs&kpids=" + selected;
-        self.postReq(url);
-      };
-      self.e_submitNew = document.querySelector('#submitNew');
-      self.e_submitNew.onclick = function () {
-        var selected = self.getKPsSelected();
-        var url = "user?act=result&idtest=" + self.testCurrent.id + "&bads=" + selected;
-        self.postReq(url);
-      };
-    };
+    }
+  },
+  submitNew: function () {
+    var self = this;
+    var selected = self.getKPsSelected();
+    var url = "user?act=result&idtest=" + self.testCurrent.id + "&bads=" + selected;
+    self.postReq(url).then(tf => {
+      return self.presentTestNext_do();
+    }).catch(e => {
+      alert(e);
+    });
   },
   getKPsSelected: function () {
     var self = this;
@@ -475,13 +522,15 @@ var tester = {
       if (kp.deleted) { } else {
         var eid = "kp" + kpid;
         var e = document.querySelector('#' + eid);
-        if (e.checked) {
-          if (first) {
-            first = false;
-          } else {
-            selected += ",";
+        if (e) {
+          if (e.checked) {
+            if (first) {
+              first = false;
+            } else {
+              selected += ",";
+            }
+            selected += kpid;
           }
-          selected += kpid;
         }
       }
     }
@@ -513,9 +562,8 @@ var tester = {
     });
   },
   presentTest: function () {
-    var e = document.querySelector('#info');
-    e.innerHTML = "";//clear any info for previous test
     var self = this;
+    self.clearTestInfo();
     var p;
     if (self.preloadNext && self.dataPreloaded_p) {
       p = self.dataPreloaded_p;
@@ -730,17 +778,25 @@ var tester = {
       self.presentTestInfo();
     });
   },
+  clearTestInfo: function () {
+    var e = document.querySelector('#info');
+    e.innerHTML = "";//clear any info for previous test
+    e = document.querySelector('#kps');
+    e.innerHTML = "";
+  },
   presentTestInfo: function () {
     var self = this;
     //I will have to present some info about this test.
     var e = document.querySelector('#info');
     // console.log(self.testCurrent);
-    e.innerHTML = self.testCurrent.info; //.fn; //.pathPlaying;// player.pathCurrent;
+    var html = self.testCurrent.info;
+    html += '<button onclick="tester.editTest()">Edit</button>';
+    e.innerHTML = html; //.fn; //.pathPlaying;// player.pathCurrent;
     //now present those knowledge points
     //we will allow the user to tell us which points is newly learned.
     var e = document.querySelector('#kps');
     // e.innerHTML = "";
-    var html = "";
+    html = "";
     for (var kpid in self.testCurrent.kps) {
       var kp = self.testCurrent.kps[kpid];
       console.log(kpid + ":" + kp);
@@ -750,6 +806,24 @@ var tester = {
       }
     }
     e.innerHTML = html;
+  },
+  editTest: function () {
+    var self = this;
+    var e = document.querySelector('#info');
+    // console.log(self.testCurrent);
+    var html = '<input type="text" id="testinfo" value="' + self.testCurrent.info + '"/> <button onclick="tester.editTestDone()">Done</button>';
+    e.innerHTML = html; //.fn; //.pathPlaying;// player.pathCurrent;
+  },
+  editTestDone: function () {
+    var self = this;
+    var e = document.querySelector("#testinfo");
+    var info = e.value;
+    var url = "test?act=chgInfo&idtest=" + self.testCurrent.id + "&info=" + encodeURIComponent(info);
+    self.postReq(url).then(tf => {
+      self.updateTestInfo();
+    }).catch(e => {
+      alert(e);
+    });
   },
   deleteKP: function (kpid) {
     var self = this;

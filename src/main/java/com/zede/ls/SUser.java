@@ -97,22 +97,23 @@ public class SUser extends HttpServlet {
             } else { //in this branch, the user must be authenticated.
                 EUser user = (EUser) session.getAttribute("user");
                 if (user == null) {
-                    throw new Exception("not authenticated");
-                }
-                if ("tests".equals(action)) {
-                    boolean reviewOnly = "true".equals(request.getParameter("reviewOnly"));
-                    ETest[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
+                    ireason = -1;
+                    sreason = "not authenticated";
+                } else {
+                    if ("tests".equals(action)) {
+                        boolean reviewOnly = "true".equals(request.getParameter("reviewOnly"));
+                        ETest[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
 //                    ETest test = tests[0];
 //                    File f = test.getFile(false);
 //                    App.serve(response, f);
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    JsonFactory factory = new JsonFactory();
-                    JsonGenerator g = App.getJSONgenerator(baos);
-                    g.writeStartObject();
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        JsonFactory factory = new JsonFactory();
+                        JsonGenerator g = App.getJSONgenerator(baos);
+                        g.writeStartObject();
 //                    g.writeNumberField("ireason", 5);
 //generator.writeStringField("brand", "Mercedes");
-                    g.writeArrayFieldStart("tests");
-                    if (false) {
+                        g.writeArrayFieldStart("tests");
+                        if (false) {
 //        for (String fn : afn) {
 //            g.writeStartObject();
 //            g.writeStringField("fn", fn);
@@ -120,29 +121,30 @@ public class SUser extends HttpServlet {
 //            //many other fields.
 //            g.writeEndObject();
 //        }
-                    } else {
-                        for (ETest test : tests) {
-                            test.json(g);
+                        } else {
+                            for (ETest test : tests) {
+                                test.json(g);
+                            }
                         }
+                        g.writeEndArray();
+                        g.writeEndObject();
+                        g.flush();
+                        g.close();
+                        App.serve(response, baos);
+                    } else if ("test".equals(action)) {
+                        boolean reviewOnly = "true".equals(request.getParameter("reviewOnly"));
+                        ETest[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
+                        ETest test = tests[0];
+                        File f = test.getFile(false);
+                        App.serve(response, f);
+                    } else if ("level".equals(action)) {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        user.prepareToServeLevel(baos);
+                        App.serve(response, baos);
+                    } else {
+                        ireason = -1;
+                        sreason = "unkown action:" + action;
                     }
-                    g.writeEndArray();
-                    g.writeEndObject();
-                    g.flush();
-                    g.close();
-                    App.serve(response, baos);
-                } else if ("test".equals(action)) {
-                    boolean reviewOnly = "true".equals(request.getParameter("reviewOnly"));
-                    ETest[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
-                    ETest test = tests[0];
-                    File f = test.getFile(false);
-                    App.serve(response, f);
-                } else if ("level".equals(action)) {
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    user.prepareToServeLevel(baos);
-                    App.serve(response, baos);
-                } else {
-                    ireason = -1;
-                    sreason = "unkown action:" + action;
                 }
             }
         } catch (Throwable t) {
@@ -174,18 +176,7 @@ public class SUser extends HttpServlet {
             HttpSession session = request.getSession();
             EUser user = (EUser) session.getAttribute("user");// EUser.getByID(1); // App.user1;//for temp //TODO: the current user.
             String action = request.getParameter("act");// "result";
-            if ("result".equals(action)) {
-                String id_s = request.getParameter("idtest");
-                int testid = Integer.parseInt(id_s);
-//            EUser user = App.user1;//TODO: for temp  null; 
-                //Set<EKP> bads = null; //from request.
-                String bads_s = request.getParameter("bads");
-                int[] bads = App.getInts(bads_s);
-                long lts = System.currentTimeMillis();
-                //test.onTested(user, lts, bads);
-                user.onTested(lts, testid, bads);
-                App.sendFailed(ireason, sreason, response);
-            } else if ("authenticate".equals(action)) { //copied from STest
+            if ("authenticate".equals(action)) { //copied from STest
 //                String username = request.getParameter("username");
                 EUser.deauthenticate(user);
                 session.removeAttribute("user");
@@ -201,17 +192,35 @@ public class SUser extends HttpServlet {
                 } else {
                     throw new Exception("not authenticated");
                 }
-            } else if ("deauthenticate".equals(action)) { //copied from STest
+            } else {
+                if (user == null) {
+                    ireason = -1;
+                    sreason = "not authenticated";
+                } else {
+                    if ("result".equals(action)) {
+                        String id_s = request.getParameter("idtest");
+                        int testid = Integer.parseInt(id_s);
+//            EUser user = App.user1;//TODO: for temp  null; 
+                        //Set<EKP> bads = null; //from request.
+                        String bads_s = request.getParameter("bads");
+                        int[] bads = App.getInts(bads_s);
+                        long lts = System.currentTimeMillis();
+                        //test.onTested(user, lts, bads);
+                        user.onTested(lts, testid, bads);
+                        App.sendFailed(ireason, sreason, response);
+                    } else if ("deauthenticate".equals(action)) { //copied from STest
 //                String username = request.getParameter("username");
-                EUser.deauthenticate(user);
-                session.removeAttribute("user");
-                App.sendFailed(ireason, sreason, response);
+                        EUser.deauthenticate(user);
+                        session.removeAttribute("user");
+                        App.sendFailed(ireason, sreason, response);
 //        } else if ("addKP".equals(action)) { //copied from STest
 //            String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
 //            String grade = null;
 //            test.newKP(desc, grade, user);
-            } else {
-                System.out.println("unknown action in SUser:" + action);
+                    } else {
+                        System.out.println("unknown action in SUser:" + action);
+                    }
+                }
             }
         } catch (Throwable t) {
             ireason = -1;

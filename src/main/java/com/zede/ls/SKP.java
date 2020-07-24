@@ -11,6 +11,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 /**
  *
@@ -78,33 +79,40 @@ public class SKP extends HttpServlet {
         int ireason = 0;
         String sreason = "";
         try {
-            EUser user = null; //TODO: ... check authentication, check role.
-//        EKP kp=null;
-            String action = request.getParameter("act");
-            ArrayList<EKP> kps = null;
-            if ("nolevel".equals(action)) {
-                String sysName = request.getParameter("sys");
-                ELevelSystem sys = ELevelSystem.getByName(sysName);
-                kps = EKP.noELevel(sys);
-            } else if ("notest".equals(action)) {
-                kps = EKP.noETest();
+
+            HttpSession session = request.getSession();
+            EUser user = (EUser) session.getAttribute("user");
+            if (user == null) {
+                ireason = -1;
+                sreason = "not authenticated";
             } else {
-                throw new Exception("should not get here");
+//        EKP kp=null;
+                String action = request.getParameter("act");
+                ArrayList<EKP> kps = null;
+                if ("nolevel".equals(action)) {
+                    String sysName = request.getParameter("sys");
+                    ELevelSystem sys = ELevelSystem.getByName(sysName);
+                    kps = EKP.noELevel(sys);
+                } else if ("notest".equals(action)) {
+                    kps = EKP.noETest();
+                } else {
+                    throw new Exception("should not get here");
 //            System.
+                }
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                JsonGenerator g = App.getJSONgenerator(baos);
+                g.writeStartObject();
+                g.writeStringField("category", action);
+                g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
+                HashSet<EKP> set = new HashSet<>();
+                set.addAll(kps);
+                json(g, set);
+                g.writeEndObject(); //g.writeEndArray();
+                g.writeEndObject();
+                g.flush();
+                g.close();
+                App.serve(response, baos);
             }
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            JsonGenerator g = App.getJSONgenerator(baos);
-            g.writeStartObject();
-            g.writeStringField("category", action);
-            g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
-            HashSet<EKP> set = new HashSet<>();
-            set.addAll(kps);
-            json(g, set);
-            g.writeEndObject(); //g.writeEndArray();
-            g.writeEndObject();
-            g.flush();
-            g.close();
-            App.serve(response, baos);
         } catch (Throwable t) {
             ireason = -1;
             sreason = "uncaughted exception:" + t.getMessage();
@@ -129,53 +137,60 @@ public class SKP extends HttpServlet {
         int ireason = 0;
         String sreason = "";
         try {
-            EUser user = null; //TODO: ...
-//        EKP kp=null;
-            String action = request.getParameter("act");
-            if ("chgKPdesc".equals(action)) {
-                //TODO: change to async mode.
-                String id_s = request.getParameter("idkp");
-                int id = Integer.parseInt(id_s);
-                String desc = request.getParameter("desc");
-                EKP.getByID_cf(id, true).thenCompose((EKP kp) -> {
-                    return kp.chgDesc_cf(desc, user);
-                }).exceptionally((Throwable t) -> {
-                    t.printStackTrace();
-                    return null;
-                });
-                App.sendFailed(ireason, sreason, response);
-            } else if ("delete".equals(action)) {
-                String id_s = request.getParameter("idkp");
-                int id = Integer.parseInt(id_s);
-                EKP.getByID_cf(id,true).thenApply((EKP kp) -> {
-                    kp.delete();
-                    return true;
-                }).exceptionally((Throwable t) -> {
-                    t.printStackTrace();
-                    return null;
-                });
-                App.sendFailed(ireason, sreason, response);
-            } else if ("chgKPlevel".equals(action)) {
-                String id_s = request.getParameter("idkp");
-                int id = Integer.parseInt(id_s);
-                String sysName = request.getParameter("sys");
-                String level_s = request.getParameter("level");
-//                ELevelSystem sys=ELevelSystem.getByName(sysName);
-                ELevel level = ELevel.get_m(sysName, level_s);//sys.getLevel_m(major, minor);
-                EKP.getByID_cf(id).thenApply((EKP kp) -> {
-                    kp.set(level);
-                    return true;
-                }).exceptionally((Throwable t) -> {
-                    t.printStackTrace();
-                    return null;
-                });
-                App.sendFailed(ireason, sreason, response);
-            } else if ("mergeKPs".equals(action)) {
-                String kpids = request.getParameter("kpids");
-                EKP.merge(kpids).get();
-                App.sendFailed(ireason, sreason, response);
+
+            HttpSession session = request.getSession();
+            EUser user = (EUser) session.getAttribute("user");
+            if (user == null) {
+                ireason = -1;
+                sreason = "not authenticated";
             } else {
-                throw new Exception("unknown action:" + action);
+//        EKP kp=null;
+                String action = request.getParameter("act");
+                if ("chgKPdesc".equals(action)) {
+                    //TODO: change to async mode.
+                    String id_s = request.getParameter("idkp");
+                    int id = Integer.parseInt(id_s);
+                    String desc = request.getParameter("desc");
+                    EKP.getByID_cf(id, true).thenCompose((EKP kp) -> {
+                        return kp.chgDesc_cf(desc, user);
+                    }).exceptionally((Throwable t) -> {
+                        t.printStackTrace();
+                        return null;
+                    });
+                    App.sendFailed(ireason, sreason, response);
+                } else if ("delete".equals(action)) {
+                    String id_s = request.getParameter("idkp");
+                    int id = Integer.parseInt(id_s);
+                    EKP.getByID_cf(id, true).thenApply((EKP kp) -> {
+                        kp.delete();
+                        return true;
+                    }).exceptionally((Throwable t) -> {
+                        t.printStackTrace();
+                        return null;
+                    });
+                    App.sendFailed(ireason, sreason, response);
+                } else if ("chgKPlevel".equals(action)) {
+                    String id_s = request.getParameter("idkp");
+                    int id = Integer.parseInt(id_s);
+                    String sysName = request.getParameter("sys");
+                    String level_s = request.getParameter("level");
+//                ELevelSystem sys=ELevelSystem.getByName(sysName);
+                    ELevel level = ELevel.get_m(sysName, level_s);//sys.getLevel_m(major, minor);
+                    EKP.getByID_cf(id).thenApply((EKP kp) -> {
+                        kp.set(level);
+                        return true;
+                    }).exceptionally((Throwable t) -> {
+                        t.printStackTrace();
+                        return null;
+                    });
+                    App.sendFailed(ireason, sreason, response);
+                } else if ("mergeKPs".equals(action)) {
+                    String kpids = request.getParameter("kpids");
+                    EKP.merge(kpids).get();
+                    App.sendFailed(ireason, sreason, response);
+                } else {
+                    throw new Exception("unknown action:" + action);
+                }
             }
         } catch (Throwable t) {
             ireason = -1;

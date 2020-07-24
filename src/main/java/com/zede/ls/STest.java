@@ -77,16 +77,20 @@ public class STest extends HttpServlet {
         String sreason = null;
         try {
             HttpSession session = request.getSession();
-            //TODO: do not need to getByID, user is a session object once authenticated.
-            EUser user = (EUser) session.getAttribute("user");  //EUser.getByID(1); // App.user1;//for temp //TODO: the current user.
             //TODO:check whether we should serve the user.
-            String id_s = request.getParameter("testid");
-            if (id_s == null) {
-                throw new Exception("testid is a must"); //IllegalState
-            }
-            int id = Integer.parseInt(id_s);
-            String action = request.getParameter("act");
-            if ("test".equals(action)) {
+            EUser user = (EUser) session.getAttribute("user");
+            if (user == null) {
+                ireason = -1;
+                sreason = "not authenticated";
+            } else {
+
+                String id_s = request.getParameter("testid");
+                if (id_s == null) {
+                    throw new Exception("testid is a must"); //IllegalState
+                }
+                int id = Integer.parseInt(id_s);
+                String action = request.getParameter("act");
+                if ("test".equals(action)) {
 //        ArrayList<ETest> tests = null;
 //
 //        File fdir = new File(dir);
@@ -117,22 +121,23 @@ public class STest extends HttpServlet {
 //        g.flush();
 //        g.close();
 //        int size = baos.size();
-                File f = ETest.getFileByID(id, false);
-                App.serve(response, f);
+                    File f = ETest.getFileByID(id, false);
+                    App.serve(response, f);
 //            } else if ("nolevel".equals(action)) {
 //                String sysName = request.getParameter("sys");
 //                ELevelSystem sys = ELevelSystem.getByName(sysName);
 //                ArrayList<ETest> tests = ETest.ELevel_none(sys);
 //                serve(response, tests, action);
-            } else if ("nokp".equals(action)) {
-                ArrayList<ETest> tests = ETest.EKP_none();
-                serve(response, tests, action);
-            } else if ("halfkp".equals(action)) {
-                ArrayList<ETest> tests = ETest.EKP_half();
-                serve(response, tests, action);
-            } else {
-                ireason = -1;
-                sreason = "unknown action:" + action;
+                } else if ("nokp".equals(action)) {
+                    ArrayList<ETest> tests = ETest.EKP_none();
+                    serve(response, tests, action);
+                } else if ("halfkp".equals(action)) {
+                    ArrayList<ETest> tests = ETest.EKP_half();
+                    serve(response, tests, action);
+                } else {
+                    ireason = -1;
+                    sreason = "unknown action:" + action;
+                }
             }
         } catch (Throwable t) {
             ireason = -1;
@@ -161,47 +166,52 @@ public class STest extends HttpServlet {
         try {
             HttpSession session = request.getSession();
             //TODO: do not need to getByID, user is a session object once authenticated.
-            EUser user = (EUser) session.getAttribute("user");//EUser.getByID(1); // App.user1;//for temp //TODO: the current user.
-            String action = request.getParameter("act");// "result";
-            String id_s = request.getParameter("idtest");
-            int id = Integer.parseInt(id_s);
-            ETest test = ETest.loadByID_m(id); //getByID
-            if (test == null) {
+            EUser user = (EUser) session.getAttribute("user");
+            if (user == null) {
                 ireason = -1;
-                sreason = "can not find the ETest#" + id_s;
+                sreason = "not authenticated";
             } else {
+                String action = request.getParameter("act");// "result";
+                String id_s = request.getParameter("idtest");
+                int id = Integer.parseInt(id_s);
+                ETest test = ETest.loadByID_m(id); //getByID
+                if (test == null) {
+                    ireason = -1;
+                    sreason = "can not find the ETest#" + id_s;
+                } else {
 //        if ("result".equals(action)) { //this moved to SUser
 ////            EUser user = App.user1;//TODO: for temp  null; 
 //            Set<EKP> kps = null;
 //            long lts = System.currentTimeMillis();
 //            test.onTested(user, lts, kps);
 //        } else 
-                if ("chgInfo".equals(action)) {
-                    String info = request.getParameter("info");
-                    test.chgInfo(info, user);
-                    App.sendFailed(ireason, sreason, response);
-                } else if ("addKP".equals(action)) {
-                    //TODO: turn into async mode.
-                    String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
-                    ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
-                    test.newKP_cf(desc, level, user).exceptionally(t->{
-                        t.printStackTrace();
-                        return null;
-                    });
-                    App.sendFailed(ireason, sreason, response);
-                } else if ("deleteKP".equals(action)) {
-                    id_s = request.getParameter("idkp");
-                    id = Integer.parseInt(id_s);
-                    EKP kp = EKP.getByID(id);
-                    test.deleteKP(kp, user).thenAccept(tf -> {
+                    if ("chgInfo".equals(action)) {
+                        String info = request.getParameter("info");
+                        test.chgInfo(info, user);
+                        App.sendFailed(ireason, sreason, response);
+                    } else if ("addKP".equals(action)) {
+                        //TODO: turn into async mode.
+                        String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
+                        ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
+                        test.newKP_cf(desc, level, user).exceptionally(t -> {
+                            t.printStackTrace();
+                            return null;
+                        });
+                        App.sendFailed(ireason, sreason, response);
+                    } else if ("deleteKP".equals(action)) {
+                        id_s = request.getParameter("idkp");
+                        id = Integer.parseInt(id_s);
+                        EKP kp = EKP.getByID(id);
+                        test.deleteKP(kp, user).thenAccept(tf -> {
 
-                    }).exceptionally(t -> {
-                        t.printStackTrace();
-                        return null;
-                    });
-                    App.sendFailed(ireason, sreason, response);
-                } else {
-                    throw new Exception("unknown action:" + action);
+                        }).exceptionally(t -> {
+                            t.printStackTrace();
+                            return null;
+                        });
+                        App.sendFailed(ireason, sreason, response);
+                    } else {
+                        throw new Exception("unknown action:" + action);
+                    }
                 }
             }
         } catch (Throwable t) {

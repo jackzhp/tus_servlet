@@ -1142,10 +1142,11 @@ the KP's level is too low compared to the actual level, then its test result cou
                 }
                 if (idx < scheduled.length) { //.size()
                     EKPscheduled kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
-                    System.out.println(idx + "-th/" + size + " KP:" + kps.kpid);
-                    //the above line shows kpid is always 0.
-                    kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
-                    shouldSortScheduled = true;
+//                    System.out.println(idx + "-th/" + size + " KP:" + kps.kpid);
+                    if (false) { //before test results arrived, we should serve the same test all the time.
+                        kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
+                        shouldSortScheduled = true;
+                    }
                     testsT.clear();
                     return kps.filterTests(limit, testsT);
                 } else {

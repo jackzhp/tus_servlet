@@ -16,10 +16,13 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 /**
  *
- * @author yogi
+ * this the class to serve audio file.s
+ *
+ *
  */
 public class SFiles extends HttpServlet {
 
@@ -42,10 +45,10 @@ public class SFiles extends HttpServlet {
             out.println("<!DOCTYPE html>");
             out.println("<html>");
             out.println("<head>");
-            out.println("<title>Servlet Files</title>");
+            out.println("<title>nothing</title>");
             out.println("</head>");
             out.println("<body>");
-            out.println("<h1>Servlet Files at " + request.getContextPath() + "</h1>");
+            out.println("<h1>nothing</h1>");
             out.println("</body>");
             out.println("</html>");
         }
@@ -63,46 +66,63 @@ public class SFiles extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        String s = request.getQueryString();
+        HttpSession session = request.getSession();
+        EUser user = (EUser) session.getAttribute("user");
+        int ireason = 0;
+        String sreason = "";
+        try {
+            if (user == null) {
+                ireason = -1;
+                sreason = "not authenticated";
+            } else {
+                String s = request.getQueryString();
 //        Hashtable<String, String[]> map=HttpUtils.parseQueryString(s);
 //         request
-        ServletOutputStream sos = response.getOutputStream();
-        if (s == null) {
-        } else {
-            System.out.println("q:" + s);
-            //fn=fileName
-            File fdir = new File(dir);
-            String[] as = s.split("=");
-            if (as.length != 2) {
-            } else {
-                String fn = as[1];
-                File f = new File(fdir, fn);
-                response.setContentLengthLong(f.length());
-                String mime;
-                if (false) {
-                    ServletContext servletContext = request.getServletContext();
-                    mime = servletContext.getMimeType(fn);
+                if (s == null) {
                 } else {
-                    mime = "application/octet-stream";
-                }
-                response.setContentType(mime);
-                byte[] bytes = new byte[4096];
-                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f));
-                while (true) {
-                    int len = bis.read(bytes);
-                    if (len > 0) {
-                        sos.write(bytes, 0, len);
-                    } else if (len == -1) {
-                        break;
+                    System.out.println("q:" + s);
+                    //fn=fileName
+                    File fdir = new File(dir);
+                    String[] as = s.split("=");
+                    if (as.length != 2) {
+                    } else {
+                        String fn = as[1];
+                        File f = new File(fdir, fn);
+                        String mime;
+                        if (false) {
+                            ServletContext servletContext = request.getServletContext();
+                            mime = servletContext.getMimeType(fn);
+                        } else {
+                            mime = "application/octet-stream";
+                        }
+                        response.setContentType(mime);
+                        App.serve(response, f, mime);
+//                byte[] bytes = new byte[4096];
+//                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f));
+//                ServletOutputStream sos = response.getOutputStream();
+//                while (true) {
+//                    int len = bis.read(bytes);
+//                    if (len > 0) {
+//                        sos.write(bytes, 0, len);
+//                    } else if (len == -1) {
+//                        break;
+//                    }
+//                }
+//                sos.flush();
+//                sos.close();
+//                bis.close();
+                        return;
                     }
                 }
-                sos.flush();
-                sos.close();
-                bis.close();
-                return;
             }
+        } catch (Throwable t) {
+            t.printStackTrace();
+            ireason = -1;
+            sreason = "uncaught exception:" + t.getMessage();
         }
-        sos.close();
+        if (ireason != 0) {
+            App.sendFailed(ireason, sreason, response);
+        }
     }
 
     /**

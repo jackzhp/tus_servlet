@@ -180,10 +180,13 @@ public class App {
     }
 
     static void serve(HttpServletResponse response, File f) throws IOException {
+        serve(response,f,"application/javascript;charset=UTF-8");
+    }
+    static void serve(HttpServletResponse response, File f,String ct) throws IOException {
         int size = (int) f.length();
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f));
         response.setContentLength(size);
-        response.setContentType("application/javascript;charset=UTF-8");
+        response.setContentType(ct);
         ServletOutputStream sos = response.getOutputStream();
         byte[] bytes = new byte[4096];
         while (true) {
