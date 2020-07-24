@@ -13,6 +13,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -145,7 +146,7 @@ the KP's level is too low compared to the actual level, then its test result cou
             tr.testid = testid; //tr.kp = kp;//  tr.test = test;
             tr.good = good;
             addToUsed(tr);
-            results.get(kpid);
+//            results.get(kpid);
 //            ArrayList<ETestResult> tested = results.get(kpid);
             EKPscheduled kps = results.get(kpid);
             if (kps == null) {
@@ -155,6 +156,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                 results.put(kpid, kps); //tested
             }
             kps.tested.add(tr);
+            save(100); //since we are the server, continuously running, so 100 seconds should be good.
             return kps;
         }
         return null;
@@ -234,21 +236,22 @@ the KP's level is too low compared to the actual level, then its test result cou
         updateSchedule(target, true);
     }
 
+    /**
+     *
+     *
+     *
+     * @param level
+     * @param must always true? seems no point to be false.
+     * @return
+     */
     CompletableFuture<Boolean> updateSchedule(ELevel level, boolean must) {
         if (scheduler == null) {
-            scheduler = new Scheduler();
+            scheduler = new Scheduler(results.values());
         }
         CompletableFuture<Boolean> cf = scheduler.set(level, must);
         return cf;
     }
 
-    CompletableFuture<Boolean> checkScheduled(ELevel limit) {
-        if (scheduled == null || scheduled.length == 0) { //.isEmpty()
-            return updateSchedule(limit, false);
-        } else {
-            return CompletableFuture.completedFuture(true);
-        }
-    }
     Fetcher fetcher;
 
     /**
@@ -419,7 +422,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     String name = p.getCurrentName();
                     p.nextToken();
                     if ("results".equals(name)) {
-                        results = new HashMap<>();
+//                        results = new HashMap<>();
 //                        testsUsed = new HashSet<>();
 //                        scheduled = new ArrayList<>();
                         while (true) {
@@ -811,49 +814,52 @@ the KP's level is too low compared to the actual level, then its test result cou
         /*
         those EKP of low level, and mastered should be removed(not to be rescheduled unncecessarily).
          */
-        private HashSet<EKPscheduled> kpsRelevant = new HashSet<>();
+        private final HashSet<EKPscheduled> kpsRelevant = new HashSet<>();
+
+        Scheduler(Collection<EKPscheduled> values) {
+            kpsRelevant.addAll(values);
+            System.out.println("scheduler inited with " + kpsRelevant.size());
+        }
 
         CompletableFuture<Boolean> set(ELevel level, boolean must) {
-            CompletableFuture<Boolean> cf = new CompletableFuture<Boolean>();
-            if (level == null) {
-                throw new IllegalArgumentException();
-            }
-            this.level = level;
-            this.must = must;
-            request.add(cf);
-            /* TODO: running is not reset, then scheduler will not be called anymore.
+            CompletableFuture<Boolean> cf = new CompletableFuture<>();
+            try {
+                if (level == null) {
+                    throw new IllegalArgumentException();
+                }
+                this.level = level;
+                this.must = must;
+                request.add(cf);
+                /* TODO: running is not reset, then scheduler will not be executed anymore.
             reset it after 10 minutes.
-             */
-            if (running.compareAndSet(false, true)) {
-                App.getExecutor().submit(this);
+                 */
+                if (running.compareAndSet(false, true)) {
+                    App.getExecutor().submit(this);
+                }
+            } catch (Throwable t) {
+                cf.completeExceptionally(t);
             }
             return cf;
         }
 
+        /**
+         * TODO: results are not used yet!!!
+         *
+         *
+         */
         @Override
         public void run() {
 //            if (running.compareAndSet(false, true)) {
-//                try {
-            if (level != null) {
-                if (level.sys == null) {
+            CompletableFuture<Boolean> cf;
+            try {
+                if (level != null) {
+                    if (level.sys == null) {
+                        throw new IllegalStateException("this should not happen");
+                    }
+                } else {
                     throw new IllegalStateException("this should not happen");
                 }
-            } else {
-                throw new IllegalStateException("this should not happen");
-            }
-            CompletableFuture<Boolean> cf;
-            if (must) {
-                cf = schedule();
-                must = false;
-            } else {
-                if (kpsRelevant.isEmpty()) {
-                    cf = schedule();
-                } else {
-                    cf = null;
-                }
-            }
-            if (cf != null) {
-                cf.thenApply(tf -> {
+                schedule().thenApply(tf -> {
                     System.out.println(level.levelString() + " is scheduled:" + kpsRelevant.size());
                     if (level.sys == null) {
                         throw new IllegalStateException("this should not happen");
@@ -873,10 +879,11 @@ the KP's level is too low compared to the actual level, then its test result cou
                     onFailed(t);
                     return true;
                 });
-            }
 //                } finally {
 //                    running.set(false);
-//                }
+            } catch (Throwable t) {
+                onFailed(t);
+            }
 //            } else {
 //                System.out.println("shceduler is running, so skip");
 //            }
@@ -903,11 +910,12 @@ the KP's level is too low compared to the actual level, then its test result cou
                 });
             }
             return CompletableFuture.allOf(cfs).thenApply((Void v) -> {
-                EKPscheduled[] akps = kpsRelevant.toArray(new EKPscheduled[0]);
-                Arrays.sort(akps, cTime);
-                kpsRelevant.clear();
-                kpsRelevant.addAll(Arrays.asList(akps));
-                System.out.println(level.levelString() + " #ofKP scheduled:" + akps.length); //java.lang.NullPointerException
+//                EKPscheduled[] akps = kpsRelevant.toArray(new EKPscheduled[0]);
+//                Arrays.sort(akps, cTime);
+//                kpsRelevant.clear();
+//                kpsRelevant.addAll(Arrays.asList(akps));
+                int size = kpsRelevant.size(); //akps.length;
+                System.out.println(level.levelString() + " #ofKP scheduled:" + size); //java.lang.NullPointerException
                 return true;
             });
 //                .exceptionally((Throwable t) -> {
@@ -926,7 +934,7 @@ the KP's level is too low compared to the actual level, then its test result cou
         }
 
         private void onFailed(Throwable t) {
-//            t.printStackTrace();
+            t.printStackTrace();
             running.set(false); //failed
             for (CompletableFuture<Boolean> cf : request) {
                 cf.completeExceptionally(t);
@@ -996,6 +1004,7 @@ the KP's level is too low compared to the actual level, then its test result cou
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             try {
                 ltsScheduled = ForgettingCurve.getFor(EUser.this).scheduleWith(tested);
+                System.out.println("dt:" + (ltsScheduled - System.currentTimeMillis()));
                 shouldSortScheduled = true;
                 cf.complete(true);
             } catch (Throwable t) {
@@ -1010,7 +1019,7 @@ the KP's level is too low compared to the actual level, then its test result cou
         private CompletableFuture<Boolean> filterTests(ELevel limit, ArrayList<ETest> tests2) {
             ELevelSystem sys = limit.sys;
             return getTests().thenApply((ETest[] tests) -> {
-                System.out.println("#ofETests:" + tests.length);
+//                System.out.println("#ofETests:" + tests.length);
                 Arrays.sort(tests, cETests);
                 for (int i = tests.length - 1; i >= 0; i--) {
                     ETest test = tests[i];
@@ -1021,7 +1030,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                         }
                     }
                 }
-                System.out.println("after filtered with level" + sys.name + "-" + limit.levelString() + ":" + tests.length);
+//                System.out.println("after filtered with level" + sys.name + "-" + limit.levelString() + ":" + tests.length);
                 if (tests2.isEmpty()) {
                     tests2.add(tests[0]);
                 }
@@ -1047,12 +1056,12 @@ the KP's level is too low compared to the actual level, then its test result cou
                     t = p.nextToken();
                     if (t == JsonToken.FIELD_NAME) {
                         String name = p.getCurrentName();
-                        p.nextToken();
+                        t = p.nextToken();
                         if ("scheduled".equals(name)) {
                             ltsScheduled = p.getValueAsLong() * 1000 * 60;
                         } else if ("tested".equals(name)) {
                             //TODO: better to use object? No!
-                            t = p.nextToken();
+//                            t = p.nextToken();
                             if (t == JsonToken.START_ARRAY) {
                                 while (true) {
                                     t = p.nextToken();
@@ -1116,7 +1125,13 @@ the KP's level is too low compared to the actual level, then its test result cou
         CompletableFuture<Void> checkSchedule() {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             if (limitCurrent != limit) {
-                checkScheduled(limit).thenAccept(tf -> {
+                CompletableFuture<Boolean> cf0;
+                if (scheduled == null || scheduled.length == 0) { //.isEmpty()
+                    cf0 = updateSchedule(limit, true); //false
+                } else {
+                    cf0 = CompletableFuture.completedFuture(true);
+                }
+                cf0.thenAccept(tf -> {
                     limitCurrent = limit;
                     cf.complete(null);
                 }).exceptionally(t -> {
@@ -1154,7 +1169,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                 }
             }).thenAccept((Boolean tf) -> {
                 if (tf) {
-                    System.out.println(idx + "-th KP gives ETests:" + testsT.size());
+//                    System.out.println(idx + "-th KP gives ETests:" + testsT.size());
 //                ETest testT = null;
 //            ETestResult tr = new ETestResult(); //temp
                     int i0 = testsT.size() - 1;

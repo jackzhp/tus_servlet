@@ -405,7 +405,7 @@ var tester = {
   autoStartNext: true, //when a test is done, we just start the next one automatically.
   preloadNext: true, //false, //TODO: do preload.
   // dataPreloaded: null,  //in promise, so not needed.
-  dataPreloaded_p: null,
+  // dataPreloaded_p: null, moved into self.testNext. No. removed!
   // pathLast: null, //the one is loading or just loaded. if paralle, then this miht be different from player.pathCurrent.
   testNext: null,
   testCurrent: null, //the test is being played.
@@ -561,23 +561,23 @@ var tester = {
       }
     });
   },
-  presentTest: function () {
+  presentTest: function () { //TODO: ?? should I change its name to presentTestNext?
     var self = this;
     self.clearTestInfo();
-    var p;
-    if (self.preloadNext && self.dataPreloaded_p) {
-      p = self.dataPreloaded_p;
-      self.dataPreloaded_p = null;
-    } else {
-      p = self.prepareNextTest();
-    }
-    p.then((dataAudio) => {
+    // var p;
+    // if (self.preloadNext && self.dataPreloaded_p) {  //TODO: utilize preloadNext
+    //   p = self.dataPreloaded_p;
+    //   self.dataPreloaded_p = null;
+    // } else {
+    // }
+    self.prepareNextTest().then((dataAudio) => { //TODO: now the data is save to self.textCurrent.dataAudio
       console.log((dataAudio instanceof ArrayBuffer) + " audio data:" + dataAudio);
       self.testCurrent = self.testNext;//  self.pathPlaying = self.pathLast;
+      self.testNext = null;
       // self.testNext=null; //this is not needed.
       return player.decodeDataAndPlay(dataAudio);
     }).then(tf => {
-      if (self.preloadNext) {
+      if (self.preloadNext) { //TODO: enable this.
         self.prepareNextTest();
       }
     }).catch(ex => {
@@ -599,7 +599,11 @@ var tester = {
       } else {
         msg += "null";
       }
-      e.innerHTML = msg + " ex:" + ex;
+      msg += " ex:" + ex;
+      console.log(msg);
+      console.log(ex);
+      var e = document.querySelector('#info');
+      e.innerHTML = msg;
       //document.querySelector('#songLength').innerHTML = ex;
       // alert("failed to load data:" + self.pathLast + ":" + e);
     });
@@ -607,17 +611,21 @@ var tester = {
   setNextTest: function () {
     var self = this;
     var p = null;
-    var tests = self.tests;
-    if (tests.length > 0) { //TODO: move this check outside.
-      idx = Math.floor(Math.random() * tests.length);
-      self.testNext = tests[idx];
-      self.tests.splice(idx, 1);
+    if (self.testNext) {
       p = Promise.resolve(true);
     } else {
-      p = self.getTests1().then(tf => { //getTests
-        //results saved to self.tests.
-        return self.setNextTest(); //recursive is dangerous
-      });
+      var tests = self.tests;
+      if (tests.length > 0) { //TODO: move this check outside.
+        idx = Math.floor(Math.random() * tests.length);
+        self.testNext = tests[idx];
+        self.tests.splice(idx, 1);
+        p = Promise.resolve(true);
+      } else {
+        p = self.getTests1().then(tf => { //getTests
+          //results saved to self.tests.
+          return self.setNextTest(); //TODO: recursive is dangerous
+        });
+      }
     }
     return p;
   },
@@ -631,20 +639,21 @@ var tester = {
     } else {
       p = Promise.reject("no more item to test"); //TODO: move to outside.
     }
-    if (self.tests.length == 0) {
-      self.getTests1().then(tf => { //getTests
-        //results saved to self.tests.
-        // alert("all test has been preloaded, now what to reload?");
-      }).catch(e => {
-        alert(e);
-      });
-    }
-    return self.dataPreloaded_p = p;
+    // if (self.tests.length == 0) {
+    //   self.getTests1().then(tf => { //getTests
+    //     //results saved to self.tests.
+    //     // alert("all test has been preloaded, now what to reload?");
+    //   }).catch(e => {
+    //     alert(e);
+    //   });
+    // }
+    return p;//self.textNext.dataPreloaded_p =
   },
   //getTest is the old name
   prepareNextTest: function () {
     var self = this;
     return self.setNextTest().then(tf => {
+      //do I have to check tf? always true, otherwise rejected.
       return self.prepareNextTestAudioData();
     });
   },
@@ -661,32 +670,37 @@ var tester = {
     // self.pathLast = path;
     return new Promise((resolve, reject) => {
       try {
-        // isStarted = false;  //TODO: ensure this is right in player
-        //can it be reused? or a new one is must? "AudioBufferSourceNode': cannot call start more than once." so we must create a new one.
-        var request = new XMLHttpRequest();
-        var url = webPath + "files?fn=" + self.testNext.fnAudio;
-        console.log(url);
-        request.open('GET', url, true); //path
-        request.responseType = 'arraybuffer';
-        request.onload = function () {
-          var res = request.response;
-          var msg = "data loaded, will decode it. typeof:" + typeof (res) + " type:" + request.responseType;
-          msg += " arraybuffer:" + (res instanceof ArrayBuffer);
-          msg += " string:" + (res instanceof String);
-          // msg += " domstring:" + (res instanceof DOMString); //ReferenceError: DOMString is not defined
-          msg += " doc:" + (res instanceof Document);
-          msg += " blob:" + (res instanceof Blob);
-          console.log(msg); //why false?
-          console.log(res);
-          resolve(request.response);
-          // if(self.preloadNext){
-          //   self.dataPreloaded=request.response;
-          // }
-          // self.decodeData(request.response);
+        if (self.testNext.dataAudio) {
+          resolve(self.testNext.dataAudio);
+        } else {
+          // isStarted = false;  //TODO: ensure this is right in player
+          //can it be reused? or a new one is must? "AudioBufferSourceNode': cannot call start more than once." so we must create a new one.
+          var request = new XMLHttpRequest();
+          var url = webPath + "files?fn=" + self.testNext.fnAudio;
+          console.log(url);
+          request.open('GET', url, true); //path
+          request.responseType = 'arraybuffer';
+          request.onload = function () {
+            var res = request.response;
+            var msg = "data loaded, will decode it. typeof:" + typeof (res) + " type:" + request.responseType;
+            msg += " arraybuffer:" + (res instanceof ArrayBuffer);
+            msg += " string:" + (res instanceof String);
+            // msg += " domstring:" + (res instanceof DOMString); //ReferenceError: DOMString is not defined
+            msg += " doc:" + (res instanceof Document);
+            msg += " blob:" + (res instanceof Blob);
+            console.log(msg); //why false?
+            console.log(res);
+            self.testNext.dataAudio = request.response;
+            resolve(request.response);
+            // if(self.preloadNext){
+            //   self.dataPreloaded=request.response;
+            // }
+            // self.decodeData(request.response);
 
-        };
-        // request.onFailed;  //TODO: ....
-        request.send();
+          };
+          // request.onFailed;  //TODO: ....
+          request.send();
+        }
       } catch (e) {
         reject(e);
       }
@@ -736,7 +750,7 @@ var tester = {
           if (ojson.ireason) {
             reject(url + " returns: " + JSON.stringify(ojson));
           } else {
-            self.tests[0] = ojson; // request.response.tests;
+            // self.tests[0] = ojson; //this will cause self.textCurrent to be the next test again.
             self.testCurrent = ojson;
             resolve(true);
           }
@@ -876,16 +890,16 @@ var tester = {
       alert(e);
     });
   },
-  start: function () {
-    //get a list
-    var self = this;
+  // start: function () {
+  //   //get a list
+  //   var self = this;
 
-    self.getTests1().then(tf => { //getTests
-      return self.prepareNextTest();
-    }).catch(e => {
-      alert(e);
-    });
-  },
+  //   self.getTests1().then(tf => { //getTests
+  //     return self.prepareNextTest();
+  //   }).catch(e => {
+  //     alert(e);
+  //   });
+  // },
 
 };
 var user = {
@@ -1059,18 +1073,18 @@ function onload() {
     }
   });
 
-  var loadData = document.querySelector('#loadData');
-  console.log(loadData);
-  loadData.onclick = function () { //TODO: this should be moved outside?!!!
-    if (false) {
-      var path = 'outfoxing.mp3';
-      console.log(this);
-      player.testNext = { fnAudio: path };
-      self.getDataAudio(); //path
-    } else {
-      tester.start();
-    }
-  };
+  // var loadData = document.querySelector('#loadData');
+  // console.log(loadData);
+  // loadData.onclick = function () { //TODO: this should be moved outside?!!!
+  //   if (false) {
+  //     var path = 'outfoxing.mp3';
+  //     console.log(this);
+  //     player.testNext = { fnAudio: path };
+  //     self.getDataAudio(); //path
+  //   } else {
+  //     tester.start();
+  //   }
+  // };
 
   player.init();
   tester.init();
