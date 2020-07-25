@@ -831,7 +831,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
             ojson = ojson.tests;
             //self.tests = request.response.tests;
             for (var i = 0; i < ojson.length; i++) {
-              var testid = ojson[i].id; //TODO: at present, it is the whole object.
+              var testid = ojson[i];//.id; //TODO: at present, it is the whole object.
               if (true) {
                 if (self.testCurrent) {
                   if (self.testCurrent.id == testid)
