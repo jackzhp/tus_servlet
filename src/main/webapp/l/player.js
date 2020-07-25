@@ -187,14 +187,16 @@ var player = {
           self.source.loop = false;
           self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
           var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
-          console.log(when + " " + offset + "+" + duration);
+          // console.log(when + " " + offset + "+" + duration);
           self.isStopped = false;
           self.source.start(when, offset, duration); //with this, does not do loop
         }
         self.onPlayStarted();
       }
     } else {
-      alert("please load data before play");
+      var msg = "please load data before play";
+      console.log(msg);   //TODO: some times, this is printed. why??
+      // alert(msg);
     }
   },
   displayTime: function () {
@@ -289,7 +291,7 @@ var player = {
     var self = this;
     self.isStarted = false;
     self.nTimes++;
-    console.log("played " + self.nTimes + " times");
+    // console.log("played " + self.nTimes + " times");
     try {
       // self.source.stop(0);
       self.source.disconnect(self.audioCtx.destination);
@@ -390,7 +392,7 @@ var player = {
         self.play.textContent = 'Suspend context'; //susresBtn
       });
     } else {
-      console.log("state is not suspended, but " + state);
+      // console.log("state is not suspended, but " + state);
     }
   },
 };
@@ -401,14 +403,19 @@ var tester = {
    */
   e_good: null,
   e_bad: null,
-  tests: [],
+  // tests: [], stop using this one, use testCurrent, testNext & testNext2 instead.
   autoStartNext: true, //when a test is done, we just start the next one automatically.
   preloadNext: true, //false, //TODO: do preload.
   // dataPreloaded: null,  //in promise, so not needed.
   // dataPreloaded_p: null, moved into self.testNext. No. removed!
   // pathLast: null, //the one is loading or just loaded. if paralle, then this miht be different from player.pathCurrent.
+  /* extra field to test object: flagsLoad=false/true, dataAudio
+flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info Failed,   128: loading audio data, 256: succeeded, 512: failed.  
+  */
+  testNext2: null,
   testNext: null,
   testCurrent: null, //the test is being played.
+  idtestLoading: -1,
   // pathPlaying: null, //the one is being played. TODO: remove this one.
   init: function () {
     var self = this;
@@ -421,57 +428,12 @@ var tester = {
     self.e_bad.onclick = function () {
       self.presentTestInfo();
     };
-    // self.e_presentTest = document.querySelector('#presentTest');
-    // self.e_presentTest.onclick = function () {
-    //   // self.presentTest();      
-    //   try {
-    //     // player.pauseCtx(); //this is not good. the source should be closed
-    //     player.closeSource().then(tf => {
-    //       //TODO: check the test's key if possible.
-    //       //    and other fields.
-
-    //       //TODO: send the test result to server. player.nTimes played.
-    //       self.presentTest(); //present the next test
-    //     }).catch(e => {
-    //       alert("close error:" + e);
-    //     });
-    //   } catch (e) {
-    //     alert(e);
-    //   }
-    //   // self.e_selectAll = document.querySelector('#selectAll');
-    //   // self.e_selectAll.onclick = function () {
-    //   // for (var kpid in self.testCurrent.kps) {
-    //   //   var kp = self.testCurrent.kps[kpid];
-    //   //   // console.log(kpid + ":" + kp);
-    //   //   if (kp.deleted) { } else {
-    //   //     var eid = "kp" + kpid;
-    //   //     var e = document.querySelector('#' + eid);
-    //   //     e.checked = true;
-    //   //   }
-    //   // }
-    //   // };
-    //   // self.e_mergeSelected = document.querySelector('#mergeSelected');
-    //   // self.e_mergeSelected.onclick = function () {
-    //   //   // var selected = self.getKPsSelected();
-    //   //   // var url = "kp?act=mergeKPs&kpids=" + selected;
-    //   //   // self.postReq(url);
-    //   // };
-    //   // self.e_submitNew = document.querySelector('#submitNew');
-    //   // self.e_submitNew.onclick = function () {
-    //   //   var selected = self.getKPsSelected();
-    //   //   var url = "user?act=result&idtest=" + self.testCurrent.id + "&bads=" + selected;
-    //   //   self.postReq(url);
-    //   // };
-    // };
   },
   presentTestNext_do: function () {
     var self = this;
-    return player.closeSource().then(tf => {
-      //TODO: check the test's key if possible.
-      //    and other fields.
-      //TODO: send the test result to server. player.nTimes played.
-      self.presentTest(); //present the next test
-    });
+    var e = document.querySelector('#info');
+    e.innerHTML = "loading";
+    return self.presentTest(); //present the next test
   },
   presentTestNext: function () {
     var self = this;
@@ -481,6 +443,7 @@ var tester = {
         alert("close error:" + e);
       });
     } catch (e) {
+      console.log(e);
       alert(e);
     }
   },
@@ -502,15 +465,37 @@ var tester = {
       }
     }
   },
+  //TODO: send the test result to server. player.nTimes played.
   submitNew: function () {
     var self = this;
     var selected = self.getKPsSelected();
     var url = "user?act=result&idtest=" + self.testCurrent.id + "&bads=" + selected;
-    self.postReq(url).then(tf => {
-      return self.presentTestNext_do();
-    }).catch(e => {
-      alert(e);
-    });
+    if (false) {
+      self.postReq(url).then(tf => {
+        return self.presentTestNext_do();
+      }).catch(e => {
+        console.log(e);
+        alert(e);
+      });
+    } else {
+      self.presentTestNext_do().then(tf => {
+        return self.postReq(url);
+      }).then(tf => {
+        //TODO: I need an array of testid's. and then I load each ETest with its id.
+        //   only with this approach can I do preload.
+        // if I do not specifiy the testid, "preload" in fact becomes "reload".
+        //         since before test result is submitted, the same ETest will be returned.
+        console.log("will preload:" + self.preloadNext);
+        if (self.preloadNext) { //TODO: enable this.
+          // self.prepareNextTest();
+          return self.preloads();
+        } else return Promise.resolve(false);
+      }).catch(e => {
+        console.log(e);
+        alert(e);
+      });
+
+    }
   },
   getKPsSelected: function () {
     var self = this;
@@ -561,32 +546,70 @@ var tester = {
       }
     });
   },
+  setCurrent: function () {
+    var self = this;
+    try {
+      var set = false;
+      if (self.isReady(self.testNext)) {
+        self.testCurrent = self.testNext;//  self.pathPlaying = self.pathLast;
+        self.testNext = self.testNext2;
+        self.testNext2 = null;
+        set = true;
+      } else if (self.isReady(self.testNext2)) {
+        self.testCurrent = self.testNext2;//  self.pathPlaying = self.pathLast;
+        self.testNext2 = null; //this is not needed. indeed needed.
+        set = true;
+      } else {
+        // throw "none is ready 546";
+      }
+      if (set) {
+        return Promise.resolve(true);
+      } else {
+        return self.preloads().then((tf) => { //TODO: now the data is save to self.testCurrent.dataAudio
+          if (tf) {
+            //when audio data is ready, we change it from self.testNext to self.testCurrent.
+            if (self.isReady(self.testNext)) {
+              self.testCurrent = self.testNext;//  self.pathPlaying = self.pathLast;
+              self.testNext = self.testNext2; //this is not needed. indeed needed.
+              self.testNext2 = null; //this is not needed. indeed needed.
+            } else if (self.isReady(self.testNext2)) {
+              self.testCurrent = self.testNext2;//  self.pathPlaying = self.pathLast;
+              self.testNext2 = null; //this is not needed. indeed needed.
+            } else {
+              throw "none is ready 565";
+            }
+            return true;
+          } else throw Error("expecting true, but " + tf);
+        });
+      }
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  },
   presentTest: function () { //TODO: ?? should I change its name to presentTestNext?
     var self = this;
-    self.clearTestInfo();
     // var p;
     // if (self.preloadNext && self.dataPreloaded_p) {  //TODO: utilize preloadNext
     //   p = self.dataPreloaded_p;
     //   self.dataPreloaded_p = null;
     // } else {
     // }
-    self.prepareNextTest().then((dataAudio) => { //TODO: now the data is save to self.textCurrent.dataAudio
-      console.log((dataAudio instanceof ArrayBuffer) + " audio data:" + dataAudio);
-      self.testCurrent = self.testNext;//  self.pathPlaying = self.pathLast;
-      self.testNext = null;
-      // self.testNext=null; //this is not needed.
-      return player.decodeDataAndPlay(dataAudio);
+    //prepareNextTest
+    return self.setCurrent().then(tf => {
+      console.log("current:" + self.testCurrent.id);
+      return player.closeSource();
     }).then(tf => {
-      if (self.preloadNext) { //TODO: enable this.
-        self.prepareNextTest();
-      }
+      self.clearTestInfo();
+      return player.decodeDataAndPlay(self.testCurrent.dataAudio);
+      // }).then(tf => {
     }).catch(ex => {
-      var msg = "#oftests:";
-      if (self.tests) {
-        msg += self.tests.length;
-      } else {
-        msg += "null";
-      }
+      var msg = "";
+      // msg+= "#oftests:";
+      // if (self.tests) {
+      //   msg += self.tests.length;
+      // } else {
+      //   msg += "null";
+      // }
       msg += " current:";
       if (self.testCurrent) {
         msg += self.testCurrent.fnAudio;
@@ -599,6 +622,12 @@ var tester = {
       } else {
         msg += "null";
       }
+      msg += " next2:";
+      if (self.testNext2) {
+        msg += self.testNext2.fnAudio
+      } else {
+        msg += "null";
+      }
       msg += " ex:" + ex;
       console.log(msg);
       console.log(ex);
@@ -608,55 +637,63 @@ var tester = {
       // alert("failed to load data:" + self.pathLast + ":" + e);
     });
   },
-  setNextTest: function () {
-    var self = this;
-    var p = null;
-    if (self.testNext) {
-      p = Promise.resolve(true);
-    } else {
-      var tests = self.tests;
-      if (tests.length > 0) { //TODO: move this check outside.
-        idx = Math.floor(Math.random() * tests.length);
-        self.testNext = tests[idx];
-        self.tests.splice(idx, 1);
-        p = Promise.resolve(true);
-      } else {
-        p = self.getTests1().then(tf => { //getTests
-          //results saved to self.tests.
-          return self.setNextTest(); //TODO: recursive is dangerous
-        });
-      }
-    }
-    return p;
-  },
-  prepareNextTestAudioData: function () {
-    var self = this;
-    var p = null;
-    if (self.testNext) {
-      var path = self.testNext.fnAudio;
-      console.log("audio path:" + path);
-      p = self.getDataAudio(); //path
-    } else {
-      p = Promise.reject("no more item to test"); //TODO: move to outside.
-    }
-    // if (self.tests.length == 0) {
-    //   self.getTests1().then(tf => { //getTests
-    //     //results saved to self.tests.
-    //     // alert("all test has been preloaded, now what to reload?");
-    //   }).catch(e => {
-    //     alert(e);
-    //   });
-    // }
-    return p;//self.textNext.dataPreloaded_p =
-  },
-  //getTest is the old name
-  prepareNextTest: function () {
-    var self = this;
-    return self.setNextTest().then(tf => {
-      //do I have to check tf? always true, otherwise rejected.
-      return self.prepareNextTestAudioData();
-    });
-  },
+  // setNextTest: function () { //TODO: now this is simpler.
+  //   var self = this;
+  //   try {
+  //     if (self.testNext) {
+  //       return Promise.resolve(self.testNext);
+  //     } else {
+  //       var tests = self.tests;
+  //       if (tests.length > 0) { //TODO: move this check outside.
+  //         // idx = Math.floor(Math.random() * tests.length);
+  //         var ilimit = self.tests.length;
+  //         for (var i = 0; i < ilimit; i++) {
+  //           var otest = tests[i];
+  //           if (otest.flagsLoad && otest.dataAudio) {
+  //             self.testNext = otest;
+  //             self.tests.splice(i, 1);
+  //             return Promise.resolve(otest);
+  //           }
+  //         }
+  //         //none is ready.
+  //         return self.preload().then(nReady => {
+  //           if (nReady > 0)
+  //             return self.setNextTest();
+  //           else
+  //             throw new Error("none is ready 619");
+  //         });
+  //       } else {
+  //         return self.getTests().then(nReady => {
+  //           if (nReady > 0)
+  //             return self.preload();
+  //           else
+  //             throw new Error("none is ready2");
+  //         }).then(tf => {
+  //           //results saved to self.tests.
+  //           return self.setNextTest(); //TODO: recursive is dangerous
+  //         });
+  //       }
+  //     }
+  //   } catch (e) {
+  //     return Promise.reject(e);
+  //   }
+  // },
+  // prepareNextTestAudioData: function (otest) { //what is promised? rename getDataAudio0
+  //   var self = this;
+  //   var p = null;
+  //   var path = otest.fnAudio;
+  //   console.log("audio path:" + path);
+  //   p = self.getDataAudio(otest); //path
+  //   // if (self.tests.length == 0) {
+  //   //   self.getTests1().then(tf => { //getTests
+  //   //     //results saved to self.tests.
+  //   //     // alert("all test has been preloaded, now what to reload?");
+  //   //   }).catch(e => {
+  //   //     alert(e);
+  //   //   });
+  //   // }
+  //   return p;//self.testNext.dataPreloaded_p =
+  // },
   // use XHR to load an audio track, and
   // decodeAudioData to decode it and stick it in a buffer.
   // Then we put the buffer into the source
@@ -664,19 +701,22 @@ var tester = {
    path is relative, such as 'outfoxing.mp3'. can it be absolute?  
    var path = 'outfoxing.mp3';
    self.getDataAudio(path);
+   dataAudio is promised, and it is also saved to otest.dataAudio
    */
-  getDataAudio: function () { //path
+  getDataAudio: function (otest) { //path
     var self = this;
     // self.pathLast = path;
+    var path = otest.fnAudio;
+    console.log("audio path:" + path);
     return new Promise((resolve, reject) => {
       try {
-        if (self.testNext.dataAudio) {
-          resolve(self.testNext.dataAudio);
+        if (otest.dataAudio) { //self.testNext is otest
+          resolve(otest.dataAudio);
         } else {
           // isStarted = false;  //TODO: ensure this is right in player
           //can it be reused? or a new one is must? "AudioBufferSourceNode': cannot call start more than once." so we must create a new one.
           var request = new XMLHttpRequest();
-          var url = webPath + "files?fn=" + self.testNext.fnAudio;
+          var url = webPath + "files?fn=" + otest.fnAudio;
           console.log(url);
           request.open('GET', url, true); //path
           request.responseType = 'arraybuffer';
@@ -690,7 +730,8 @@ var tester = {
             msg += " blob:" + (res instanceof Blob);
             console.log(msg); //why false?
             console.log(res);
-            self.testNext.dataAudio = request.response;
+            otest.dataAudio = request.response;
+            otest.flagsLoad |= 256;
             resolve(request.response);
             // if(self.preloadNext){
             //   self.dataPreloaded=request.response;
@@ -706,43 +747,48 @@ var tester = {
       }
     });
   },
-  getTests: function () {
+  updateTest: function () { //TODO: remove this function
     var self = this;
-    if (false) { //as test
-      //self.tests = ["assets/outfoxing.mp3","assets/257.mp3"]; very old
-      // self.tests = [{ fn: "arigato.mp3", key: "" }];  //indeeded can not be decoded
-      /* why shortened ?
-       when it is alone, it is not shortened. 
-       so when it is not alone, there is some where messed up.
-       
-       now I know, sometimes the record is shortened, but why?
-       */
-      self.tests = [{ fn: "25-watashiwanekogasuki.mp3", key: "" }];
-
-      return Promise.resolve(true);
-    }
-    return new Promise((resolve, reject) => {
-      try {
-        var request = new XMLHttpRequest();
-        request.open('GET', webPath + "test", true);
-        request.responseType = 'json';
-        request.onload = function () {
-          self.tests = request.response.tests;
-          resolve(true);
-        };
-        // request.onFailed;  //TODO: ....
-        request.send();
-      } catch (e) {
-        reject(e);
-      }
+    // return new Promise((resolve, reject) => {
+    //   try {
+    //     var request = new XMLHttpRequest();
+    //     var url = webPath + "test?act=test&testid=" + self.testCurrent.id;
+    //     request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
+    //     request.responseType = 'json';
+    //     request.onload = function () {
+    //       var ojson = request.response;
+    //       if (ojson.ireason) {
+    //         reject(url + " returns: " + JSON.stringify(ojson));
+    //       } else {
+    //         // self.tests[0] = ojson; //this will cause self.testCurrent to be the next test again.
+    //         self.testCurrent = ojson;
+    //         resolve(true);
+    //       }
+    //     };
+    //     // request.onFailed;  //TODO: ....
+    //     request.send();
+    //   } catch (e) {
+    //     reject(e);
+    //   }
+    // });
+    return self.getTestInfo(self.testCurrent.id).then(ojson => {
+      // self.tests[0] = ojson; //this will cause self.testCurrent to be the next test again.
+      if (self.testCurrent.id == ojson.id) {
+        var dataAudio = self.testCurrent.dataAudio;
+        self.testCurrent = ojson;
+        if (dataAudio) {
+          ojson.dataAudio = dataAudio;
+          ojson.flagsLoad |= 256;
+        }
+      } else throw Error("id " + self.testCurrent.id + " is not expected:" + ojson.id);
     });
   },
-  updateTest: function () {
+  getTestInfo: function (testid) {
     var self = this;
     return new Promise((resolve, reject) => {
       try {
         var request = new XMLHttpRequest();
-        var url = webPath + "test?act=test&testid=" + self.testCurrent.id;
+        var url = webPath + "test?act=test&testid=" + testid;
         request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
         request.responseType = 'json';
         request.onload = function () {
@@ -750,9 +796,9 @@ var tester = {
           if (ojson.ireason) {
             reject(url + " returns: " + JSON.stringify(ojson));
           } else {
-            // self.tests[0] = ojson; //this will cause self.textCurrent to be the next test again.
-            self.testCurrent = ojson;
-            resolve(true);
+            // // self.tests[0] = ojson; //this will cause self.testCurrent to be the next test again.
+            // self.testCurrent = ojson;
+            resolve(ojson);
           }
         };
         // request.onFailed;  //TODO: ....
@@ -762,8 +808,177 @@ var tester = {
       }
     });
   },
-  getTests1: function () {
+  getTests: function () {
     var self = this;
+    if (self.testNext && self.testNext2) {
+      return Promise.resolve(true);
+    }
+    return self.getTests_do();
+  },
+  getTests_do: function () {
+    var self = this;
+    return new Promise((resolve, reject) => {
+      try {
+        var request = new XMLHttpRequest();
+        var url = webPath + "user?act=tests"; //webPath + "test"
+        request.open('GET', url, true);
+        request.responseType = 'json';
+        request.onload = function () {
+          var ojson = request.response;
+          if (ojson.ireason) {
+            reject(ojson.sreason);
+          } else {
+            ojson = ojson.tests;
+            //self.tests = request.response.tests;
+            for (var i = 0; i < ojson.length; i++) {
+              var testid = ojson[i].id; //TODO: at present, it is the whole object.
+              if (true) {
+                if (self.testCurrent) {
+                  if (self.testCurrent.id == testid)
+                    continue;
+                } else {
+                  // self.testCurrent = { id: testid };
+                }
+                if (self.testNext) {
+                  if (self.testNext.id == testid)
+                    continue;
+                  if (self.testNext2) {
+                    if (self.testNext2.id == testid)
+                      continue;
+                    else break; //throw away the rest if any
+                  } else {
+                    self.testNext2 = { id: testid };
+                  }
+                } else {
+                  self.testNext = { id: testid };
+                }
+              } else {
+                for (var j = 0; j < self.tests.length; j++) {
+                  if (self.tests[j].id == testid) {
+                    //found it
+                  } else {
+                    self.tests.push({ id: testid });
+                  }
+                }
+              }
+            }
+            resolve(ojson.length > 0);
+          }
+        };
+        // request.onFailed;  //TODO: ....
+        request.send();
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
+  /*
+  self.tests is ready, load testInfo and dataAudio
+  return the first loaded test(just the test info, does not include dataAudio)
+  return true if any one of self.textNest or self.testNext2 is ready.
+  */
+  preload: function (otest) {
+    var self = this;
+    if (true) {
+      try {
+        if (otest.flagsLoad) {
+          //is loading
+          if (otest.dataAudio) { //completely loaded
+            return Promise.resolve(true);
+          }
+          if (otest.resolves) {
+          } else {
+            otest.resolves = [];
+            otest.rejects = [];
+          }
+          return new Promise((resolve, reject) => {
+            otest.resolves.push(resolve);
+            otest.rejects.push(reject);
+          });
+        } else {
+          //not loading
+          otest.flagsLoad = 1;
+        }
+        // var ilimit = self.tests.length;
+        // for (var i = 0; i < ilimit; i++) {
+        //   var otest = self.tests[i];
+        //   if (otest.flagsLoad) {
+        //     return Promise.resolve(true);
+        //   } else {
+        //     if (self.testidLoading == test.id)
+        //       continue;
+        //     self.testidLoading = test.id;
+        //     break;
+        //   }
+        // }
+        //TODO: stop using self.testidLoading
+        var pInfo;
+        if (otest.flagsLoad & 2) { //info has been loaded.
+          pInfo = Promise.resolve(otest);
+        } else {
+          pInfo = self.getTestInfo(otest.id).then(otestNew => {
+            if (false) {
+              for (var i = 0; i < ilimit; i++) {
+                var test = self.tests[i];
+                if (test.id == self.otest.id) {
+                  var o = self.tests[i];
+                  self.tests[i] = otestNew;
+                  otestNew.dataAudio = o.dataAudio;
+                  otestNew.flagsLoad = true;
+                  return otestNew; //!!otestNew.dataAudio;
+                }
+              }
+              throw "should not get here";
+            }
+            var o = null;
+            if (self.testNext) {
+              if (self.testNext.id == otestNew.id) {
+                o = self.testNext;
+                self.testNext = otestNew;
+              }
+            } else if (self.testNext2) {
+              if (self.testNext2.id == otestNew.id) {
+                o = self.testNext2;
+                self.testNext2 = otestNew;
+              }
+            } else if (self.testCurrent) {
+              if (self.testCurrent.id == otestNew.id) {
+                o = self.testCurrent;
+                self.testCurrent = otestNew;
+              }
+            }
+            if (o) {
+              otestNew.flagsLoad = o.flagsLoad;
+              otestNew.flagsLoad |= 2;
+              if (o.dataAudio) {
+                otestNew.dataAudio = o.dataAudio;
+                otestNew.flagsLoad |= 256;
+              }
+              return otestNew;
+            } else {
+              throw otest.id + " is missing";
+            }
+          });
+        }
+        return pInfo.then(otest => {
+          //do I have to check tf? always true, otherwise rejected.
+          if (otest.dataAudio) {
+            otest.flagsLoad |= 256;
+            return Promise.resolve(otest.dataAudio);
+          } else
+            return self.getDataAudio(otest);
+        }).then(dataAudio => {
+          otest.flagsLoad |= 256;
+          console.log((dataAudio instanceof ArrayBuffer) + " audio data:" + dataAudio + " " + (otest.flagsLoad & 258));
+          // self.testidLoading = -1;
+          // return self.preload();
+          return true;
+        });
+      } catch (e) {
+        console.log(e);
+        return Promise.reject(e);
+      }
+    }
     return new Promise((resolve, reject) => {
       try {
         var request = new XMLHttpRequest();
@@ -771,11 +986,12 @@ var tester = {
         request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
         request.responseType = 'json';
         request.onload = function () {
-          var ojson = request.response;
-          if (ojson.ireason) {
-            reject(url + " returns: " + JSON.stringify(ojson));
+          var otestNew = request.response;
+          console.log(otestNew);
+          if (otestNew.ireason) {
+            reject(url + " returns: " + JSON.stringify(otestNew));
           } else {
-            self.tests[0] = ojson; // request.response.tests;
+            self.tests[0] = otestNew; // request.response.tests;
             resolve(true);
           }
         };
@@ -785,6 +1001,35 @@ var tester = {
         reject(e);
       }
     });
+  },
+  //getTest,prepareNextTest is the old name
+  preloads: function () { //TODO: remove this one, use preload instead
+    var self = this;
+    // return self.setNextTest();
+    // .then(tf => {
+    //   //do I have to check tf? always true, otherwise rejected.
+    //   var otest = self.testNext;
+    //   return self.getDataAudio(otest);
+    // });
+    return self.getTests().then(tf => {
+      if (false) {
+        var ap = [];
+        if (self.testNext) ap.push(self.preload(self.testNext));
+        if (self.testNext2) ap.push(self.preload(self.testNext2));
+        return Promise.any(ap);
+      }
+      if (self.isReady(self.testNext) || self.isReady(self.testNext2)) return Promise.resolve(true);
+      if (self.testNext) return self.preload(self.testNext);
+      if (self.testNext2) return self.preload(self.testNext2);
+      throw Error("should not happen");
+    });
+  },
+  isReady: function (otest) {
+    if (otest) {
+      console.log("flags for " + otest.id + ":" + otest.flagsLoad);
+      return (otest.flagsLoad & 2) && (otest.flagsLoad & 256);
+    }
+    return false;
   },
   updateTestInfo: function () {
     var self = this;
@@ -836,6 +1081,7 @@ var tester = {
     self.postReq(url).then(tf => {
       self.updateTestInfo();
     }).catch(e => {
+      console.log(e);
       alert(e);
     });
   },
@@ -845,6 +1091,7 @@ var tester = {
     self.postReq(url).then(tf => {
       self.updateTestInfo();
     }).catch(e => {
+      console.log(e);
       alert(e);
     });
     var e = document.querySelector("#likp" + kpid);
@@ -864,6 +1111,7 @@ var tester = {
     self.postReq(url).then(tf => {
       self.updateTestInfo();
     }).catch(e => {
+      console.log(e);
       alert(e);
     });
   },
@@ -887,6 +1135,7 @@ var tester = {
     self.postReq(url).then(tf => {
       self.updateTestInfo();
     }).catch(e => {
+      console.log(e);
       alert(e);
     });
   },
@@ -963,6 +1212,7 @@ var user = {
     this.getNonce().then(tf => { //TODO: for temp. should be triggered by UI
       self.onPasswordKnown();
     }).catch(e => {
+      console.log(e);
       alert(e);
     });
   },

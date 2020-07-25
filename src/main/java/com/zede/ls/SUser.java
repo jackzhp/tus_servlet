@@ -107,7 +107,6 @@ public class SUser extends HttpServlet {
 //                    File f = test.getFile(false);
 //                    App.serve(response, f);
                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        JsonFactory factory = new JsonFactory();
                         JsonGenerator g = App.getJSONgenerator(baos);
                         g.writeStartObject();
 //                    g.writeNumberField("ireason", 5);
@@ -123,7 +122,8 @@ public class SUser extends HttpServlet {
 //        }
                         } else {
                             for (ETest test : tests) {
-                                test.json(g);
+//                                test.json(g);
+                                g.writeNumber(test.id);
                             }
                         }
                         g.writeEndArray();
