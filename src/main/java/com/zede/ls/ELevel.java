@@ -156,6 +156,9 @@ instead, belong to the which which is the highest level of its EKP's.
     }
 
     private void parse(JsonParser p, HashSet<Integer> set) throws IOException {
+        if (idMinor == 15) {
+            System.out.println(this.levelString());
+        }
         JsonToken t = p.getCurrentToken();//.nextToken();
         if (t == JsonToken.START_ARRAY) {
             while (true) {
@@ -198,7 +201,20 @@ instead, belong to the which which is the highest level of its EKP's.
     }
 
     void replace(EKP remove, EKP keep) {
+        if (remove.id == keep.id) {
+            throw new IllegalStateException();
+        }
         kps.add(keep.id);
         kps.remove(remove.id);
+    }
+
+    void add(int id) {
+        kps.add(id);
+        sys.save(20);
+    }
+
+    void remove(int id) {
+        kps.remove(id);
+        sys.save(20);
     }
 }

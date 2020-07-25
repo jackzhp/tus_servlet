@@ -39,6 +39,10 @@ public class ELevelSystem {
     }
 
     File getFile(boolean extnew) {
+        return getFile(name, extnew);
+    }
+
+    static File getFile(String name, boolean extnew) {
         String fn = name + ".json";
         if (extnew) {
             fn += ".new";

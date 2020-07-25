@@ -98,6 +98,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
     public EKP(EKPbundle b) {
         this.bundle = b;
 //        tests = new HashSet<>();
+        this.isRedundant = b == null;
     }
 
     @Override
@@ -580,23 +581,24 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
      * needed.
      *
      */
-    void set(ELevel level) {
+    boolean set(ELevel level) {
         ELevel lO = hmLevels.get(level.sys);
         if (lO != null) {
             if (lO.idMajor == level.idMajor && lO.idMinor == level.idMinor) {
-                return;
+                return false;
             }
-            lO.kps.remove(id);
+            lO.remove(id);
         }
         hmLevels.put(level.sys, level);
         save(10); //by default, will save in 10 seconds
         App.executor.schedule(() -> {
-            level.kps.add(id);
+            level.add(id);
             ETest[] tests = getTests();
             for (ETest test : tests) {
                 test.onLevelChanged(this, level);
             }
-        }, 11, TimeUnit.SECONDS);
+        }, 12, TimeUnit.SECONDS);
+        return true;
     }
 
     /**
@@ -683,6 +685,23 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
             }
         }
         return histogram;
+    }
+
+    public static CompletableFuture<EKP> newKP_cf(String desc, ELevel level, EUser user) {
+        CompletableFuture<EKP> cf = new CompletableFuture<>();
+        try {
+//TODO: in the future, I should check the KP should not a really new one.
+            ELevelSystem sys = user.target.sys;
+            EKP kp = new EKP(null);
+            kp.newID();
+            kp.desc = desc;
+            kp.toBeApplied = true;
+            kp.hmLevels.put(sys, level);
+            return kp.getBundle_m().save_cf().thenApply(tf -> kp);
+        } catch (Throwable t) {
+            cf.completeExceptionally(t);
+        }
+        return cf;
     }
 
     /**

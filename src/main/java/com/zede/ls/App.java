@@ -59,7 +59,8 @@ import javax.servlet.http.HttpServletResponse;
 public class App {
 
     static String dirData = "/Users/yogi/jack/data/";
-    static File dirTests, dirKPs, dirUsers, dirLevels;
+    static File dirTests, dirKPs, dirUsers, dirLevels,dirAudio;
+    static String dirJapanese = "/Users/yogi/jack/japanese"; //TODO: from config
 //    static EUser user1;// = new EUser(1);
 //    static PersistenceManagerFactory pmf = JDOHelper.getPersistenceManagerFactory("langs");
 //    static PersistenceManager pm = pmf.getPersistenceManager();
@@ -150,6 +151,12 @@ public class App {
             ensureExists(dirKPs);
         }
         return dirKPs;
+    }
+    static File dirAudio(){
+        if(dirAudio==null){
+            dirAudio=new File(dirJapanese);
+        }
+        return dirAudio;
     }
 
     /**

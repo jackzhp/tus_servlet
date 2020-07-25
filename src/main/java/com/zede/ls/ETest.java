@@ -188,6 +188,23 @@ public class ETest {
         }
     }
 
+    public void associate(EKP kp, EUser user) {
+        kp.in(this);
+        kps.add(kp); //Yes. use kps
+        kp.apply(); //TODO: to put it off, or at least check the role of the user.        
+        save(100);
+    }
+
+    /**
+     * after added mistakenly, we can merge EKP's, or delete some EKP's.
+     *
+     *
+     *
+     * @param desc
+     * @param level
+     * @param user
+     * @return
+     */
     public CompletableFuture<EKP> newKP_cf(String desc, ELevel level, EUser user) {
         CompletableFuture<EKP> cf = new CompletableFuture<>();
         try {
@@ -294,6 +311,8 @@ public class ETest {
 
     /* the level change can change up or down, hence we just recalculate it.
     if we know up or down, then we might have shortcut.
+    
+    we do not save levelsHeight!
      */
     void onLevelChanged(EKP kp, ELevel level) {
         highestLevel_cal(level.sys);

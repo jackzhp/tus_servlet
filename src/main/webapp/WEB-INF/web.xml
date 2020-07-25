@@ -46,6 +46,10 @@
         <servlet-name>SKP</servlet-name>
         <servlet-class>com.zede.ls.SKP</servlet-class>
     </servlet>
+    <servlet>
+        <servlet-name>SLevel</servlet-name>
+        <servlet-class>com.zede.ls.SLevel</servlet-class>
+    </servlet>
     <servlet-mapping>
         <servlet-name>upload</servlet-name>
         <url-pattern>/files/*</url-pattern>
@@ -69,6 +73,10 @@
     <servlet-mapping>
         <servlet-name>SKP</servlet-name>
         <url-pattern>/kp</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>SLevel</servlet-name>
+        <url-pattern>/level</url-pattern>
     </servlet-mapping>
     <session-config>
         <session-timeout>-1</session-timeout>

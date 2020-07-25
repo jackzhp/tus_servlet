@@ -716,7 +716,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
           // isStarted = false;  //TODO: ensure this is right in player
           //can it be reused? or a new one is must? "AudioBufferSourceNode': cannot call start more than once." so we must create a new one.
           var request = new XMLHttpRequest();
-          var url = webPath + "files?fn=" + otest.fnAudio;
+          var url = webPath + "files?act=audio&fn=" + otest.fnAudio;
           console.log(url);
           request.open('GET', url, true); //path
           request.responseType = 'arraybuffer';

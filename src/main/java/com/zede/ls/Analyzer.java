@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.concurrent.CompletableFuture;
 
@@ -37,7 +38,13 @@ public class Analyzer {
 
     public static void main(String[] args) {
         try {
-            new Analyzer().run();
+            Analyzer a = new Analyzer();
+            if (false) {
+                a.run();
+            }
+            if (true) {
+                a.modifyLevels();
+            }
         } catch (Throwable t) {
             t.printStackTrace();
         }
@@ -99,11 +106,15 @@ public class Analyzer {
                             test = new ETest();
                             test.newID();
                             test.fnAudio = fn;
+                            ELevel levelt = getLevelID(test.fnAudio);
+                            if (levelt == null) {
+                                levelt = level;
+                            }
                             test.fsha = fsha;
                             int iloc = fn.lastIndexOf(".mp3");
                             test.info = fn.substring(0, iloc);
                             ETest ot = test;
-                            return test.newKP_cf(test.info, level, user).thenCompose((kp) -> {
+                            return test.newKP_cf(test.info, levelt, user).thenCompose((kp) -> {
                                 System.out.println(" EKP saved, now will save ETest");
                                 return ot.save_cf();
                             }).thenApply((tf) -> {
@@ -253,6 +264,64 @@ public class Analyzer {
         fos.close();
         bis.close();
         System.out.println("downloaded " + size + "/" + this.size);
+    }
+
+    void modifyLevels() throws IOException {
+        ELevelSystem sys = ELevelSystem.getByName("misc");// user.target.sys;
+        level = ELevel.get_m(sys, grade);
+        if (level.sys != sys) {
+            throw new IllegalStateException();
+        }
+
+        HashSet<EKP> changed = new HashSet<>();
+        int nchanged = 0;
+        File dir = App.dirTests();
+        String[] afn = dir.list(App.ff_json);
+        for (String fn : afn) {
+            String[] as = fn.split("\\.");
+            String id_s = as[0];
+            Integer id = Integer.parseInt(id_s);
+            ETest test = ETest.loadByID_m(id);
+            ELevel levelt = getLevelID(test.fnAudio);
+            if (levelt != null) {
+                for (EKP kp : test.kps) {
+                    if (kp.desc.equals(test.info)) {
+//                        if (kp.id == 898) {
+//                            System.out.println("test:" + id+" "+test.kps.size());
+//                        }
+                        kp = EKP.getByID_m(kp.id, true);
+                        if (kp.set(levelt)) {
+                            System.out.println(kp.id + ":" + levelt.levelString() + ":" + kp.desc);
+                            nchanged++;
+                            changed.add(kp);
+                        }
+                    }
+                }
+            }
+        }
+        System.out.println(nchanged + " # changed:" + changed.size());
+        for (EKP kp : changed) {
+//            kp.save(5);
+        }
+
+    }
+
+    private ELevel getLevelID(String fnAudio) {
+        String id_s = null;
+        try {
+            int iloc = fnAudio.indexOf('-');
+            if (iloc == -1) {
+                return null;
+            }
+            id_s = fnAudio.substring(0, iloc);
+            int id = Integer.parseInt(id_s);
+            ELevel levelt = level.sys.getLevel_m(1, id);
+            return levelt;
+        } catch (Throwable t) {
+            System.out.println(fnAudio);
+            t.printStackTrace();
+            return null;
+        }
     }
 
 }

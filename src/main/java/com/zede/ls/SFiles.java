@@ -26,8 +26,6 @@ import javax.servlet.http.HttpSession;
  */
 public class SFiles extends HttpServlet {
 
-    String dir = "/Users/yogi/jack/japanese"; //TODO: from config
-
     /**
      * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
      * methods.
@@ -75,44 +73,56 @@ public class SFiles extends HttpServlet {
                 ireason = -1;
                 sreason = "not authenticated";
             } else {
-                String s = request.getQueryString();
+                File f = null;
+                String mime = null, fn = null;
+                String action = request.getParameter("act");
+                if ("audio".equals(action)) {
+                    fn = request.getParameter("fn");
+                    if (fn == null || fn.isEmpty()) {
+                        ireason = -1;
+                        sreason = "fn is null or empty";
+                    } else {
+                        if (false) {
+                            String s = request.getQueryString();
 //        Hashtable<String, String[]> map=HttpUtils.parseQueryString(s);
 //         request
-                if (s == null) {
-                } else {
-                    System.out.println("q:" + s);
-                    //fn=fileName
-                    File fdir = new File(dir);
-                    String[] as = s.split("=");
-                    if (as.length != 2) {
-                    } else {
-                        String fn = as[1];
-                        File f = new File(fdir, fn);
-                        String mime;
-                        if (false) {
-                            ServletContext servletContext = request.getServletContext();
-                            mime = servletContext.getMimeType(fn);
+                            if (s == null) {
+                            } else {
+                                System.out.println("q:" + s);
+                                //fn=fileName
+                                File fdir = App.dirAudio();
+                                String[] as = s.split("=");
+                                if (as.length != 2) {
+                                } else {
+                                    fn = as[1];
+                                }
+                            }
                         } else {
-                            mime = "application/octet-stream";
                         }
-                        response.setContentType(mime);
-                        App.serve(response, f, mime);
-//                byte[] bytes = new byte[4096];
-//                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f));
-//                ServletOutputStream sos = response.getOutputStream();
-//                while (true) {
-//                    int len = bis.read(bytes);
-//                    if (len > 0) {
-//                        sos.write(bytes, 0, len);
-//                    } else if (len == -1) {
-//                        break;
-//                    }
-//                }
-//                sos.flush();
-//                sos.close();
-//                bis.close();
-                        return;
+                        if (fn != null) {
+                            f = new File(App.dirAudio(), fn);
+                            mime = "application/octet-stream";
+                        } else {
+                        }
                     }
+                } else if ("levels".equals(action)) {
+                    String sysName = request.getParameter("sys");
+                    f = ELevelSystem.getFile(sysName, false);
+                    fn = f.getName();
+                    mime = "application/javascript;charset=UTF-8";
+                } else {
+                    ireason = -1;
+                    sreason = "unknown act:" + action;
+                }
+                if (f != null) {
+                    if (mime == null) {
+                        ServletContext servletContext = request.getServletContext();
+                        mime = servletContext.getMimeType(fn);
+                    }
+                    response.setContentType(mime);
+                    App.serve(response, f, mime);
+                } else {
+                    throw new Exception("file is null:act:" + action);
                 }
             }
         } catch (Throwable t) {

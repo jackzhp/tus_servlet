@@ -169,6 +169,15 @@ public class SKP extends HttpServlet {
                         return null;
                     });
                     App.sendFailed(ireason, sreason, response);
+                } else if ("addKP".equals(action)) { //moved from STest.addKP
+                    //TODO: turn into async mode.
+                    String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
+                    ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
+                    EKP.newKP_cf(desc, level, user).exceptionally(t -> {
+                        t.printStackTrace();
+                        return null;
+                    });
+                    App.sendFailed(ireason, sreason, response);
                 } else if ("chgKPlevel".equals(action)) {
                     String id_s = request.getParameter("idkp");
                     int id = Integer.parseInt(id_s);
@@ -188,6 +197,21 @@ public class SKP extends HttpServlet {
                     String kpids = request.getParameter("kpids");
                     EKP.merge(kpids).get();
                     App.sendFailed(ireason, sreason, response);
+                } else if ("searchKPs".equals(action)) { //TODO: not implemented yet.
+                    /**
+                     *
+                     * the usual use case: when a user wants to create a new
+                     * EKP. and the user wants to avoid making many copies of
+                     * the same EKP(they can be merged), so the user wants to
+                     * find out the EKP they are trying to creating. so we have
+                     * to search for it.
+                     *
+                     * Be noted, there is no point to list all EKP's. but we can
+                     * list those EKP's with desc starts with the target string.
+                     */
+                    
+                    
+                    
                 } else {
                     throw new Exception("unknown action:" + action);
                 }

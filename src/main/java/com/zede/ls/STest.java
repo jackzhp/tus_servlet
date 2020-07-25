@@ -189,7 +189,7 @@ public class STest extends HttpServlet {
                         String info = request.getParameter("info");
                         test.chgInfo(info, user);
                         App.sendFailed(ireason, sreason, response);
-                    } else if ("addKP".equals(action)) {
+                    } else if ("addKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
                         //TODO: turn into async mode.
                         String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
                         ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
@@ -197,6 +197,13 @@ public class STest extends HttpServlet {
                             t.printStackTrace();
                             return null;
                         });
+                        App.sendFailed(ireason, sreason, response);
+                    } else if ("associate".equals(action)) {
+                        //TODO: turn into async mode.
+                        String kpid_s = request.getParameter("idkp");
+                        int kpid = Integer.parseInt(kpid_s);
+                        EKP kp = EKP.getByID_m(kpid);
+                        test.associate(kp, user);
                         App.sendFailed(ireason, sreason, response);
                     } else if ("deleteKP".equals(action)) {
                         id_s = request.getParameter("idkp");
