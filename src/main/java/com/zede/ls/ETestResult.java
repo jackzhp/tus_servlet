@@ -21,8 +21,10 @@ public class ETestResult implements Serializable {
     int testid; //when EKP is tested, which test is used to do the test.
 //    EKP kp;
 //    @Persistent
-    int //long 
-            lts; //granularity to be minute. 4085 years from 1970
+    /* granularity to be minute. 4085 years from 1970. when save and load use minute.
+    in memory, use milliseconds.
+     */
+    long lts;
 //    @Persistent
     boolean good;
 
@@ -43,7 +45,7 @@ public class ETestResult implements Serializable {
     void json(JsonGenerator g) throws IOException {
         g.writeStartObject();
         g.writeNumberField("testid", testid);
-        g.writeNumberField("lts", lts);
+        g.writeNumberField("lts", lts / (1000 * 60));
         g.writeBooleanField("good", good);
         g.writeEndObject();
     }
@@ -59,7 +61,7 @@ public class ETestResult implements Serializable {
                     if ("testid".equals(name)) {
                         testid = p.getValueAsInt();
                     } else if ("lts".equals(name)) {
-                        lts = p.getValueAsInt();
+                        lts = p.getValueAsInt() * 1000 * 60;
                     } else if ("good".equals(name)) {
                         good = p.getValueAsBoolean();
                     } else {

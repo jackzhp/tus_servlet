@@ -389,23 +389,25 @@ public class App {
             }
         }
 //user.pk="";
-        ELevelSystem sys = ELevelSystem.getByName("misc");
-        ELevel level = sys.previousLevel(2, 0);
-        user.setTarget(level);
-        user.save_cf().thenApply(tf -> {
-            System.out.println("EUser saved:" + user.getFileName());
-            return true;
-        }).exceptionally(t -> {
-            t.printStackTrace();
-            return true;
-        });
+        if (false) {
+            ELevelSystem sys = ELevelSystem.getByName("misc");
+            ELevel level = sys.previousLevel(2, 0);
+            user.setTarget(level);
+            user.save_cf().thenApply(tf -> {
+                System.out.println("EUser saved:" + user.getFileName());
+                return true;
+            }).exceptionally(t -> {
+                t.printStackTrace();
+                return true;
+            });
+        }
 
         getExecutor().schedule(() -> {
             System.out.println();
             try {
                 user.getTest(true).thenApply((ETest[] tests) -> {
                     if (tests.length == 0) {
-                        return false;
+                        return null;
                     }
                     ETest test = tests[0];
                     File f = test.getFile(false);
@@ -413,13 +415,13 @@ public class App {
                     if (tests.length > 1) {
                         System.out.println("will serve#1.2: " + tests[1].id);
                     }
-                    return true;
-                }).thenCompose(tf -> {
-                    if (tf == false) {
+                    return test;
+                }).thenCompose((ETest test) -> {
+                    if (test == null) {
                         throw new IllegalStateException("no test returned");
                     }
                     long lts = System.currentTimeMillis();
-                    int testid = 0;
+                    int testid = test.id;
                     int[] bads = App.getInts("");
                     //test.onTested(user, lts, bads);
                     return user.onTested(lts, testid, bads);

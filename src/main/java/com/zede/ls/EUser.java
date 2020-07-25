@@ -142,7 +142,7 @@ the KP's level is too low compared to the actual level, then its test result cou
          */
         if (good == false || shouldKeepTestResult(kp)) {
             ETestResult tr = new ETestResult();
-            tr.lts = (int) (lts / 1000 / 60); //to minutes
+            tr.lts = lts; // (int) (lts / 1000 / 60); //to minutes
             tr.testid = testid; //tr.kp = kp;//  tr.test = test;
             tr.good = good;
             addToUsed(tr);
@@ -152,7 +152,7 @@ the KP's level is too low compared to the actual level, then its test result cou
             if (kps == null) {
 //                tested = new ArrayList<>();
                 kps = new EKPscheduled();
-                kps.kp = kp; //kps.id = kpid;
+                kps.set(kp); //kps.kp = kp; //kps.id = kpid;
                 results.put(kpid, kps); //tested
             }
             kps.tested.add(tr);
@@ -431,8 +431,12 @@ the KP's level is too low compared to the actual level, then its test result cou
                                 name = p.getCurrentName();
                                 int kpid = Integer.parseInt(name);
                                 EKPscheduled kps = new EKPscheduled();
-                                results.put(kpid, kps);
+                                kps.kpid = kpid;
                                 kps.load(p);
+                                if (kps.kpid != kpid) {
+                                    throw new IllegalStateException("kpid " + kps.kpid + " unexpected " + kpid);
+                                }
+                                results.put(kpid, kps);
                             } else if (t == JsonToken.END_OBJECT) {
                                 break;
                             } else {
@@ -639,6 +643,15 @@ the KP's level is too low compared to the actual level, then its test result cou
                     if (sigCalculated.equals(sig)) {
                         String fn = me.getKey();
                         EUser user = EUser.getByFileName(fn);
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("after loaded, #of test results for 0:");
+                        EKPscheduled kps = user.results.get(0);
+                        if (kps != null) {
+                            sb.append(kps.tested.size());
+                        } else {
+                            sb.append("null");
+                        }
+                        System.out.println(sb.toString());
                         user.updateSchedule0();
                         return user;
                     } else {
@@ -819,6 +832,13 @@ the KP's level is too low compared to the actual level, then its test result cou
         Scheduler(Collection<EKPscheduled> values) {
             kpsRelevant.addAll(values);
             System.out.println("scheduler inited with " + kpsRelevant.size());
+            if (false) { //I have scheduled field saved, so I do not have to redo it at this time.
+                App.getExecutor().submit(() -> {
+                    for (EKPscheduled kps : values) {
+                        kps.updateSchedule();
+                    }
+                });
+            }
         }
 
         CompletableFuture<Boolean> set(ELevel level, boolean must) {
@@ -893,10 +913,16 @@ the KP's level is too low compared to the actual level, then its test result cou
         CompletableFuture<Boolean> schedule() {
             System.out.println("schedule level:" + level.levelString());
             Integer[] akpid = level.kps.toArray(new Integer[0]);
+            EKPscheduled kpst = new EKPscheduled();
             @SuppressWarnings("unchecked")
             CompletableFuture<Boolean>[] cfs = new CompletableFuture[akpid.length];
             for (int i = 0; i < cfs.length; i++) {
                 Integer kpid = akpid[i];
+                kpst.kpid = kpid;
+                if (kpsRelevant.contains(kpst)) {
+                    cfs[i] = CompletableFuture.completedFuture(true);
+                    continue;
+                }
                 cfs[i] = EKP.getByID_cf(kpid).thenCompose((EKP kp) -> {
                     EKPscheduled kps = new EKPscheduled();
                     kps.set(kp);
@@ -927,6 +953,8 @@ the KP's level is too low compared to the actual level, then its test result cou
         private void onSucceeded() {
             scheduled = kpsRelevant.toArray(new EKPscheduled[0]);
             System.out.println("eventually # scheduled:" + scheduled.length);
+            //TODO: do we have to sort them now?
+            shouldSortScheduled = true;
             running.set(false); //succeeded
             for (CompletableFuture<Boolean> cf : request) {
                 cf.complete(true);
@@ -1003,8 +1031,12 @@ the KP's level is too low compared to the actual level, then its test result cou
         CompletableFuture<Boolean> updateSchedule() {
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             try {
+                if (kpid == 0 || kpid == 97) {
+                    System.out.println(kpid + " # of tested:" + tested.size());
+                }
+
                 ltsScheduled = ForgettingCurve.getFor(EUser.this).scheduleWith(tested);
-                System.out.println("dt:" + (ltsScheduled - System.currentTimeMillis()));
+//                System.out.println("dt:" + (ltsScheduled - System.currentTimeMillis()));
                 shouldSortScheduled = true;
                 cf.complete(true);
             } catch (Throwable t) {
@@ -1070,6 +1102,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                                     }
                                     ETestResult tr = new ETestResult();
                                     tr.load(p);
+                                    tested.add(tr);
                                     addToUsed(tr);
                                 }
                             } else {
