@@ -39,7 +39,7 @@ import java.util.function.Function;
  *
  */
 //@PersistenceCapable
-public class EKP implements Comparable<EKP> {
+public class EKP implements Comparable<EKP>, OID {
 
 //    @PrimaryKey
 //    @Persistent(valueStrategy = IdGeneratorStrategy.INCREMENT)
@@ -99,6 +99,16 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         this.bundle = b;
 //        tests = new HashSet<>();
         this.isRedundant = b == null;
+    }
+
+    @Override
+    public int getID() {
+        return id;
+    }
+
+    @Override
+    public void setID(int id) {
+        this.id = id;
     }
 
     @Override
@@ -391,7 +401,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
             EKPbundle b = EKPbundle.getByID_m(id);
             wr = cached.get(id);
             if (wr == null) { //happened.
-                throw new IllegalStateException("this should not happen:" + id);
+                throw new IllegalStateException("missing EKP:" + id);
             }
             kp = wr.get();
         }
@@ -623,31 +633,46 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
      *
      * there is no point to return this list of EKP's without ETest.!
      */
-    static ArrayList<EKP> halfETest() throws IOException {
-        Function<EKP, Boolean> f = new FunctionHalfETest(true);
-        return filter(f);
+    static void halfETest(int repair, HashSet<EKP> halves) throws IOException {
+        Function<EKP, Boolean> f = new FunctionHalfETest(repair);
+        filter(f); //, halves
     }
 
     /**
      *
      * there is no point to return this list of EKP's without ETest.!
      */
-    static ArrayList<EKP> noETest() throws IOException {
-        Function<EKP, Boolean> f = (EKP kp) -> kp.withETest() == false;
-        return filter(f);
+    static void//HashSet<EKP> 
+            noETest(HashSet<EKP> set) throws IOException {
+        Function<EKP, Boolean> f = (EKP kp) -> {
+            boolean ret = kp.withETest() == false;
+            if (ret) {
+                set.add(kp);
+            }
+            return ret;
+        };
+//        return 
+        filter(f);
     }
 
     /*
-    this EKP does refer to ELevel, but which does not refer to this EKP.
+    this EKP does refer to ELevel, but which does not refer to this EKP. 
+its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to the ELevel).    
+    
+    if the default fix for this is true, the default for its reciprocal should be false.
+    
+    for the sake of consistency, I put its reciprocal here.
      */
-    static ArrayList<EKP> halfELevel(ELevelSystem sys) throws IOException { //TODO: ....
-        Function<EKP, Boolean> f = new FunctionHalfELevel(sys, true);
-        return filter(f);
+    static int //HashSet<EKP>
+            halfELevel(ELevelSystem sys, int repair, HashSet<Object> halves) throws IOException {
+        Function<EKP, Boolean> f = new FunctionHalfELevel(sys, repair, halves);
+        return filter(f); //, halvesKP
     }
 
-    static ArrayList<EKP> noELevel(ELevelSystem sys) throws IOException { //TODO: ....
-        Function<EKP, Boolean> f = new FunctionNoELevel(sys);
-        return filter(f);
+    static void//HashSet<EKP>
+            noELevel(ELevelSystem sys, HashSet<EKP> halves) throws IOException {
+        Function<EKP, Boolean> f = new FunctionNoELevel(sys, halves);
+        filter(f); //, halves
     }
 
     /**
@@ -888,10 +913,12 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         }
     }
 
-    static ArrayList<EKP> filter(Function<EKP, Boolean> f) throws IOException {
+    static int //HashSet<EKP>   //, HashSet<EKP> halves
+            filter(Function<EKP, Boolean> f) throws IOException {
+        int n = 0;
         File dir = App.dirKPs();
         String[] af = dir.list(App.ff_json);
-        ArrayList<EKP> kps = new ArrayList<>();
+//        HashSet<EKP> kps = new HashSet<>();
         for (String fn : af) {
             String[] as = fn.split("\\.");
             int id = Integer.parseInt(as[0]);
@@ -899,12 +926,16 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
 //            EKP kp = getByID_m(id);
             EKPbundle b = EKPbundle.getByID_m(id);
             for (EKP kp : b.kps) {
+//                if (f.apply(kp)) {
+//                    halves.add(kp);
+//                }
                 if (f.apply(kp)) {
-                    kps.add(kp);
+                    n++;
                 }
             }
         }
-        return kps;
+//        return halves;
+        return n;
     }
 
     boolean withETest() {
@@ -979,26 +1010,35 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
     static class FunctionNoELevel implements Function<EKP, Boolean> {
 
         private final ELevelSystem sys;
+        HashSet<EKP> set;
 
-        FunctionNoELevel(ELevelSystem sys) {
+        FunctionNoELevel(ELevelSystem sys, HashSet<EKP> set) {
             this.sys = sys;
+            this.set = set;
         }
 
         @Override
         public Boolean apply(EKP kp) {
-            return kp.getLevel(sys) == null;
+            boolean ret = kp.getLevel(sys) == null;
+            if (ret) {
+                set.add(kp);
+            }
+            return ret;
         }
-
     }
 
     static class FunctionHalfELevel implements Function<EKP, Boolean> {
 
         private final ELevelSystem sys;
-        boolean repair;
+        int repair = App.FixHalf_Reciprocol;
+        HashSet<Object> halves;
 
-        FunctionHalfELevel(ELevelSystem sys, boolean repair) {
+        FunctionHalfELevel(ELevelSystem sys, int repair, HashSet<Object> halves) {
             this.sys = sys;
-            this.repair = repair;
+            if (repair != 0) {
+                this.repair = repair;
+            }
+            this.halves = halves;
         }
 
         @Override
@@ -1008,8 +1048,12 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                 if (level.kps.contains(kp.id)) {
                     return false; //full relationship
                 } else {
-                    if (repair) {
+                    if (repair == App.FixHalf_Reciprocol) { //TODO: for this repair, I should log it for audio purpose: who and when did this.
                         level.kps.add(kp.id); //do repair
+                        halves.add(level);
+                    } else {
+                        kp.hmLevels.remove(sys);
+                        halves.add(kp);
                     }
                     return true;
                 }
@@ -1022,10 +1066,12 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
 
     static class FunctionHalfETest implements Function<EKP, Boolean> {
 
-        boolean repair;
+        int repair = App.FixHalf_Self;
 
-        FunctionHalfETest(boolean repair) {
-            this.repair = repair;
+        FunctionHalfETest(int repair) {
+            if (repair != 0) {
+                this.repair = repair;
+            }
         }
 
         @Override
@@ -1041,10 +1087,13 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                     if (test.contains(kp)) {
                     } else {
                         halftest++;
-                        if (repair) {
+                        if (repair == App.FixHalf_Reciprocol) {
                             System.out.println("repair " + test.id + " for " + kp.id);
                             test.add(kp);
                             test.save(20);
+                        } else { //App.FixHalf_Self
+                            kp.tests.remove(test);
+                            kp.save(30);
                         }
                     }
                 }

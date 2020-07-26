@@ -3,6 +3,7 @@ package com.zede.ls;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import static com.zede.ls.App.serve;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -11,6 +12,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Set;
 import javax.servlet.ServletException;
 import javax.servlet.ServletOutputStream;
@@ -18,6 +20,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import static com.zede.ls.App.jsonArrayIDs;
+import static com.zede.ls.App.serveKPs;
 
 /**
  * the user tells either all good. or failed on some EKP's.
@@ -129,11 +133,31 @@ public class STest extends HttpServlet {
 //                ArrayList<ETest> tests = ETest.ELevel_none(sys);
 //                serve(response, tests, action);
                 } else if ("nokp".equals(action)) {
-                    ArrayList<ETest> tests = ETest.EKP_none();
+                    HashSet<ETest> tests = new HashSet<>();
+                    ETest.EKP_none(tests);
                     serve(response, tests, action);
                 } else if ("halfkp".equals(action)) {
-                    ArrayList<ETest> tests = ETest.EKP_half();
-                    serve(response, tests, action);
+                    HashSet<ETest> tests = new HashSet<>();
+                    HashSet<EKP> kps = new HashSet<>();
+                    ETest.EKP_half(kps);//tests, App.FixHalf_Reciprocol);
+                    //for a ELevel refers to a ETest, but the ETest does not refer to the ELevel.
+                    // how should I fix the relationship?
+                    //   present them in test.html, let the user choose.
+                    // we list the EKP's referred by the ETest, and list EKP's that refers the ETest.
+                    // if autofix is indeed needed, then we changes only EkP's side. 
+                    HashSet<EKP> halvesKP = new HashSet<>();
+                    HashSet<ETest> halvesTest = new HashSet<>();
+                    System.out.println("\nwill fix relation between EKP & ETest");
+                    App.fix_EKP_ETest(halvesKP, halvesTest);
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    JsonGenerator g = App.getJSONgenerator(baos);
+                    g.writeStartObject();
+                    App.jsonArrayIDs(g, halvesTest, "tests");
+                    App.jsonArrayIDs(g, halvesKP, "kps");
+                    g.writeEndObject();
+                    g.flush();
+                    g.close();
+                    App.serve(response, baos);
                 } else {
                     ireason = -1;
                     sreason = "unknown action:" + action;
@@ -240,15 +264,16 @@ public class STest extends HttpServlet {
         return "Short description";
     }// </editor-fold>
 
-    static void serve(HttpServletResponse response, ArrayList<ETest> tests, String action) throws IOException {
+    static void serve(HttpServletResponse response, HashSet<ETest> tests, String action) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         JsonGenerator g = App.getJSONgenerator(baos);
         g.writeStartObject();
-        g.writeArrayFieldStart(action);
-        for (ETest test : tests) {
-            g.writeNumber(test.id);
-        }
-        g.writeEndArray();
+        App.jsonArrayIDs(g, tests, action);
+//        g.writeArrayFieldStart(action);
+//        for (ETest test : tests) {
+//            g.writeNumber(test.id);
+//        }
+//        g.writeEndArray();
         g.writeEndObject();
         g.flush();
         g.close();

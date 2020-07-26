@@ -42,8 +42,11 @@ public class Analyzer {
             if (false) {
                 a.run();
             }
+            if (false) {
+                a.modifyLevels_ETest();
+            }
             if (true) {
-                a.modifyLevels();
+                a.modifyLevels_EKPbundle();
             }
         } catch (Throwable t) {
             t.printStackTrace();
@@ -266,7 +269,7 @@ public class Analyzer {
         System.out.println("downloaded " + size + "/" + this.size);
     }
 
-    void modifyLevels() throws IOException {
+    private void modifyLevels_ETest() throws IOException {
         ELevelSystem sys = ELevelSystem.getByName("misc");// user.target.sys;
         level = ELevel.get_m(sys, grade);
         if (level.sys != sys) {
@@ -309,6 +312,9 @@ public class Analyzer {
     private ELevel getLevelID(String fnAudio) {
         String id_s = null;
         try {
+            if (fnAudio.indexOf('-') != -1) {
+                id_s = null;
+            }
             int iloc = fnAudio.indexOf('-');
             if (iloc == -1) {
                 return null;
@@ -322,6 +328,64 @@ public class Analyzer {
             t.printStackTrace();
             return null;
         }
+    }
+
+    private void modifyLevels_EKPbundle() throws IOException {
+        ELevelSystem sys = ELevelSystem.getByName("misc");// user.target.sys;
+        level = ELevel.get_m(sys, grade);
+        if (level.sys != sys) {
+            throw new IllegalStateException();
+        }
+
+        HashSet<EKP> changed = new HashSet<>();
+        int nchanged = 0;
+        File dir = App.dirKPs();
+        String[] afn = dir.list(App.ff_json);
+        for (String fn : afn) {
+            String[] as = fn.split("\\.");
+            String id_s = as[0];
+            Integer id = Integer.parseInt(id_s);
+            EKPbundle bundle = EKPbundle.getByID_m(id * EKPbundle.bundleSize);
+            System.out.println("bundle size:" + bundle.kps.size());
+            for (EKP kp : bundle.kps) {
+                StringBuilder sb = new StringBuilder();
+                sb.append(kp.id).append(": ");
+                ELevel lt = kp.hmLevels.get(sys);
+                if (lt != null) {
+                    sb.append(lt.levelString());
+                } else {
+                    sb.append("null");
+                }
+                sb.append(": ").append(kp.desc);
+                System.out.println(sb.toString());
+//                if (kp.id == 543) {
+//                    System.out.println(kp.id + ":" + kp.desc);
+//                }
+                ELevel levelt = getLevelID(kp.desc);
+                if (levelt != null) {
+                    nchanged++;
+                    if (kp.set(levelt)) {
+//                        System.out.println(kp.id + ":" + levelt.levelString() + ":" + kp.desc);
+                        changed.add(kp);
+                    }
+                }
+            }
+//            EKP kp = EKP.getByID_m(543, true);
+//            ELevel levelt = getLevelID(kp.desc);
+//            if (levelt != null) {
+//                System.out.println("found 543");
+//                nchanged++;
+//                if (kp.set(levelt)) {
+//                    System.out.println(kp.id + ":" + levelt.levelString() + ":" + kp.desc);
+//                    changed.add(kp);
+//                }
+//            }
+        }
+        System.out.println(nchanged + " # changed:" + changed.size());
+        for (EKP kp : changed) {
+//            kp.save(5);
+        }
+
     }
 
 }

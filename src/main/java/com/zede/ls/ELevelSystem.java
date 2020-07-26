@@ -8,10 +8,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /**
  *
@@ -319,6 +321,79 @@ public class ELevelSystem {
         } else {
             throw new IllegalStateException("expecting start object, but " + t);
         }
+    }
+
+    /*
+    a ELevel refers to an EKP, but which does not refer to the ELevel
+    
+     */
+    /**
+     *
+     * @param repair default: App.FixHalf_Self
+     * @return
+     * @throws IOException
+     */
+    int halfEKP(int repair, HashSet<ELevel> halves) throws IOException {
+        Function<ELevel, Boolean> f = new ELevel.FunctionHalfEKP(repair);
+        return filter(f, halves);
+//        return halves;
+    }
+
+    int filter(Function<ELevel, Boolean> f, HashSet<ELevel> halves) throws IOException {
+        int n = 0;
+        if (false) {
+            File dir = App.dirLevels();
+            String[] afn = dir.list(App.ff_json);
+            for (String fn : afn) {
+                String[] as = fn.split("\\.");
+                String name = as[0];
+                ELevelSystem sys = ELevelSystem.getByName(name);
+                for (ELevel level : sys.levels) {
+                    if (f.apply(level)) {
+                        halves.add(level);
+                    }
+                }
+            }
+        } else {
+            for (ELevel level : this.levels) {
+                if (f.apply(level)) {
+                    halves.add(level);
+                    n++;
+                }
+            }
+        }
+//        return kps;
+        return n;
+    }
+
+    static int fix_EKP_ELevel(String sysName, //HashSet<EKP> halvesKP, 
+            HashSet<ELevel> halvesLevel) throws IOException {
+        String[] afn = null;
+        if (sysName == null || sysName.isEmpty()) {
+            File dir = App.dirLevels();
+            afn = dir.list(App.ff_json);
+        } else {
+            afn = new String[]{sysName};
+        }
+//        HashSet<EKP> halvesKP = new HashSet<>();
+//        HashSet<ELevel> halvesLevel = new HashSet<>();
+        int n = 0;
+        for (String fn : afn) {
+            String[] as = fn.split("\\.");
+            String name = as[0];
+            ELevelSystem sys = ELevelSystem.getByName(name);
+            n += sys.fix_EKP_ELevel(halvesLevel); //halvesKP, 
+        }
+        return n;
+    }
+
+    //HashSet<EKP> halfKP, 
+    int fix_EKP_ELevel(HashSet<ELevel> halfLevel) throws IOException {
+        @SuppressWarnings("unchecked")
+        HashSet<Object> halvesLevel = (HashSet) halfLevel;
+        int n = EKP.halfELevel(this, App.FixHalf_Reciprocol, halvesLevel);
+        n += halfEKP(App.FixHalf_Self, halfLevel);
+        return n;
     }
 
 }

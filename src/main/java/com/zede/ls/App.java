@@ -58,8 +58,10 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class App {
 
+    final static int FixHalf_Self = 1;
+    final static int FixHalf_Reciprocol = 2;
     static String dirData = "/Users/yogi/jack/data/";
-    static File dirTests, dirKPs, dirUsers, dirLevels,dirAudio;
+    static File dirTests, dirKPs, dirUsers, dirLevels, dirAudio;
     static String dirJapanese = "/Users/yogi/jack/japanese"; //TODO: from config
 //    static EUser user1;// = new EUser(1);
 //    static PersistenceManagerFactory pmf = JDOHelper.getPersistenceManagerFactory("langs");
@@ -152,9 +154,10 @@ public class App {
         }
         return dirKPs;
     }
-    static File dirAudio(){
-        if(dirAudio==null){
-            dirAudio=new File(dirJapanese);
+
+    static File dirAudio() {
+        if (dirAudio == null) {
+            dirAudio = new File(dirJapanese);
         }
         return dirAudio;
     }
@@ -561,40 +564,17 @@ public class App {
     }
 
     private void auditETests() throws IOException {
-        ArrayList<ETest> tests;
+        HashSet<ETest> tests = new HashSet<>();
         System.out.println("will call noEKP");
-        tests = ETest.EKP_none();
+        ETest.EKP_none(tests);
         System.out.println("noKP #of tests:" + tests.size());
 //        STest.serve(null, tests, "nokp");
         serve(tests, "nokp");
         System.out.println("\nserved");
 
-        System.out.println("\nwill call halfEKP");
-        tests = ETest.EKP_half();
-        System.out.println("halfKP #of tests:" + tests.size());
-//        STest.serve(null, tests, "nokp");
-        serve(tests, "halfkp");
-        System.out.println("\nserved");
-
-        ELevelSystem sys = ELevelSystem.getByName("misc");
-        if (false) {
-            System.out.println("\nwill call noELevel");
-            tests = ETest.ELevel_none(sys);
-            System.out.println("nolevel #of tests:" + tests.size());
-//        STest.serve(null, tests, "nokp");
-            serve(tests, "nolevel");
-            System.out.println("\nserved");
-        }
-        System.out.println("\nwill call halfELevel");
-        tests = ETest.ELevel_half(sys);
-        System.out.println("halflevel #of tests:" + tests.size());
-//        STest.serve(null, tests, "nokp");
-        serve(tests, "halflevel");
-        System.out.println("\nserved");
-
     }
 
-    static void serve(ArrayList<ETest> tests, String action) throws IOException {
+    static void serve(HashSet<ETest> tests, String action) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         JsonGenerator g = App.getJSONgenerator(baos);
         g.writeStartObject();
@@ -610,48 +590,37 @@ public class App {
     }
 
     private void auditEKPs() throws IOException {
-        ArrayList<EKP> kps;
+        HashSet<EKP> halvesKP = new HashSet<>();
+        HashSet<ELevel> halvesLevel = new HashSet<>();
+        HashSet<ETest> halvesTest = new HashSet<>();
         System.out.println("will call noETest");
-        kps = EKP.noETest();
-        System.out.println("noETest #of KPs:" + kps.size());
+        EKP.noETest(halvesKP);
+        System.out.println("noETest #of KPs:" + halvesKP.size());
 //        STest.serve(null, tests, "nokp");
-        serveKPs(kps, "notest");
-        System.out.println("\nserved");
-
-        System.out.println("will call halfETest");
-        kps = EKP.halfETest();
-        System.out.println("halfETest #of KPs:" + kps.size());
-//        STest.serve(null, tests, "nokp");
-        serveKPs(kps, "halftest");
+        serveKPs(halvesKP, "notest");
         System.out.println("\nserved");
 
         ELevelSystem sys = ELevelSystem.getByName("misc");
-        System.out.println("will call halfELevel");
-        kps = EKP.halfELevel(sys);
-        System.out.println("halfELevel #of KPs:" + kps.size());
-//        STest.serve(null, tests, "nokp");
-        serveKPs(kps, "halflevel");
-        System.out.println("\nserved\n");
-
         System.out.println("will call noELevel");
-        kps = EKP.noELevel(sys);
-        System.out.println("NoELevel #of KPs:" + kps.size() + "\n");
+        EKP.noELevel(sys, halvesKP);
+        System.out.println("NoELevel #of KPs:" + halvesKP.size() + "\n");
 //        STest.serve(null, tests, "nokp");
-        serveKPs(kps, "nolevel");
+        serveKPs(halvesKP, "nolevel");
         System.out.println("\nserved");
-        ELevel level = sys.getLevel_m(1, 1);
-        if (kps.isEmpty()) {
-        } else {
-            EKP kp = kps.get(0);
-            kp.set(level);
-            kp.getBundle_m().save_cf().thenCompose(tf -> {
-                return sys.save_cf();
-            }).exceptionally(t -> {
-                t.printStackTrace();
-                return null;
-            });
+        if (false) {
+            ELevel level = sys.getLevel_m(1, 1);
+            if (halvesKP.isEmpty()) {
+            } else {
+                EKP kp = null;// halvesKP.get(0);
+                kp.set(level);
+                kp.getBundle_m().save_cf().thenCompose(tf -> {
+                    return sys.save_cf();
+                }).exceptionally(t -> {
+                    t.printStackTrace();
+                    return null;
+                });
+            }
         }
-
         HashMap<ELevel, Integer> histogram = EKP.levels(sys);
 //        Set<Map.Entry<ELevel, Integer>> s=histogram.entrySet();
         ELevel[] keys = histogram.keySet().toArray(new ELevel[0]);
@@ -666,18 +635,82 @@ public class App {
         }
     }
 
-    static void serveKPs(ArrayList<EKP> tests, String action) throws IOException {
+    static void serveKPs(HashSet<EKP> tests, String fname) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         JsonGenerator g = App.getJSONgenerator(baos);
         g.writeStartObject();
-        g.writeArrayFieldStart(action);
-        for (EKP test : tests) {
-            g.writeNumber(test.id);
-        }
-        g.writeEndArray();
+        jsonArrayIDs(g, tests, fname);
         g.writeEndObject();
         g.flush();
         g.close();
         System.out.write(baos.toByteArray());
     }
+
+    //TODO: all array of ID's should use this method.
+    static <T extends OID> void jsonArrayIDs(JsonGenerator g, HashSet<T> tests, String fname) throws IOException {
+        if (fname != null) {
+            g.writeArrayFieldStart(fname);
+        }
+        for (T test : tests) {
+            g.writeNumber(test.getID());
+        }
+        g.writeEndArray();
+    }
+
+    void fix_EKP_ETest_0() throws IOException {
+        HashSet<EKP> halvesKP = new HashSet<>();
+        HashSet<ETest> halvesTest = new HashSet<>();
+        System.out.println("\nwill fix relation between EKP & ETest");
+        fix_EKP_ETest(halvesKP, halvesTest);
+        System.out.println("halfKP #of tests:" + halvesTest.size());
+        serve(halvesTest, "halfkp");
+        System.out.println("halfETest #of KPs:" + halvesKP.size());
+        serveKPs(halvesKP, "halftest");
+    }
+
+    /*
+    for this relationship, we do not change ETest, we change only EKP.
+     */
+    static void fix_EKP_ETest(HashSet<EKP> halvesKP, HashSet<ETest> halvesTest) throws IOException {
+        EKP.halfETest(App.FixHalf_Self, halvesKP);
+        ETest.EKP_half(halvesKP); //, App.FixHalf_Reciprocol
+    }
+
+    void fix_EKP_ELevel_0() throws IOException {
+        HashSet<EKP> halvesKP = new HashSet<>();
+        HashSet<ELevel> halvesLevel = new HashSet<>();
+//        HashSet<ETest> halvesTest = new HashSet<>();
+
+        System.out.println("will fix relation between EKP & ELevel");
+        ELevelSystem.fix_EKP_ELevel("misc", halvesLevel); //, halvesKP
+        ELevelSystem sys = ELevelSystem.getByName("misc");
+        sys.fix_EKP_ELevel(halvesLevel); //halvesKP, 
+        System.out.println("halfELevel #of KPs:" + halvesKP.size());
+//        STest.serve(null, tests, "nokp");
+        serveKPs(halvesKP, "halflevel");
+
+    }
+
+    void fix_ETest_ELevel_0() throws IOException {
+        HashSet<EKP> halvesKP = new HashSet<>();
+        HashSet<ELevel> halvesLevel = new HashSet<>();
+        HashSet<ETest> halvesTest = new HashSet<>();
+
+        ELevelSystem sys = ELevelSystem.getByName("misc");
+        if (false) {
+            System.out.println("\nwill call noELevel");
+            ETest.ELevel_none(sys, halvesTest);
+            System.out.println("nolevel #of tests:" + halvesTest.size());
+//        STest.serve(null, tests, "nokp");
+            serve(halvesTest, "nolevel");
+            System.out.println("\nserved");
+        }
+        System.out.println("\nwill call halfELevel");
+        ETest.ELevel_half(sys, halvesLevel);
+        System.out.println("halflevel #of tests:" + halvesTest.size());
+//        STest.serve(null, tests, "nokp");
+        serve(halvesTest, "halflevel");
+        System.out.println("\nserved");
+    }
+
 }

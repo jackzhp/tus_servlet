@@ -30,7 +30,7 @@ import java.util.function.Function;
  *
  */
 //@PersistenceCapable
-public class ETest {
+public class ETest implements OID {
 
 //    @PrimaryKey
 //    @Persistent(valueStrategy = IdGeneratorStrategy.INCREMENT)
@@ -67,6 +67,16 @@ public class ETest {
 
     public ETest() {
         kps = new HashSet<>();// new ArrayList<>();// new HashSet<>();
+    }
+
+    @Override
+    public int getID() {
+        return id;
+    }
+
+    @Override
+    public void setID(int id) {
+        this.id = id;
     }
 
     @Override
@@ -569,30 +579,40 @@ public class ETest {
 
     /**
      */
-    static ArrayList<ETest> EKP_none() {
+    static void EKP_none(HashSet<ETest> halves) {
         ELevel levelRepair = ELevelSystem.getByName("misc").getLevel_m(1, 1);
         Function<ETest, Boolean> f = new FunctionEKPNone(levelRepair);
-        return filter(f);
+        filter(f); //, halves
     }
 
-    static ArrayList<ETest> EKP_half() {
-        Function<ETest, Boolean> f = new FunctionEKPHalf(true);
-        return filter(f);
+    @SuppressWarnings("unchecked") //HashSet<ETest> halvesTest,
+    static void EKP_half(HashSet<EKP> halvesKP) { //, int repair
+//        HashSet<OID> halves;
+//        if (repair == App.FixHalf_Self) {
+//            halves = (HashSet) halvesTest;
+//        } else if (repair == App.FixHalf_Reciprocol) { //must be this one
+//            halves = (HashSet) halvesKP;
+//        } else {
+//            throw new IllegalStateException("unknown repair:" + repair);
+//        }
+        Function<ETest, Boolean> f = new FunctionEKPHalf(halvesKP); //repair, 
+        filter(f); //, halves
     }
 
-    static ArrayList<ETest> filter(Function<ETest, Boolean> f) {
+    static void filter(Function<ETest, Boolean> f) { //, HashSet<ETest> halves
         File dir = App.dirTests();
         String[] af = dir.list(App.ff_json);
-        ArrayList<ETest> tests = new ArrayList<>(); //TODO: rename it.
+//        ArrayList<ETest> halves = new ArrayList<>(); //TODO: rename it.
         for (String fn : af) {
             String[] as = fn.split("\\.");
             int id = Integer.parseInt(as[0]);
             ETest test = loadByID_m(id);
-            if (f.apply(test)) {
-                tests.add(test);
-            }
+//            if (f.apply(test)) {
+//                halves.add(test);
+//            }
+            f.apply(test);
         }
-        return tests;
+//        return tests;
     }
 
     boolean withEKP() {
@@ -626,14 +646,28 @@ public class ETest {
     this method should not be used since I do not save levelsHighest.
     so all with none, and the highest level should be calculated.
      */
-    static ArrayList<ETest> ELevel_none(ELevelSystem sys) {
+    static void ELevel_none(ELevelSystem sys, HashSet<ETest> halves) {
+        //, halves
         Function<ETest, Boolean> f = new FunctionELevelNone(sys, true);
-        return filter(f);
+//        return 
+        filter(f);
     }
 
-    static ArrayList<ETest> ELevel_half(ELevelSystem sys) {
-        Function<ETest, Boolean> f = new FunctionELevelHalf(sys, true);
-        return filter(f);
+    static void //HashSet<ETest>
+            ELevel_half(ELevelSystem sys, //int repair, HashSet<ETest> halvesTest,
+                    HashSet<ELevel> halvesLevel) {
+        //, halves
+//        HashSet<OID> halves;
+//        if (repair == App.FixHalf_Self) {
+//            halves = (HashSet) halvesTest;
+//        } else if (repair == App.FixHalf_Reciprocol) {
+//            halves = (HashSet) halvesLevel;
+//        } else {
+//            throw new IllegalStateException("unknown repair:" + repair);
+//        }
+        Function<ETest, Boolean> f = new FunctionELevelHalf(sys, halvesLevel);//repair, halves);
+//        return
+        filter(f);
     }
 
     /**
@@ -722,11 +756,16 @@ public class ETest {
     static class FunctionELevelHalf implements Function<ETest, Boolean> {
 
         private final ELevelSystem sys;
-        private boolean repair;
+        private int repair = App.FixHalf_Reciprocol;
+        HashSet<ELevel> halves;
 
-        FunctionELevelHalf(ELevelSystem sys, boolean repair) {
+        FunctionELevelHalf(ELevelSystem sys, //int repair,
+                HashSet<ELevel> halves) {
             this.sys = sys;
-            this.repair = repair;
+//            if (repair != 0) {
+//                this.repair = repair;
+//            }
+            this.halves = halves;
         }
 
         @Override
@@ -736,9 +775,12 @@ public class ETest {
                 if (level.tests.contains(test.id)) {
                     return false;
                 } else {
-                    if (repair) {
+                    if (repair == App.FixHalf_Reciprocol) {
                         level.tests.add(test.id);
-                        level.sys.save(10);
+                        level.sys.save(10); //TODO: can be done when go through the HashSet later
+                        halves.add(level);
+                    } else {
+                        throw new IllegalStateException("repair should be fixing ELevel");
                     }
                     return true;
                 }
@@ -772,10 +814,15 @@ public class ETest {
 
     static class FunctionEKPHalf implements Function<ETest, Boolean> {
 
-        private boolean repair;
+        private int repair = App.FixHalf_Reciprocol; //change EKP, do not change ETest
+        HashSet<EKP> changed;// = new HashSet<>();
 
-        FunctionEKPHalf(boolean repair) {
-            this.repair = repair;
+        FunctionEKPHalf(//int repair,
+                HashSet<EKP> changed) {
+//            if (repair != 0) {
+//                this.repair = repair;
+//            }
+            this.changed = changed;
         }
 
         @Override
@@ -784,12 +831,20 @@ public class ETest {
                 return false;
             }
             int nhalf = 0;
-            for (EKP kp : test.kps) {
+            EKP[] a = test.kps.toArray(new EKP[0]);
+            for (EKP kp : a) {
                 if (kp.withETest(test)) {
                 } else {
                     nhalf++;
-                    if (repair) {
+                    if (repair == App.FixHalf_Reciprocol) { //default
                         kp.add(test);
+                        kp.save(20);
+                        changed.add(kp);
+                    } else {
+                        throw new IllegalStateException();
+//                        test.kps.remove(kp);
+//                        test.save(20);
+//                        changed.add(test);
                     }
                 }
             }

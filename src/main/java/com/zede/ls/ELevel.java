@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 //import javax.jdo.annotations.IdGeneratorStrategy;
 //import javax.jdo.annotations.PersistenceCapable;
 //import javax.jdo.annotations.Persistent;
@@ -156,9 +157,9 @@ instead, belong to the which which is the highest level of its EKP's.
     }
 
     private void parse(JsonParser p, HashSet<Integer> set) throws IOException {
-        if (idMinor == 15) {
-            System.out.println(this.levelString());
-        }
+//        if (idMinor == 15) {
+//            System.out.println(this.levelString());
+//        }
         JsonToken t = p.getCurrentToken();//.nextToken();
         if (t == JsonToken.START_ARRAY) {
             while (true) {
@@ -217,4 +218,54 @@ instead, belong to the which which is the highest level of its EKP's.
         kps.remove(id);
         sys.save(20);
     }
+
+    static class FunctionHalfEKP implements Function<ELevel, Boolean> {
+
+//        private final ELevelSystem sys;
+//        boolean repair; //should repair
+//        //we need another flag to tell how to repair.
+        int repair = App.FixHalf_Self; //1: do not touch the reciprocol(purge self). 2: do not touch self(fix the reciprocol)
+
+        FunctionHalfEKP(int repair) { //ELevelSystem sys, 
+//            this.sys = sys;
+            if (repair != 0) {
+                this.repair = repair;
+            } else {
+                //the default is used.
+            }
+        }
+
+        @Override
+        public Boolean apply(ELevel level) {
+//            ELevel level = kp.getLevel(sys);
+//            if (level != null) {
+            if (level.kps.isEmpty()) {
+                return false; //full relationship
+            } else {
+                int nhalf = 0;
+                Integer[] a = level.kps.toArray(new Integer[0]);
+                for (Integer kpid : a) {
+                    try {
+                        EKP kp = EKP.getByID_m(kpid, true);
+                        if (kp.getLevel(level.sys) != level) {
+                            nhalf++;
+                            if (repair == App.FixHalf_Self) { //TODO: for this repair, I should log it for audio purpose: who and when did this.
+                                level.kps.remove(kpid);
+                            } else {
+                                kp.set(level); //System.out.println("// ");
+                            }
+                        }
+                    } catch (Throwable t) {
+                        level.kps.remove(kpid);
+                    }
+                }
+                return nhalf > 0;
+            }
+//            } else {
+//                return false; //NOELevel
+//            }
+        }
+
+    }
+
 }

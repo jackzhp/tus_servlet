@@ -88,30 +88,81 @@ public class SKP extends HttpServlet {
             } else {
 //        EKP kp=null;
                 String action = request.getParameter("act");
-                ArrayList<EKP> kps = null;
-                if ("nolevel".equals(action)) {
+                HashSet<EKP> kps = new HashSet<>();
+                if ("kps".equals(action)) {
+                    String category = request.getParameter("c");
+                    if ("4level".equals(category)) {
+                        String sysName = request.getParameter("sys");
+                        ELevelSystem sys = ELevelSystem.getByName(sysName);
+                        String level_s = request.getParameter("level");
+                        if ("0.0".equals(level_s)) { //nolevel
+                            EKP.noELevel(sys, kps);
+                        } else {
+                            ELevel level = ELevel.get_m(sys, level_s);
+                            if (level != null) {
+//                                kps = new ArrayList<>(level.kps.size());
+                                for (Integer kpid : level.kps) {
+//TODO: level.kps might contain an EKP, but whose level is not ELevel. let's call them "missing" or "conflicts"
+//    how to deal with this?
+//  we list and present them(shows their levels)
+//   and allow the user to confirm their levels.
+
+                                    try {
+                                        EKP kp = EKP.getByID_m(kpid, true);
+                                        kps.add(kp); //true to ensure it is loaded from EKPbundle, rather than the one from ETest.
+                                    } catch (Throwable t) {
+                                        t.printStackTrace();
+                                    }
+                                }
+                            } else {
+                                throw new Exception("level is null for " + sysName + ":" + level_s);
+                            }
+                        }
+                    } else if ("notest".equals(category)) {
+                        EKP.noETest(kps);
+                    } else {
+                        throw new Exception("unknow category:" + category);
+                    }
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    JsonGenerator g = App.getJSONgenerator(baos);
+                    g.writeStartObject();
+                    g.writeStringField("category", category);
+                    g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
+                    HashSet<EKP> set = new HashSet<>();
+                    set.addAll(kps);
+                    json(g, set);
+                    g.writeEndObject(); //g.writeEndArray();
+                    g.writeEndObject();
+                    g.flush();
+                    g.close();
+                    App.serve(response, baos);
+                } else if ("fixHalfLevel".equals(action)) {
+                    //TODO: turn this into async mode
+//fix relation "half level"(EKP has refer to ELevel, but ELevel does not refer to the EKP)
                     String sysName = request.getParameter("sys");
-                    ELevelSystem sys = ELevelSystem.getByName(sysName);
-                    kps = EKP.noELevel(sys);
-                } else if ("notest".equals(action)) {
-                    kps = EKP.noETest();
+//                    HashSet<EKP> halvesKP = new HashSet<>();
+                    HashSet<ELevel> changed = new HashSet<>();
+                    int n = ELevelSystem.fix_EKP_ELevel(sysName, changed); //, halvesKP
+                    HashSet<ELevelSystem> set = new HashSet<>();
+                    for (ELevel level : changed) {
+                        set.add(level.sys);
+                    }
+                    for (ELevelSystem sys : set) {
+                        sys.save();
+                    }
+//                    App.sendFailed(ireason, sreason, response);
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    JsonGenerator g = App.getJSONgenerator(baos);
+                    g.writeStartObject();
+                    g.writeNumberField("fixed", n);
+                    g.writeNumberField("levels", changed.size());
+                    g.writeEndObject();
+                    g.flush();
+                    g.close();
+                    App.serve(response, baos);
                 } else {
-                    throw new Exception("should not get here");
-//            System.
+                    throw new Exception("unknow act:" + action);
                 }
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                JsonGenerator g = App.getJSONgenerator(baos);
-                g.writeStartObject();
-                g.writeStringField("category", action);
-                g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
-                HashSet<EKP> set = new HashSet<>();
-                set.addAll(kps);
-                json(g, set);
-                g.writeEndObject(); //g.writeEndArray();
-                g.writeEndObject();
-                g.flush();
-                g.close();
-                App.serve(response, baos);
             }
         } catch (Throwable t) {
             ireason = -1;
@@ -210,8 +261,7 @@ public class SKP extends HttpServlet {
                      * list those EKP's with desc starts with the target string.
                      */
                     
-                    
-                    
+
                 } else {
                     throw new Exception("unknown action:" + action);
                 }
