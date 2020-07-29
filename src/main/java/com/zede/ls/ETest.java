@@ -16,6 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 //import javax.jdo.PersistenceManager;
 //import javax.jdo.Transaction;
 //import javax.jdo.annotations.Element;
@@ -164,12 +166,29 @@ public class ETest implements OID {
     /**
      *
      * @param kp why not use kpid? since when this ETest is in the memory. the
-     * EKP must be in memory.
+     * EKP must be in memory. though it might be the one from this ETest, rather
+     * than the one from EKPbundle
      * @param user
+     * @return
      */
     public CompletableFuture<Boolean> deleteKP(EKP kp, EUser user) {
         //TODO: check user's role.
         kps.remove(kp);
+        //TODO: if the EKP is not used by any ETest, then delete the EKP.
+        return save_cf();
+    }
+
+    //do I need addKP_cf
+    public void addKP(EKP kp, EUser user) {
+        //TODO: check user's role.
+        kps.add(kp);
+        save(20);
+        //TODO: if the EKP is not used by any ETest, then delete the EKP.
+    }
+
+    public CompletableFuture<Boolean> addKP_cf(EKP kp, EUser user) {
+        //TODO: check user's role.
+        addKP(kp, user);
         //TODO: if the EKP is not used by any ETest, then delete the EKP.
         return save_cf();
     }
@@ -325,7 +344,19 @@ public class ETest implements OID {
     we do not save levelsHeight!
      */
     void onLevelChanged(EKP kp, ELevel level) {
-        highestLevel_cal(level.sys);
+        try {
+            ELevel hO = levelsHighest.get(level.sys);
+            ELevel h = highestLevel_cal(level.sys);
+            if (h != hO) {
+                if (hO != null) {
+                    hO.removeTest(this.id);
+                }
+                h.addTest(this.id);
+            }
+            save(30);
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
     }
 
     ELevel highestLevel_cal(ELevelSystem sys) {
@@ -686,7 +717,7 @@ public class ETest implements OID {
     }
 
     /**
-     * merge test into this Object.
+     * TODO: merge test into this Object.
      *
      * @param test
      */
@@ -700,8 +731,11 @@ public class ETest implements OID {
 
     //to merge remove into keep.
     void replace(EKP remove, EKP keep) {
-        kps.add(keep);
+        if (remove == keep) {
+            throw new IllegalArgumentException();
+        }
         kps.remove(remove);
+        kps.add(keep);
     }
 
     void json(JsonGenerator g) throws IOException {
@@ -729,6 +763,7 @@ public class ETest implements OID {
         g.writeEndObject();
     }
 
+    //TODO: this is not needed at all.
     static class FunctionELevelNone implements Function<ETest, Boolean> {
 
         private final ELevelSystem sys;
@@ -830,13 +865,20 @@ public class ETest implements OID {
             if (test.kps.isEmpty()) {
                 return false;
             }
-            int nhalf = 0;
+            int nhalf = 0, nchanged = 0;
             EKP[] a = test.kps.toArray(new EKP[0]);
             for (EKP kp : a) {
                 if (kp.withETest(test)) {
                 } else {
                     nhalf++;
-                    if (repair == App.FixHalf_Reciprocol) { //default
+                    if (repair == App.FixHalf_Reciprocol) {
+                        nchanged++;
+                        try {
+                            //default
+                            kp = EKP.getByID_m(kp.id, true);
+                        } catch (IOException ex) {
+                            throw new IllegalStateException(ex);
+                        }
                         kp.add(test);
                         kp.save(20);
                         changed.add(kp);
@@ -847,6 +889,9 @@ public class ETest implements OID {
 //                        changed.add(test);
                     }
                 }
+            }
+            if (nchanged > 0) {
+                test.save(20);
             }
             return nhalf > 0;
         }

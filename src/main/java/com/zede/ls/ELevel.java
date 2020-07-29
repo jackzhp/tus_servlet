@@ -219,6 +219,16 @@ instead, belong to the which which is the highest level of its EKP's.
         sys.save(20);
     }
 
+    void removeTest(int id) {
+        tests.remove(id);
+        sys.save(20);
+    }
+
+    void addTest(int id) {
+        tests.add(id);
+        sys.save(20);
+    }
+
     static class FunctionHalfEKP implements Function<ELevel, Boolean> {
 
 //        private final ELevelSystem sys;

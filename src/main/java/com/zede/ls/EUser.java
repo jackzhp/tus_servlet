@@ -70,7 +70,8 @@ between the actual and the target, there might be a huge gap.
      */
 //    TreeMap<ETestResult, ETestResult> testsUsed = new TreeMap<>(); //HashSet<ETestResult> testsUsed = new HashSet<>();
     HashMap<Integer, ETestResult> testsUsed = new HashMap<>(); //HashSet<ETestResult> testsUsed = new HashSet<>();
-    static int testsUsed_sizeMin = 10, testsUsed_sizeMax = 20;
+    static int testsUsed_sizeMin = 100, testsUsed_sizeMax = 120;
+    static float LevelThreshold = 0.75f;
 
     /*
 the KP's level is too low compared to the actual level, then its test result could be ommitted, unless
@@ -119,6 +120,43 @@ the KP's level is too low compared to the actual level, then its test result cou
 //            }
 //        }
 //    }
+    private void updateActualLevel() {
+        try {
+            Set<ELevel> s = levelTested.keySet();
+            ArrayList<ELevel> al = target.sys.levels;
+//            new ArrayList<>();
+//            for (ELevel level : s) {
+//                if (level.sys == target.sys) {
+//                    al.add(level);
+//                }
+//            }
+            ELevel[] a = al.toArray(new ELevel[0]);
+            Arrays.sort(a, target.sys.c);
+            boolean set = false;
+            for (int i = a.length - 1; i > 0; i--) {
+                ELevel level = a[i];
+                ELevelTested lt = levelTested.get(level);
+                if (lt != null) {
+                    //level threshold: t=75% good
+                    int total = lt.good + lt.bad;
+                    if (total * LevelThreshold >= lt.good) {//  good/(good+bad) < t
+                        //do not have enough good, so the user's level is lower than this
+                    } else { //the current level is the actual level.
+                        actual = level;
+                        set = true;
+                    }
+                }
+            }
+            if (set) {
+                System.out.println("actual level:" + actual.levelString());
+            } else {
+                actual = target.sys.getLevel_m(1, 1);// a[0];
+            }
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
+
     /**
      * when this is called, the test must be just accessed not long ago.
      *
@@ -133,6 +171,18 @@ the KP's level is too low compared to the actual level, then its test result cou
 //    public void onTested(long lts, EKP kp, ETest test, boolean good) {
     private EKPscheduled onTested(long lts, EKP kp, int testid, boolean good) {
         int kpid = kp.id;
+        ELevel level = kp.getLevel(target.sys);
+        ELevelTested lt = levelTested.get(level);
+        if (lt == null) {
+            lt = new ELevelTested(level);
+            levelTested.put(level, lt);
+        }
+        if (good) {
+            lt.good++;
+        } else {
+            lt.bad++;
+        }
+        updateActualLevel();
 //        onTested(lts,kp.id,good);
 //    }
 //    public void onTested(long lts, int kpid, boolean good) {
@@ -165,6 +215,7 @@ the KP's level is too low compared to the actual level, then its test result cou
     public CompletableFuture<Void> onTested(long lts, int testid, int[] bads) {
 //                ETest test = ETest.loadByID_m(testid);      
         return ETest.getByID_cf(testid).thenApply((ETest test) -> { //Compose
+
             return test.getKPs(); //test.getKPs_cf();
         }).thenCompose((EKP[] kps) -> {
             CompletableFuture[] cfs = new CompletableFuture[kps.length];
@@ -335,6 +386,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                         lt.parse(p);
                         levelTested.put(level, lt);
                     }
+                    continue;
                 } else if (t == JsonToken.END_OBJECT) {
                     break;
                 }
@@ -545,7 +597,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     }
                     if (actual != null) {
                         g.writeFieldName("levela");
-                        target.jsonSimple(g);
+                        actual.jsonSimple(g);
                     }
                     g.writeFieldName("levelTested");
                     jsonLevelTested(g);
@@ -619,11 +671,22 @@ the KP's level is too low compared to the actual level, then its test result cou
         });
         return cf;
     }
+    private boolean authenticated;
 
     static void deauthenticate(EUser user) {
-        if (user != null) {
-            users.remove(user.fn);
+        if (user == null) {
+            return;
         }
+        user.authenticated = false;
+        user.save_cf().thenAccept(tf -> {
+            if (user.authenticated) {
+            } else {
+                users.remove(user.fn);
+            }
+        }).exceptionally(t -> {
+            t.printStackTrace();
+            return null;
+        });
     }
 
     /*
@@ -643,6 +706,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     if (sigCalculated.equals(sig)) {
                         String fn = me.getKey();
                         EUser user = EUser.getByFileName(fn);
+                        user.authenticated = true;
                         StringBuilder sb = new StringBuilder();
                         sb.append("after loaded, #of test results for 0:");
                         EKPscheduled kps = user.results.get(0);
@@ -730,6 +794,7 @@ the KP's level is too low compared to the actual level, then its test result cou
             try {
                 user = EUser.getByFileName(fn);
             } catch (Throwable t) {
+                System.out.println("failed for:" + fn);
                 t.printStackTrace();
                 continue;
             }
@@ -803,10 +868,21 @@ the KP's level is too low compared to the actual level, then its test result cou
          */
         void parse(JsonParser p) throws IOException {
             JsonToken t = p.nextToken();
-            good = p.getValueAsInt();
-            t = p.nextToken();
-            bad = p.getValueAsInt();
-            t = p.nextToken();
+            if (t == JsonToken.START_OBJECT) {
+                t = p.nextToken(); //field name
+                t = p.nextToken(); //field value
+                good = p.getValueAsInt();
+                t = p.nextToken(); //field name
+                t = p.nextToken(); //field value
+                bad = p.getValueAsInt();
+                t = p.nextToken();
+                if (t == JsonToken.END_OBJECT) {
+                } else {
+                    throw new IllegalStateException("expecting end object, but " + t);
+                }
+            } else {
+                throw new IllegalStateException("expecting start object, but " + t);
+            }
         }
 
         void json(JsonGenerator g) throws IOException {
@@ -1048,6 +1124,13 @@ the KP's level is too low compared to the actual level, then its test result cou
         /* TODO: for performance, tests2 should be with only testid.
         is this possible?
          */
+        /**
+         *
+         *
+         * @param limit
+         * @param tests2
+         * @return
+         */
         private CompletableFuture<Boolean> filterTests(ELevel limit, ArrayList<ETest> tests2) {
             ELevelSystem sys = limit.sys;
             return getTests().thenApply((ETest[] tests) -> {
@@ -1063,9 +1146,9 @@ the KP's level is too low compared to the actual level, then its test result cou
                     }
                 }
 //                System.out.println("after filtered with level" + sys.name + "-" + limit.levelString() + ":" + tests.length);
-                if (tests2.isEmpty()) {
-                    tests2.add(tests[0]);
-                }
+//                if (tests2.isEmpty()) {
+//                    tests2.add(tests[0]); //TODO: java.lang.ArrayIndexOutOfBoundsException: 0
+//                }
                 return true;
             });
         }
@@ -1209,7 +1292,8 @@ the KP's level is too low compared to the actual level, then its test result cou
                     for (int i = i0; i >= 0; i--) {
                         ETest test = testsT.get(i);
 //                tr.testid = test.id;
-                        if (results.contains(test) || testsUsed.get(test.id) != null) {
+                        if (results.contains(test) //what does this mean? already in the results!
+                                || testsUsed.get(test.id) != null) { //is just tested?
                             testsT.remove(test);
                         } else {
 //                        testT = test;

@@ -45,8 +45,11 @@ public class Analyzer {
             if (false) {
                 a.modifyLevels_ETest();
             }
-            if (true) {
+            if (false) {
                 a.modifyLevels_EKPbundle();
+            }
+            if (true) {
+                a.resaveETests();
             }
         } catch (Throwable t) {
             t.printStackTrace();
@@ -330,8 +333,15 @@ public class Analyzer {
         }
     }
 
+    /*
+    EkP.desc with level info for ELevelSystem "misc"
+    
+    
+    
+     */
     private void modifyLevels_EKPbundle() throws IOException {
-        ELevelSystem sys = ELevelSystem.getByName("misc");// user.target.sys;
+        String sysName = "misc";
+        ELevelSystem sys = ELevelSystem.getByName(sysName);// user.target.sys;
         level = ELevel.get_m(sys, grade);
         if (level.sys != sys) {
             throw new IllegalStateException();
@@ -386,6 +396,41 @@ public class Analyzer {
 //            kp.save(5);
         }
 
+    }
+
+    /**
+     * why do I do this? since ETest contains EKP info, but the EKP info is out
+     * of date. so I load EKPs first, then I load ETest, and then save ETest,
+     * the EKP info inside ETest should be updated.
+     *
+     *
+     * @throws IOException
+     */
+    void resaveETests() throws IOException {
+        String sysName = "misc";
+        ELevelSystem sys = ELevelSystem.getByName(sysName);// user.target.sys;
+        level = ELevel.get_m(sys, grade);
+        if (level.sys != sys) {
+            throw new IllegalStateException();
+        }
+        File dir = App.dirKPs();
+        String[] afn = dir.list(App.ff_json);
+        for (String fn : afn) {
+            String[] as = fn.split("\\.");
+            String id_s = as[0];
+            Integer id = Integer.parseInt(id_s);
+            EKPbundle bundle = EKPbundle.getByID_m(id * EKPbundle.bundleSize);
+            System.out.println("bundle size:" + bundle.kps.size());
+        }
+        dir = App.dirTests();
+        afn = dir.list(App.ff_json);
+        for (String fn : afn) {
+            String[] as = fn.split("\\.");
+            String id_s = as[0];
+            Integer id = Integer.parseInt(id_s);
+            ETest test = ETest.loadByID_m(id);
+            test.save(0);
+        }
     }
 
 }

@@ -22,6 +22,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import static com.zede.ls.App.jsonArrayIDs;
 import static com.zede.ls.App.serveKPs;
+import static com.zede.ls.EKPbundle.json;
 
 /**
  * the user tells either all good. or failed on some EKP's.
@@ -132,6 +133,54 @@ public class STest extends HttpServlet {
 //                ELevelSystem sys = ELevelSystem.getByName(sysName);
 //                ArrayList<ETest> tests = ETest.ELevel_none(sys);
 //                serve(response, tests, action);
+                } else if ("tests".equals(action)) {
+                    HashSet<Integer> tests = new HashSet<>();
+                    String category = request.getParameter("c");
+                    if ("4level".equals(category)) {
+                        String sysName = request.getParameter("sys");
+                        ELevelSystem sys = ELevelSystem.getByName(sysName);
+                        String level_s = request.getParameter("level");
+                        if ("0.0".equals(level_s)) { //nolevel. this will not happen!
+//                            ETest.noELevel(sys, tests);
+                        } else { //TODO: this is not needed at all. 
+//                            ELevel level = ELevel.get_m(sys, level_s);
+//                            if (level != null) {
+////                                kps = new ArrayList<>(level.kps.size());
+//                                for (Integer kpid : level.tests) {
+////TODO: level.kps might contain an EKP, but whose level is not ELevel. let's call them "missing" or "conflicts"
+////    how to deal with this?
+////  we list and present them(shows their levels)
+////   and allow the user to confirm their levels.
+//
+//                                    try {
+//                                        EKP kp = EKP.getByID_m(kpid, true);
+//                                        tests.add(kp); //true to ensure it is loaded from EKPbundle, rather than the one from ETest.
+//                                    } catch (Throwable t) {
+//                                        t.printStackTrace();
+//                                    }
+//                                }
+//                            } else {
+//                                throw new Exception("level is null for " + sysName + ":" + level_s);
+//                            }
+                        }
+                    } else if ("nokp".equals(category)) {
+//                        EKP.noETest(tests);
+                    } else {
+                        throw new Exception("unknow category:" + category);
+                    }
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    JsonGenerator g = App.getJSONgenerator(baos);
+                    g.writeStartObject();
+                    g.writeStringField("category", category);
+                    g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
+//                    HashSet<EKP> set = new HashSet<>();
+//                    set.addAll(tests);
+//                    json(g, set);
+                    g.writeEndObject(); //g.writeEndArray();
+                    g.writeEndObject();
+                    g.flush();
+                    g.close();
+                    App.serve(response, baos);
                 } else if ("nokp".equals(action)) {
                     HashSet<ETest> tests = new HashSet<>();
                     ETest.EKP_none(tests);
@@ -213,7 +262,7 @@ public class STest extends HttpServlet {
                         String info = request.getParameter("info");
                         test.chgInfo(info, user);
                         App.sendFailed(ireason, sreason, response);
-                    } else if ("addKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
+                    } else if ("newKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
                         //TODO: turn into async mode.
                         String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
                         ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
@@ -240,12 +289,23 @@ public class STest extends HttpServlet {
                             return null;
                         });
                         App.sendFailed(ireason, sreason, response);
+                    } else if ("addKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
+                        id_s = request.getParameter("idkp");
+                        id = Integer.parseInt(id_s);
+                        EKP kp = EKP.getByID(id);
+                        test.addKP_cf(kp, user).thenAccept(tf -> {
+                        }).exceptionally(t -> {
+                            t.printStackTrace();
+                            return null;
+                        });
+                        App.sendFailed(ireason, sreason, response);
                     } else {
                         throw new Exception("unknown action:" + action);
                     }
                 }
             }
         } catch (Throwable t) {
+            t.printStackTrace();
             ireason = -1;
             sreason = "uncaught exception:" + t.getMessage();
         }

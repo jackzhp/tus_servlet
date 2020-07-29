@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /**
  *
@@ -395,7 +396,7 @@ public class EKPbundle {
                 if (t == JsonToken.FIELD_NAME) {
                     String name = p.getCurrentName();
                     int kpid = Integer.parseInt(name);
-                    if (kpid == 299||kpid==543) {
+                    if (kpid == 299 || kpid == 543) {
                         kpid++;
                         kpid--;
                     }
@@ -489,6 +490,50 @@ public class EKPbundle {
             cf.completeExceptionally(t);
         }
         return cf;
+    }
+
+    static CompletableFuture<Boolean> search_cf(Function<String, Boolean> search, HashSet<EKP> set) {
+        CompletableFuture<Boolean> cf = new CompletableFuture<>();
+        try {
+            search(search, set);
+            cf.complete(Boolean.TRUE);
+        } catch (Throwable t) {
+            cf.completeExceptionally(t);
+        }
+        return cf;
+    }
+
+    static void search(Function<String, Boolean> search, HashSet<EKP> set) {
+        File dir = App.dirKPs();
+        String[] fns = dir.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".json");
+            }
+        }); //if no filter, hidden files will be picked up.
+        Arrays.sort(fns);
+        for (String fn : fns) {
+            try {
+                File f = new File(dir, fn);
+                if (f.length() > 0) {
+                    String[] as = fn.split("\\.");
+                    if (as.length != 2) {
+                        //TODO:....
+                        throw new Exception(as.length + " not good file name:" + fn);
+                    } else {
+                        int id = Integer.parseInt(as[0]);
+                        EKPbundle b = getByID_m(id * bundleSize);
+                        for (EKP kp : b.kps) {
+                            if (search.apply(kp.desc)) {
+                                set.add(kp);
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+        }
     }
 
 }

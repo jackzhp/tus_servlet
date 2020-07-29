@@ -5,7 +5,7 @@
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <title>Test</title>
+        <title>Testing</title>
 
         <link rel="stylesheet" href="">
         <!--[if lt IE 9]>
@@ -22,6 +22,15 @@
                 width: 50px;
                 height: 50px;
             }
+#kpsLR {
+  float: left;
+  width: 100%;
+}
+#kpsL, #kpsR {
+  width: 50%;
+  float: left; 
+}
+
         </style>
         <script type="text/javascript" src="player.js"></script>        
 
@@ -40,7 +49,7 @@
         <h1>A test</h1>
 
 <!--        <button id="loadData"> load data </button> -->
-        <button id="presentTest" onclick="tester.presentTestNext()"> test </button>
+        <button id="presentTest" onclick="tester.presentTestNext()"> startTest </button>
 
         <!-- <button class="play">Play</button> 
         <button class="stop">Stop</button> stop is not needed  -->
@@ -88,8 +97,16 @@
             <button id="submitNew" onclick="tester.submitNew();">submit new</button>
             <button id="mergeSelected" onclick="tester.mergeSelected();">mergeSelected</button> 
             <button onclick="tester.newKP();">new KP</button>
-            <ul id="kps">
+            <div id="kpsLR">
+            <div id="kpsL">
+            <ul id="kpsA">
             </ul>
+            </div>
+            <div id="kpsR">
+            <ul id="kpsB">
+            </ul>
+            </div>
+            </div>
         </div>
         <br/>
         <br/>

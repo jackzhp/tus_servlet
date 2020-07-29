@@ -592,6 +592,9 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
      *
      */
     boolean set(ELevel level) {
+        if (this.isRedundant) {
+            throw new IllegalStateException("use getByID_m(id,true) to get this Object");
+        }
         ELevel lO = hmLevels.get(level.sys);
         if (lO != null) {
             if (lO.idMajor == level.idMajor && lO.idMinor == level.idMinor) {
@@ -790,8 +793,11 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
         }
         System.out.println("EKP to be merged:" + kpids);
         int[] akpid = App.getInts(kpids);
+        if (akpid.length <= 1) {
+            return CompletableFuture.completedFuture(null);
+        }
         int kpid = akpid[0];
-        EKP kp = EKP.getByID_m(kpid);
+        EKP kp = EKP.getByID_m(kpid, true);
 //        if (false) {
 //            for (int i = 1; i < akpid.length; i++) {
 //                int kpidt = akpid[i];
@@ -856,16 +862,17 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             HashSet<T> tests = new HashSet<>();
             for (int i = 1; i < akpid.length; i++) {
                 int kpidt = akpid[i];
-                EKP kpt = EKP.getByID_m(kpidt);
+                EKP kpt = EKP.getByID_m(kpidt, true);
                 T[] a = merger.f1.apply(kpt); //ETest[] a = mergeForETest(kpt);
                 tests.addAll(Arrays.asList(a));
             }
             @SuppressWarnings("unchecked")
             CompletableFuture<Boolean>[] acf = new CompletableFuture[tests.size()];
+            System.out.println("#should be saved:" + acf.length);
             int i = 0;//i<cf.length;i++
             for (T test : tests) {
 //            acf[i] = test.save_cf();
-                acf[i] = merger.f2.apply(test);// test.save_cf();
+                acf[i++] = merger.f2.apply(test);// test.save_cf();
             }
             return CompletableFuture.allOf(acf);
         } catch (Throwable t) {

@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.function.Function;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -88,8 +89,8 @@ public class SKP extends HttpServlet {
             } else {
 //        EKP kp=null;
                 String action = request.getParameter("act");
-                HashSet<EKP> kps = new HashSet<>();
                 if ("kps".equals(action)) {
+                    HashSet<EKP> kps = new HashSet<>();
                     String category = request.getParameter("c");
                     if ("4level".equals(category)) {
                         String sysName = request.getParameter("sys");
@@ -123,19 +124,7 @@ public class SKP extends HttpServlet {
                     } else {
                         throw new Exception("unknow category:" + category);
                     }
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    JsonGenerator g = App.getJSONgenerator(baos);
-                    g.writeStartObject();
-                    g.writeStringField("category", category);
-                    g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
-                    HashSet<EKP> set = new HashSet<>();
-                    set.addAll(kps);
-                    json(g, set);
-                    g.writeEndObject(); //g.writeEndArray();
-                    g.writeEndObject();
-                    g.flush();
-                    g.close();
-                    App.serve(response, baos);
+                    serve(response, category, kps);
                 } else if ("fixHalfLevel".equals(action)) {
                     //TODO: turn this into async mode
 //fix relation "half level"(EKP has refer to ELevel, but ELevel does not refer to the EKP)
@@ -148,7 +137,7 @@ public class SKP extends HttpServlet {
                         set.add(level.sys);
                     }
                     for (ELevelSystem sys : set) {
-                        sys.save();
+                        sys.save(0); //0 does not mean immediately since it is less than the minimum.
                     }
 //                    App.sendFailed(ireason, sreason, response);
                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -236,7 +225,7 @@ public class SKP extends HttpServlet {
                     String level_s = request.getParameter("level");
 //                ELevelSystem sys=ELevelSystem.getByName(sysName);
                     ELevel level = ELevel.get_m(sysName, level_s);//sys.getLevel_m(major, minor);
-                    EKP.getByID_cf(id).thenApply((EKP kp) -> {
+                    EKP.getByID_cf(id, true).thenApply((EKP kp) -> {
                         kp.set(level);
                         return true;
                     }).exceptionally((Throwable t) -> {
@@ -249,6 +238,8 @@ public class SKP extends HttpServlet {
                     EKP.merge(kpids).get();
                     App.sendFailed(ireason, sreason, response);
                 } else if ("searchKPs".equals(action)) { //TODO: not implemented yet.
+                    String s = request.getParameter("s");
+                    String[] as = s.split("AND");
                     /**
                      *
                      * the usual use case: when a user wants to create a new
@@ -260,13 +251,16 @@ public class SKP extends HttpServlet {
                      * Be noted, there is no point to list all EKP's. but we can
                      * list those EKP's with desc starts with the target string.
                      */
-                    
-
+                    ConditionSearch cs = new ConditionSearch(as);
+                    HashSet<EKP> kps = new HashSet<>();
+                    EKPbundle.search(cs, kps);
+                    serve(response, "search", kps);
                 } else {
                     throw new Exception("unknown action:" + action);
                 }
             }
         } catch (Throwable t) {
+            t.printStackTrace();
             ireason = -1;
             sreason = "uncaughted exception:" + t.getMessage();
         }
@@ -285,4 +279,42 @@ public class SKP extends HttpServlet {
         return "Short description";
     }// </editor-fold>
 
+    private void serve(HttpServletResponse response, String category, HashSet<EKP> kps) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        JsonGenerator g = App.getJSONgenerator(baos);
+        g.writeStartObject();
+        g.writeStringField("category", category);
+        g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
+        HashSet<EKP> set = new HashSet<>();
+        set.addAll(kps);
+        json(g, set);
+        g.writeEndObject(); //g.writeEndArray();
+        g.writeEndObject();
+        g.flush();
+        g.close();
+        App.serve(response, baos);
+    }
+
+    static class ConditionSearch implements Function<String, Boolean> {
+
+        String[] as;
+
+        ConditionSearch(String[] as) {
+            this.as = as;
+        }
+
+        @Override
+        public Boolean apply(String t) {
+            if (t == null) {
+                return false;
+            }
+            for (String s : as) {
+                if (t.contains(s)) {
+                } else {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
 }

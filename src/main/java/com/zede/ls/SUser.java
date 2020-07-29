@@ -178,16 +178,20 @@ public class SUser extends HttpServlet {
             String action = request.getParameter("act");// "result";
             if ("authenticate".equals(action)) { //copied from STest
 //                String username = request.getParameter("username");
-                EUser.deauthenticate(user);
-                session.removeAttribute("user");
+//                EUser.deauthenticate(user); //this is not needed!
                 String sig = request.getParameter("sig");
                 String pk = request.getParameter("pk");
                 @SuppressWarnings("unchecked")
                 HashMap<String, String> passes = (HashMap<String, String>) session.getAttribute("noncePasses");
                 String nonce = (String) session.getAttribute("nonceAuthenticating");
+                EUser userO = user;
                 user = EUser.authenticate(passes, nonce, pk, sig);
                 if (user != null) {
-                    session.setAttribute("user", user);
+                    if (user != userO) {
+                        session.setAttribute("user", user);
+                        //session.removeAttribute("user");
+                        EUser.deauthenticate(userO);
+                    }
                     App.sendFailed(ireason, sreason, response);
                 } else {
                     throw new Exception("not authenticated");
@@ -199,15 +203,21 @@ public class SUser extends HttpServlet {
                 } else {
                     if ("result".equals(action)) {
                         String id_s = request.getParameter("idtest");
-                        int testid = Integer.parseInt(id_s);
-//            EUser user = App.user1;//TODO: for temp  null; 
-                        //Set<EKP> bads = null; //from request.
                         String bads_s = request.getParameter("bads");
+                        int testid = Integer.parseInt(id_s);
                         int[] bads = App.getInts(bads_s);
                         long lts = System.currentTimeMillis();
-                        //test.onTested(user, lts, bads);
-                        user.onTested(lts, testid, bads);
-                        App.sendFailed(ireason, sreason, response);
+                        user.onTested(lts, testid, bads).thenAccept(v -> {
+                            //TODO: turn this into async mode.
+                            // now we can send the response.
+                        }).exceptionally(t -> {
+                            t.printStackTrace();
+                            return null;
+                        });
+//                        App.sendFailed(ireason, sreason, response);
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        user.prepareToServeLevel(baos);
+                        App.serve(response, baos);
                     } else if ("deauthenticate".equals(action)) { //copied from STest
 //                String username = request.getParameter("username");
                         EUser.deauthenticate(user);

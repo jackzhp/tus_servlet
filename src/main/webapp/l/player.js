@@ -451,7 +451,16 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     var self = this;
     var selected = self.getKPsSelected();
     var url = "kp?act=mergeKPs&kpids=" + selected;
-    self.postReq(url);
+    self.postReq(url).then(ojson => {
+      if (ojson.ireason != 0) {
+        throw new Error("result for mergeSelected:" + JSON.stringify(ojson));
+      } else {
+        self.updateTestInfo();
+      }
+    }).catch(e => {
+      console.log("exception 457:");
+      console.log(e);
+    });
   },
   selectAllKPs: function () {
     var self = this;
@@ -471,7 +480,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     var selected = self.getKPsSelected();
     var url = "user?act=result&idtest=" + self.testCurrent.id + "&bads=" + selected;
     if (false) {
-      self.postReq(url).then(tf => {
+      self.postReq(url).then(ojson => {
         return self.presentTestNext_do();
       }).catch(e => {
         console.log(e);
@@ -480,6 +489,9 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     } else {
       self.presentTestNext_do().then(tf => {
         return self.postReq(url);
+      }).then(ojson => {
+        user.olevels = ojson;
+        return user.updateLevelInfo();
       }).then(tf => {
         //TODO: I need an array of testid's. and then I load each ETest with its id.
         //   only with this approach can I do preload.
@@ -499,6 +511,10 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   },
   getKPsSelected: function () {
     var self = this;
+    if (self.testCurrent) {
+    } else {
+      alert("please click startTest");
+    }
     var selected = "";
     var first = true;
     for (var kpid in self.testCurrent.kps) {
@@ -535,8 +551,8 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
           if (ojson.ireason) {
             reject(url + " returns: " + JSON.stringify(ojson));
           } else {
-            console.log("authenticated");
-            resolve(true);
+            // console.log("succeeded");
+            resolve(ojson);
           }
         };
         // request.onFailed;  //TODO: ....
@@ -1040,7 +1056,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   clearTestInfo: function () {
     var e = document.querySelector('#info');
     e.innerHTML = "";//clear any info for previous test
-    e = document.querySelector('#kps');
+    e = document.querySelector('#kpsA');
     e.innerHTML = "";
   },
   presentTestInfo: function () {
@@ -1053,15 +1069,42 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     e.innerHTML = html; //.fn; //.pathPlaying;// player.pathCurrent;
     //now present those knowledge points
     //we will allow the user to tell us which points is newly learned.
-    var e = document.querySelector('#kps');
+    self.presentKPs(false, self.testCurrent.kps);
+  },
+  inLeftList: function (kpid) { //TODO: seems there is a function with better performance.
+    var self = this;
+    var okps = self.testCurrent.kps;
+    for (var kpidt in okps) {
+      if (kpid === kpidt) {
+        return true;
+      }
+    }
+    return false;
+  },
+  presentKPs: function (right, okps) {
+    var self = this;
+    var tag, eid
+    if (right) {
+      tag = "R"; eid = "kpsB";
+    } else {
+      tag = "L"; eid = "kpsA";
+    }
+    var e = document.querySelector('#' + eid);
     // e.innerHTML = "";
     html = "";
-    for (var kpid in self.testCurrent.kps) {
-      var kp = self.testCurrent.kps[kpid];
+    for (var kpid in okps) {
+      var kp = okps[kpid];
       console.log(kpid + ":" + kp);
       if (kp.deleted) { } else {
-        var eid = "kp" + kpid;
-        html += '<li id="li' + eid + '"><input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label><button onclick="tester.deleteKP(' + kpid + ')">Remove</button><button onclick="tester.editKP(' + kpid + ')">Edit</button> </li>';
+        var eid = "kp" + kpid; //+ tag. I do not need tag, since I can ensure there is only 1. the case that the same KP present on both sides will not happen.
+        var html0 = '<li id="li' + eid + '"><input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label>';
+        if (right) {
+          html0 += '<button onclick="tester.addKP(' + kpid + ')">Add</button><button onclick="tester.editKP(' + kpid + ')">Edit</button>';
+        } else {
+          html0 += '<button onclick="tester.deleteKP(' + kpid + ')">Remove</button><button onclick="tester.editKP(' + kpid + ')">Edit</button>';
+        }
+        html0 += '</li>';
+        html += html0;
       }
     }
     e.innerHTML = html;
@@ -1078,17 +1121,28 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     var e = document.querySelector("#testinfo");
     var info = e.value;
     var url = "test?act=chgInfo&idtest=" + self.testCurrent.id + "&info=" + encodeURIComponent(info);
-    self.postReq(url).then(tf => {
+    self.postReq(url).then(ojson => {
       self.updateTestInfo();
     }).catch(e => {
       console.log(e);
       alert(e);
     });
   },
+  /*
+  only to remove the relationship between ETest and EKP. the EKP is not removed from the system.
+  */
   deleteKP: function (kpid) {
     var self = this;
-    var url = "test?act=deleteKP&idtest=" + self.testCurrent.id + "&idkp=" + kpid;
-    self.postReq(url).then(tf => {
+    self.postToTestAndUpdate("deleteKP", kpid);
+  },
+  addKP: function (kpid) {
+    var self = this;
+    self.postToTestAndUpdate("addKP", kpid);
+  },
+  postToTestAndUpdate: function (act, kpid) {
+    var self = this;
+    var url = "test?act=" + act + "&idtest=" + self.testCurrent.id + "&idkp=" + kpid;
+    self.postReq(url).then(ojson => {
       self.updateTestInfo();
     }).catch(e => {
       console.log(e);
@@ -1097,18 +1151,44 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     var e = document.querySelector("#likp" + kpid);
     e.parentNode.removeChild(e);
   },
-  editKP: function (kpid) {
+  getEKPbyID: function (kpid) {
     var self = this;
     var kp = self.testCurrent.kps[kpid + ""];
+    if (kp) { } else {
+      kp = self.okpsR[kpid + ""];
+    }
+    return kp;
+  },
+  editKP: function (kpid) {
+    var self = this;
+    var kp = self.getEKPbyID(kpid);
     var e = document.querySelector("#likp" + kpid);
-    e.innerHTML = '<input type="text" id="kp' + kpid + '" value="' + kp.desc + '"/> <button onclick="tester.editKPdone(' + kpid + ')">Done</button>';
+    var sysName = user.levelSystem;
+    e.innerHTML = '<input type="text" id="kp' + kpid + '" value="' + kp.desc + '"/><input type="text" id="kplevel' + kpid + '" value="' + kp.levels[sysName] + '"/> <button onclick="tester.editKPdone(' + kpid + ')">Done</button>';
   },
   editKPdone: function (kpid) {
     var self = this;
     var e = document.querySelector("#kp" + kpid);
     var desc = e.value;
-    var url = "kp?act=chgKPdesc&idkp=" + kpid + "&desc=" + encodeURIComponent(desc);
-    self.postReq(url).then(tf => {
+    var kp = self.getEKPbyID(kpid);
+    if (desc === kp.desc) {
+      p = Promise.resolve({});
+    } else {
+      var url = "kp?act=chgKPdesc&idkp=" + kpid + "&desc=" + encodeURIComponent(desc);
+      p = self.postReq(url);
+    }
+    p = p.then(ojson => {
+      var el = document.querySelector("#kplevel" + kpid);
+      var ls = el.value;
+      var sysName = user.levelSystem;
+      if (ls === kp.levels[sysName]) {
+        return Promise.resolve({});
+      } else {
+        var url = "kp?act=chgKPlevel&idkp=" + kpid + "&sys=" + sysName + "&level=" + encodeURIComponent(ls);
+        return self.postReq(url);
+      }
+    });
+    p.then(ojson => {
       self.updateTestInfo();
     }).catch(e => {
       console.log(e);
@@ -1117,12 +1197,35 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   },
   newKP: function () {
     var self = this;
-    var ekps = document.querySelector("#kps");
+    var ekps = document.querySelector("#kpsA");
     var enew = document.createElement("li");
     enew.setAttribute("id", "likpnew");
     var kpid = "new";
     ekps.insertBefore(enew, ekps.children[0]);
-    enew.innerHTML = '<input type="text" id="kp' + kpid + '" value="description of the KP"/> <input type="text" id="kplevel' + kpid + '" value="1.1"/> <button onclick="tester.newKPdone()">Done</button>'; //\'' + kpid + '\'
+    enew.innerHTML = '<input type="text" id="kp' + kpid + '" value="description of the KP"/> <input type="text" id="kplevel' + kpid + '" value="1.1"/><button onclick="tester.searchKP()">Search</button> <button onclick="tester.newKPdone()">Add</button>'; //\'' + kpid + '\'
+  },
+  searchKP: function () {
+    var self = this;
+    var e = document.querySelector("#kpnew");
+    var desc = e.value;
+    var url = "kp?act=searchKPs&&s=" + encodeURIComponent(desc);
+    self.postReq(url).then(ojson => {
+      self.okpsR = ojson.kps;
+      var n0 = 0, n1 = 0;
+      for (var kpid in ojson.kps) {
+        n0++;
+        if (self.inLeftList(kpid)) {
+          delete ojson.kps[kpid];
+        } else {
+          n1++;
+        }
+      }
+      console.log(n0 + "->" + n1);
+      self.presentKPs(true, ojson.kps);
+    }).catch(e => {
+      console.log(e);
+      alert(e);
+    });
   },
   newKPdone: function () {
     //this KP might exist already, so I have to allow the user to choose one of the exists.
@@ -1131,8 +1234,8 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     var desc = e.value;
     var e = document.querySelector("#kplevelnew");
     var level = e.value;
-    var url = "test?act=addKP&idtest=" + self.testCurrent.id + "&desc=" + encodeURIComponent(desc) + "&level=" + encodeURIComponent(level);
-    self.postReq(url).then(tf => {
+    var url = "test?act=newKP&idtest=" + self.testCurrent.id + "&desc=" + encodeURIComponent(desc) + "&level=" + encodeURIComponent(level);
+    self.postReq(url).then(ojson => {
       self.updateTestInfo();
     }).catch(e => {
       console.log(e);
@@ -1224,6 +1327,8 @@ var user = {
         var pk = self.pkChosen;
         self.authenticate(pk, pass).then(tf => {
           return self.getLevelInfo();
+        }).then(tf => {
+          return self.updateLevelInfo();
         }).catch(t => {
           alert(t);
         });
@@ -1257,6 +1362,34 @@ var user = {
       }
     });
   },
+  updateLevelInfo: function () { //TODO: we can present test statistics
+    var self = this;
+    var ojson = self.olevels;
+    console.log(ojson);
+    if (ojson.target) {
+      self.levelSystem = ojson.target.sys;
+      var e = document.querySelector("#levelsys");
+      e.innerHTML = self.levelSystem;
+      self.targetMajor = ojson.target.major;
+      self.targetMinor = ojson.target.minor;
+      e = document.querySelector("#levelt");
+      e.innerHTML = self.targetMajor + "." + self.targetMinor;
+      e = document.querySelector("#levela");
+      if (ojson.actual) {
+        self.actualMajor = ojson.actual.major;
+        self.actualMinor = ojson.actual.minor;
+        e.innerHTML = self.actualMajor + "." + self.actualMinor;
+      } else {
+        e.innerHTML = "";
+        alert("your current actual level is unknown to us, we will auto find out as you do some tests");
+      }
+      if (ojson.tested) {
+        //the test statistics
+      }
+    } else {
+      alert("we do not know your target level");
+    }
+  },
   getLevelInfo: function () {
     var self = this;
     return new Promise((resolve, reject) => {
@@ -1271,26 +1404,7 @@ var user = {
             reject(url + " returns: " + JSON.stringify(ojson));
           } else {
             console.log(ojson);
-            if (ojson.target) {
-              self.levelSystem = ojson.target.sys;
-              var e = document.querySelector("#levelsys");
-              e.innerHTML = self.levelSystem;
-              self.targetMajor = ojson.target.major;
-              self.targetMinor = ojson.target.minor;
-              e = document.querySelector("#levelt");
-              e.innerHTML = self.targetMajor + "." + self.targetMinor;
-              e = document.querySelector("#levela");
-              if (ojson.actual) {
-                self.actualMajor = ojson.actual.major;
-                self.actualMinor = ojson.actual.minor;
-                e.innerHTML = self.actualMajor + "." + self.actualMinor;
-              } else {
-                e.innerHTML = "";
-                alert("your current actual level is unknown to us, we will auto find out as you do some tests");
-              }
-            } else {
-              alert("we do not know your target level");
-            }
+            self.olevels = ojson;
             //                        self.tests[0] = ojson; // request.response.tests;
             resolve(true);
           }

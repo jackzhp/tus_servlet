@@ -529,8 +529,23 @@ public class App {
                 app.auditEKPs();
                 return;
             }
-            if (true) {
+            if (false) {
                 app.initUser();
+            }
+            if (false) {
+                app.fix_EKP_ELevel_0();
+                return;
+            }
+            if (false) {
+                app.fix_EKP_ETest_0();
+                return;
+            }
+            if (false) {
+                app.fix_ETest_ELevel_0();
+                return;
+            }
+            if (true) {
+                app.merge("708,1036");
             }
         } catch (Throwable t) {
             t.printStackTrace();
@@ -664,7 +679,7 @@ public class App {
         fix_EKP_ETest(halvesKP, halvesTest);
         System.out.println("halfKP #of tests:" + halvesTest.size());
         serve(halvesTest, "halfkp");
-        System.out.println("halfETest #of KPs:" + halvesKP.size());
+        System.out.println("\nhalfETest #of KPs:" + halvesKP.size());
         serveKPs(halvesKP, "halftest");
     }
 
@@ -673,6 +688,7 @@ public class App {
      */
     static void fix_EKP_ETest(HashSet<EKP> halvesKP, HashSet<ETest> halvesTest) throws IOException {
         EKP.halfETest(App.FixHalf_Self, halvesKP);
+        System.out.println("when EKP is done:" + halvesKP.size());
         ETest.EKP_half(halvesKP); //, App.FixHalf_Reciprocol
     }
 
@@ -711,6 +727,15 @@ public class App {
 //        STest.serve(null, tests, "nokp");
         serve(halvesTest, "halflevel");
         System.out.println("\nserved");
+    }
+
+    private void merge(String kpids) throws IOException {
+        EKP.merge(kpids).thenAccept(v -> {
+
+        }).exceptionally(t -> {
+            t.printStackTrace();
+            return null;
+        });
     }
 
 }

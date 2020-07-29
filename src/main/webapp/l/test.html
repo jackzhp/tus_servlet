@@ -1,27 +1,68 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>TODO supply a title</title>
+        <title>Knowledge Points</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script type="text/javascript" src="tests.js"></script>        
+        <script type="text/javascript" src="test.js"></script>        
+        <style>
+            /* css for desktop */
+#kps {
+  float: left;
+  width: 100%;
+}
+#kpsL, #kpsR {
+  width: 50%;
+  float: left; 
+}
+        </style>
+            
     </head>
+    <body onload="init();">
 
-    <body onload="onload();">
-        <div>TODO write content</div>
-
-        <pre>
-        list ETest's without any EKP.
-        so we can add EKP to it. 
-
-if this is what intended, then this page is not needed, this can be embedded into player.html
-</pre>
-
-        this page, list all tests for for a given ELevel.
-          of course, we can associate EKP's with ETest's. but the key point is the ETest's for a given ELevel.
-          
-          and ETest can be designed(added) on this page.
+        <button onclick="g.listNoLevel();">list all EKP's without ELevel.</button>
 
 
+        and for each EKP, we can present their desc, and their ETest.
+        we can decide to merge any two of them, or delete any one of them,
+        or set(change) ELevel for any one of them.
+
+
+        there is no point to list EKP's without ETest.
+<br/>
+        choose a level system: <select id="select_sys" onchange="g.onSystemChosen();"></select>
+        <br/>
+        choose a level:<select id="select_level" onchange="g.onLevelChosen();"> </select> 
+<!--
+ 2 approaches to resolve the conflicts:
+<ol>
+<li>default: remove from this level, and ensure their levels containts those EKP's</li>
+<li>change their levels to this level.</li>
+</ol>
+-->        
+        <button onclick="g.autoFixRelELevel();">auto fix the relationship between knowledge points and levels</button>
+        <span id="infoShort"></span>
+        <br/>
+        <input type="text" id="searchKP"/><button onclick="g.searchKP();">Search</button>
+        <br/>
+ 
+
+        <br/>
+        <br/>
+        <br/>
+        <br/>
+        <div id="kps">
+        <div id="kpsL">
+        Knowledge Points in this level<br/>
+# of EKP with level conflicts:<span id="levelConflicts"></span>
+        <ul id="kpsA">
+        </ul>
+        </div>
+        <div id="kpsR">
+        search results:
+        <ul id="kpsB">
+        </ul>
+        </div>
+        </div>
     </body>
 </html>
