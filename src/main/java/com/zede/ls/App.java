@@ -529,8 +529,9 @@ public class App {
                 app.auditEKPs();
                 return;
             }
-            if (false) {
+            if (true) {
                 app.initUser();
+                return;
             }
             if (false) {
                 app.fix_EKP_ELevel_0();

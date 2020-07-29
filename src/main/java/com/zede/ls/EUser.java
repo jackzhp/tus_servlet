@@ -133,7 +133,25 @@ the KP's level is too low compared to the actual level, then its test result cou
             ELevel[] a = al.toArray(new ELevel[0]);
             Arrays.sort(a, target.sys.c);
             boolean set = false;
-            for (int i = a.length - 1; i > 0; i--) {
+            if (false) {
+                for (int i = a.length - 1; i > 0; i--) {
+                    ELevel level = a[i];
+                    ELevelTested lt = levelTested.get(level);
+                    if (lt != null) {
+                        //level threshold: t=75% good
+                        int total = lt.good + lt.bad;
+                        if (total * LevelThreshold >= lt.good) {//  good/(good+bad) < t
+                            //do not have enough good, so the user's level is lower than this
+                        } else { //the current level is the actual level.
+                            actual = level;
+                            set = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            ELevel lO = null;
+            for (int i = 0; i < a.length; i++) {
                 ELevel level = a[i];
                 ELevelTested lt = levelTested.get(level);
                 if (lt != null) {
@@ -141,10 +159,10 @@ the KP's level is too low compared to the actual level, then its test result cou
                     int total = lt.good + lt.bad;
                     if (total * LevelThreshold >= lt.good) {//  good/(good+bad) < t
                         //do not have enough good, so the user's level is lower than this
-                    } else { //the current level is the actual level.
-                        actual = level;
+                        actual = lO != null ? lO : level;
                         set = true;
-                        break;
+                    } else { //the current level is the actual level.
+                        lO = level;
                     }
                 }
             }
