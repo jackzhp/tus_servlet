@@ -144,6 +144,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     } else { //the current level is the actual level.
                         actual = level;
                         set = true;
+                        break;
                     }
                 }
             }
