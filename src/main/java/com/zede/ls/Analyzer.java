@@ -334,6 +334,7 @@ public class Analyzer {
     }
 
     /*
+    
     EkP.desc with level info for ELevelSystem "misc"
     
     
@@ -403,6 +404,9 @@ public class Analyzer {
      * of date. so I load EKPs first, then I load ETest, and then save ETest,
      * the EKP info inside ETest should be updated.
      *
+     *
+     * TODO: this method could and should be moved App. since this class is for
+     * stuff only for "misc" level system.
      *
      * @throws IOException
      */

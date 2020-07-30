@@ -205,8 +205,8 @@ instead, belong to the which which is the highest level of its EKP's.
         if (remove.id == keep.id) {
             throw new IllegalStateException();
         }
-        kps.add(keep.id);
         kps.remove(remove.id);
+        kps.add(keep.id);
     }
 
     void add(int id) {

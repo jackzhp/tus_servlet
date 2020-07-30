@@ -71,7 +71,7 @@ between the actual and the target, there might be a huge gap.
 //    TreeMap<ETestResult, ETestResult> testsUsed = new TreeMap<>(); //HashSet<ETestResult> testsUsed = new HashSet<>();
     HashMap<Integer, ETestResult> testsUsed = new HashMap<>(); //HashSet<ETestResult> testsUsed = new HashSet<>();
     static int testsUsed_sizeMin = 100, testsUsed_sizeMax = 120;
-    static float LevelThreshold = 0.75f;
+    static float LevelThreshold =0.9f; // 0.75f;
 
     /*
 the KP's level is too low compared to the actual level, then its test result could be ommitted, unless
@@ -167,7 +167,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                 }
             }
             if (set) {
-                System.out.println("actual level:" + actual.levelString());
+//                System.out.println("actual level:" + actual.levelString());
             } else {
                 actual = target.sys.getLevel_m(1, 1);// a[0];
             }
@@ -210,9 +210,15 @@ the KP's level is too low compared to the actual level, then its test result cou
         otherwise, for a high level user, we will keep too much low level info!
          */
         if (good == false || shouldKeepTestResult(kp)) {
-            ETestResult tr = new ETestResult();
+            ETestResult tr = testsUsed.get(testid);
+            if (tr != null && tr.testid != -1) {
+                tr = null;
+            }
+            if (tr == null) {
+                tr = new ETestResult();
+                tr.testid = testid; //tr.kp = kp;//  tr.test = test;
+            }
             tr.lts = lts; // (int) (lts / 1000 / 60); //to minutes
-            tr.testid = testid; //tr.kp = kp;//  tr.test = test;
             tr.good = good;
             addToUsed(tr);
 //            results.get(kpid);
@@ -224,6 +230,11 @@ the KP's level is too low compared to the actual level, then its test result cou
                 kps.set(kp); //kps.kp = kp; //kps.id = kpid;
                 results.put(kpid, kps); //tested
             }
+            kps.updateSchedule().thenAccept(tf -> {
+            }).exceptionally(t -> {
+                t.printStackTrace();
+                return null;
+            });
             kps.tested.add(tr);
             save(100); //since we are the server, continuously running, so 100 seconds should be good.
             return kps;
@@ -1361,6 +1372,12 @@ the KP's level is too low compared to the actual level, then its test result cou
                 results.remove(i);
             }
             ETest[] tests = results.toArray(new ETest[0]);
+            for (ETest test : tests) { //why do I need this? once I serve them, I do not serve them again immediately.
+                ETestResult tr = new ETestResult();
+                tr.testid = test.id;
+                tr.lts = -1;
+                addToUsed(tr);
+            }
             for (CompletableFuture<ETest[]> q : request) {
                 q.complete(tests);
             }

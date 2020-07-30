@@ -402,7 +402,7 @@ public class EKPbundle {
                     }
                     EKP kp = EKP.getByID(kpid);
                     t = p.nextToken();
-                    if (kp == null || kp.isRedundant) {
+                    if (kp == null || kp.isRedundant()) {
                         kp = new EKP(b);
                         kp.id = kpid;
                         kp.parse(p);
@@ -440,7 +440,7 @@ public class EKPbundle {
 //                throw new IllegalStateException("idFirst is not right:" + kpst[0].id + " not " + idFirst);
 //            }
             for (EKP kp : kpst) {
-                if (kp.isRedundant) {
+                if (kp.isRedundant()) {
                     kp = EKP.getByID(kp.id);
 //    throw new IllegalStateException();
                 }
@@ -534,6 +534,47 @@ public class EKPbundle {
                 t.printStackTrace();
             }
         }
+    }
+
+    static void distinctDesc() {
+        HashMap<String, EKP> kps = new HashMap<>();
+        File dir = App.dirKPs();
+        String[] fns = dir.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".json");
+            }
+        }); //if no filter, hidden files will be picked up.
+        Arrays.sort(fns);
+        int merged = 0;
+        for (String fn : fns) {
+            try {
+                File f = new File(dir, fn);
+                if (f.length() > 0) {
+                    String[] as = fn.split("\\.");
+                    if (as.length != 2) {
+                        //TODO:....
+                        throw new Exception(as.length + " not good file name:" + fn);
+                    } else {
+                        int id = Integer.parseInt(as[0]);
+                        EKPbundle b = getByID_m(id * bundleSize);
+                        for (EKP kp : b.kps) {
+                            EKP kpO = kps.get(kp.desc);
+                            if (kpO != null) {
+                                System.out.println("will merge:" + kp.desc);
+                                kpO.merge(kp);
+                                merged++;
+                            } else {
+                                kps.put(kp.desc, kp);
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+        }
+        System.out.println("merged:" + merged);
     }
 
 }

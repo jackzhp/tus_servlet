@@ -50,13 +50,32 @@ every referring to EKP, when do saving, should check this one.
 if this is not -1, then this variable should replace this.id.    
      */
     int replacedBy = -1;
-    boolean isDeleted, //the intention to be deleted, but not deleted only because other objects still referring to this EKP.
-            isIdle;//=true;  when an EKP is deleted, or merged with another one, it becomes idle.
+    int deleted; //512: isIdle, 256: isRedundant, 128: deleted
+//    boolean isDeleted, //the intention to be deleted, but not deleted only because other objects still referring to this EKP.
+//            isIdle;//=true;  when an EKP is deleted, or merged with another one, it becomes idle.
+
     /* the ones load from ETest should set this to true.
     any modification should be make to the object with this==false.
      */
-    boolean isRedundant;
+    final boolean isRedundant() {
+        return (deleted & 256) != 0;
+    }
 
+    final void setRedundant() {
+        deleted |= 256;
+    }
+
+    final boolean isIdle() {
+        return (deleted & 512) != 0;
+    }
+
+    final void setIdle() {
+        deleted |= 512;
+    }
+
+    final void setDeleted() {
+        deleted |= 128;
+    }
     /*
     TODO: this should be searchable with full text.
     kodo has this capability: 
@@ -98,7 +117,9 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
     public EKP(EKPbundle b) {
         this.bundle = b;
 //        tests = new HashSet<>();
-        this.isRedundant = b == null;
+        if (b == null) {
+            setRedundant();// this.isRedundant = b == null;
+        }
     }
 
     @Override
@@ -217,18 +238,13 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         this.bundle.set(this);
     }
 
-    void in(ETest test) {
-//        tests.add(test);
-        tests0.add(test.id);
-    }
-
     void json(JsonGenerator g) throws IOException {
         g.writeStartObject();
         //many other fields.
         g.writeNumberField("id", id);
         g.writeNumberField("replacedBy", replacedBy);
-        g.writeBooleanField("idle", isIdle);
-        g.writeBooleanField("deleted", isDeleted);
+//        g.writeBooleanField("idle", isIdle);
+        g.writeNumberField("deleted", deleted);//g.writeBooleanField("deleted", isDeleted);
         g.writeStringField("desc", desc);
         g.writeArrayFieldStart("tests");
         if (false) {
@@ -299,17 +315,17 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                         } else {
                             sreason = "expecting string value, but " + t;
                         }
-                    } else if ("idle".equals(name)) {
-                        isIdle = p.getBooleanValue();
-//                        if (t == JsonToken.VALUE_TRUE) {
-//                            isIdle = true;
-//                        } else if (t == JsonToken.VALUE_FALSE) {
-//                            isIdle = false;
-//                        } else {
-//                            sreason = "expecting boolean value, but " + t;
-//                        }
+                    } else if ("idle".equals(name)) { //ignore it.
+//                        isIdle = p.getBooleanValue();
+////                        if (t == JsonToken.VALUE_TRUE) {
+////                            isIdle = true;
+////                        } else if (t == JsonToken.VALUE_FALSE) {
+////                            isIdle = false;
+////                        } else {
+////                            sreason = "expecting boolean value, but " + t;
+////                        }
                     } else if ("deleted".equals(name)) {
-                        isDeleted = p.getBooleanValue();
+                        deleted = p.getValueAsInt();// isDeleted = p.getBooleanValue();
                     } else if ("tests".equals(name)) {
                         if (t != JsonToken.START_ARRAY) {
                             sreason = "expecting array value, but " + t;
@@ -388,7 +404,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         if (wr != null) {
             kp = wr.get();
             if (change) {
-                if (kp.isRedundant) {
+                if (kp.isRedundant()) {
                     kp = null;
                 } else {
                     if (kp.bundle == null) {
@@ -477,7 +493,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         if (wrO != null) {
             EKP kpO = wrO.get();
             if (kpO != null) {
-                if (kpO.isRedundant && kp.isRedundant == false) {
+                if (kpO.isRedundant() && kp.isRedundant() == false) {
                     cached.put(kp.id, wr);
                     App.getExecutor().submit(() -> {
                         //now, we have 2 objects for the same EKP. the one with isRedundant==true, and the other one ==false.
@@ -592,7 +608,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
      *
      */
     boolean set(ELevel level) {
-        if (this.isRedundant) {
+        if (this.isRedundant()) {
             throw new IllegalStateException("use getByID_m(id,true) to get this Object");
         }
         ELevel lO = hmLevels.get(level.sys);
@@ -737,19 +753,23 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
      *
      * @param kp
      */
-    void merge(EKP kp) {
+    CompletableFuture<Void> merge(EKP kp) throws IOException {
         //all referring to kp, now should referring to this EKP.
         //who are referring to the kp? ELevel, ETest, EUser.
         //the trouble is with EUser. when this EKP is referred by EUser, this EKP does not know it.
         //the relation between ELevel & EKP is reciprocal, so is between ETest & EKP
-
-        try {
-            kp.isDeleted = true;
-            kp.replacedBy = this.id;
-//        kp.delete(); //and then delete kp
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
+//        if (false) {
+//            try {
+//                kp.isDeleted = true;
+//                kp.replacedBy = this.id;
+////        kp.delete(); //and then delete kp
+//            } catch (Throwable t) {
+//                t.printStackTrace();
+//            }
+//            return null;
+//        }
+        int[] akpid = new int[]{this.id, kp.id};
+        return merge(akpid);
     }
 
     ETest[] mergeForETest(EKP kp) {
@@ -758,18 +778,20 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             test.replace(kp, this);
         }
         kp.tests.clear();
+//        kp.save(20);
+        //Be noted that I still can not delete EKP here.
         return atest;
     }
 
     ELevelSystem[] mergeForELevel(EKP kp) {
-        ELevelSystem[] asys = hmLevels.keySet().toArray(new ELevelSystem[0]);
-        Set<Map.Entry<ELevelSystem, ELevel>> s = hmLevels.entrySet();
+        ELevelSystem[] asys = kp.hmLevels.keySet().toArray(new ELevelSystem[0]);
+        Set<Map.Entry<ELevelSystem, ELevel>> s = kp.hmLevels.entrySet();
         for (Map.Entry<ELevelSystem, ELevel> me : s) {
-            ELevelSystem sys = me.getKey();
+//            ELevelSystem sys = me.getKey();
             ELevel level = me.getValue();
             level.replace(kp, this);
         }
-        hmLevels.clear();
+        kp.hmLevels.clear();
         return asys;
     }
 
@@ -793,11 +815,34 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
         }
         System.out.println("EKP to be merged:" + kpids);
         int[] akpid = App.getInts(kpids);
+        return merge(akpid);
+    }
+
+    static CompletableFuture<Void> merge(int[] akpid) throws IOException {
         if (akpid.length <= 1) {
             return CompletableFuture.completedFuture(null);
         }
-        int kpid = akpid[0];
-        EKP kp = EKP.getByID_m(kpid, true);
+        EKP kpt = null;
+        for (int i = 0; i < akpid.length; i++) {
+            try {
+                int kpid = akpid[i];
+                kpt = EKP.getByID_m(kpid, true);
+                if (kpt != null) {
+                    if (i != 0) {
+                        akpid[0] = kpid;
+                        akpid[i] = -1;
+                    }
+                    break;
+                }
+            } catch (Throwable t) {
+                t.printStackTrace();
+                akpid[i] = -1;
+            }
+        }
+        if (kpt == null) {
+            throw new IOException();
+        }
+        EKP kp = kpt;
 //        if (false) {
 //            for (int i = 1; i < akpid.length; i++) {
 //                int kpidt = akpid[i];
@@ -814,8 +859,53 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             }).thenCompose(v -> {
                 Merger<EUser> mergerUser = new MergerEUser(kp);
                 return merge_1(akpid, mergerUser);
+            }).thenAccept(v -> {
+                for (int i = 1; i < akpid.length; i++) {
+                    try {
+                        int kpidt = akpid[i];
+                        if (kpidt == -1) {
+                            continue;
+                        }
+                        EKP o = EKP.getByID_m(kpidt, true);
+                        if (o.delete()) {
+                        } else {
+                            throw new IllegalStateException("EKP#" + kpidt + " is still being used");
+                        }
+                    } catch (Throwable t) {
+                        t.printStackTrace();
+                    }
+                }
+
             });
         }
+    }
+
+    void replace(ETest remove, ETest keep) {
+        if (remove.id == keep.id) {
+            throw new IllegalArgumentException();
+        }
+        while (true) {
+            if (tests != null) {
+                tests.remove(remove);
+                tests.add(keep);
+                break;
+            } else {
+                ArrayList<Integer> al = tests0;
+                if (al != null) {
+                    boolean in = al.contains(keep.id);
+                    Integer iremove = remove.id;
+                    al.remove(iremove);
+                    if (in) {
+                    } else {
+                        al.add(keep.id);
+                    }
+                    if (tests0 != null) {
+                        break;
+                    }
+                }
+            }
+        }
+        save(10);
     }
 
     static class Merger<T> {
@@ -861,10 +951,17 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
         try {
             HashSet<T> tests = new HashSet<>();
             for (int i = 1; i < akpid.length; i++) {
-                int kpidt = akpid[i];
-                EKP kpt = EKP.getByID_m(kpidt, true);
-                T[] a = merger.f1.apply(kpt); //ETest[] a = mergeForETest(kpt);
-                tests.addAll(Arrays.asList(a));
+                try {
+                    int kpidt = akpid[i];
+                    if (kpidt == -1) {
+                        continue;
+                    }
+                    EKP kpt = EKP.getByID_m(kpidt, true);
+                    T[] a = merger.f1.apply(kpt); //ETest[] a = mergeForETest(kpt);
+                    tests.addAll(Arrays.asList(a));
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
             }
             @SuppressWarnings("unchecked")
             CompletableFuture<Boolean>[] acf = new CompletableFuture[tests.size()];
@@ -882,7 +979,7 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
         }
     }
 
-    void delete() {
+    boolean delete() {
         boolean referredByTest = false;
 //        ETest[] ots = tests;
         if (tests != null) {
@@ -911,13 +1008,14 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             ELevel level = me.getValue();
             used = used || level.kps.remove(id);
         }
-        this.isDeleted = true;
+        setDeleted(); //this.isDeleted = true;
         if (used) {
         } else {
             //now it is really safe to be deleted.
             // now we can set idle flag, so this id can be reused since this id is indeed not used at present.
-            this.isIdle = true;
+            this.setIdle(); //this.isIdle = true;
         }
+        return this.isIdle();
     }
 
     static int //HashSet<EKP>   //, HashSet<EKP> halves
@@ -971,14 +1069,19 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
     }
 
     void add(ETest test) {
-        if (tests != null) {
-            tests.add(test);
-        } else {
-            ArrayList<Integer> t0 = tests0;
-            if (t0 != null) {
-                t0.add(test.id);
-            } else {
+        while (true) {
+            if (tests != null) {
                 tests.add(test);
+                save(20);
+                break;
+            } else {
+                ArrayList<Integer> t0 = tests0;
+                if (t0 != null) {
+                    t0.add(test.id);
+                    if (tests0 != null) {
+                        break;
+                    }
+                }
             }
         }
     }

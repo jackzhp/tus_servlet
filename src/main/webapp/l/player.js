@@ -763,7 +763,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       }
     });
   },
-  updateTest: function () { //TODO: remove this function
+  updateTest: function (testid) { //TODO: remove this function
     var self = this;
     // return new Promise((resolve, reject) => {
     //   try {
@@ -787,16 +787,20 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     //     reject(e);
     //   }
     // });
-    return self.getTestInfo(self.testCurrent.id).then(ojson => {
+    return self.getTestInfo(testid).then(ojson => {
       // self.tests[0] = ojson; //this will cause self.testCurrent to be the next test again.
-      if (self.testCurrent.id == ojson.id) {
-        var dataAudio = self.testCurrent.dataAudio;
-        self.testCurrent = ojson;
-        if (dataAudio) {
-          ojson.dataAudio = dataAudio;
-          ojson.flagsLoad |= 256;
-        }
-      } else throw Error("id " + self.testCurrent.id + " is not expected:" + ojson.id);
+      var dataAudio = null;
+      if (self.testCurrent) {
+        if (self.testCurrent.id == ojson.id) {
+          dataAudio = self.testCurrent.dataAudio;
+        }// else throw Error("id " + self.testCurrent.id + " is not expected:" + ojson.id);
+      }
+      self.testCurrent = ojson;
+      ojson.flagsLoad |= 2; //info is loaded
+      if (dataAudio) {
+        ojson.dataAudio = dataAudio;
+        ojson.flagsLoad |= 256; //data is loaded
+      }
     });
   },
   getTestInfo: function (testid) {
@@ -1049,7 +1053,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   },
   updateTestInfo: function () {
     var self = this;
-    return self.updateTest().then(tf => {
+    return self.updateTest(self.testCurrent.id).then(tf => {
       self.presentTestInfo();
     });
   },
@@ -1252,7 +1256,38 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   //     alert(e);
   //   });
   // },
+  loadTest: function () {
+    var self = this;
+    var e = document.querySelector('#testid');
+    var testid = e.value;
+    console.log(testid);
+    self.updateTest(testid).then(tf => {
+      var otest = self.testCurrent;
+      //do I have to check tf? always true, otherwise rejected.
+      if (otest.dataAudio) {
+        otest.flagsLoad |= 256;
+        return Promise.resolve(otest.dataAudio);
+      } else
+        return self.getDataAudio(otest);
+    }).then(dataAudio => {
+      var otest = self.testCurrent;
+      otest.flagsLoad |= 256;
+      console.log((dataAudio instanceof ArrayBuffer) + " audio data:" + dataAudio + " " + (otest.flagsLoad & 258));
+      // self.testidLoading = -1;
+      // return self.preload();
+      return true;
+    }).then(tf => {
+      console.log("current:" + self.testCurrent.id);
+      return player.closeSource();
+    }).then(tf => {
+      self.presentTestInfo(); //self.clearTestInfo();
+      return player.decodeDataAndPlay(self.testCurrent.dataAudio);
+    }).catch(ex => {
+      console.log("exception 1274");
+      console.log(ex);
+    });
 
+  },
 };
 var user = {
   name: "jack",

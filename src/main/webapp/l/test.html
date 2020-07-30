@@ -7,11 +7,11 @@
         <script type="text/javascript" src="test.js"></script>        
         <style>
             /* css for desktop */
-#kps {
+#tests {
   float: left;
   width: 100%;
 }
-#kpsL, #kpsR {
+#testsL, #testsR {
   width: 50%;
   float: left; 
 }
@@ -43,24 +43,24 @@
         <button onclick="g.autoFixRelELevel();">auto fix the relationship between knowledge points and levels</button>
         <span id="infoShort"></span>
         <br/>
-        <input type="text" id="searchKP"/><button onclick="g.searchKP();">Search</button>
+        <input type="text" id="searchText"/><button onclick="g.searchKP();">Search Knowledge Points</button> <button onclick="g.searchTest();">Search test</button>
         <br/>
- 
-
-        <br/>
-        <br/>
+ <!-- <input type="text" id="searchText"/> -->
+ <button onclick="g.mergeTests();">Merge Selected Tests</button>
         <br/>
         <br/>
-        <div id="kps">
-        <div id="kpsL">
+        <br/>
+        <br/>
+        <div id="tests">
+        <div id="testsL">
         Knowledge Points in this level<br/>
 # of EKP with level conflicts:<span id="levelConflicts"></span>
-        <ul id="kpsA">
+        <ul id="testsA">
         </ul>
         </div>
-        <div id="kpsR">
-        search results:
-        <ul id="kpsB">
+        <div id="testsR">
+        search results:<span id="nLeft"></span> in left side, remains:<span id="nRight"></span>/<span id="nLR"></span>
+        <ul id="testsB">
         </ul>
         </div>
         </div>

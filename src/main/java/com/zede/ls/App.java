@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 //import javax.jdo.JDOHelper;
@@ -529,11 +530,11 @@ public class App {
                 app.auditEKPs();
                 return;
             }
-            if (true) {
+            if (false) {
                 app.initUser();
                 return;
             }
-            if (false) {
+            if (true) {
                 app.fix_EKP_ELevel_0();
                 return;
             }
@@ -546,7 +547,12 @@ public class App {
                 return;
             }
             if (true) {
-                app.merge("708,1036");
+                app.mergeEKPs();
+                return; 
+            }
+            if (true) {
+                app.mergeETests();
+                return;
             }
         } catch (Throwable t) {
             t.printStackTrace();
@@ -662,15 +668,37 @@ public class App {
         System.out.write(baos.toByteArray());
     }
 
-    //TODO: all array of ID's should use this method.
-    static <T extends OID> void jsonArrayIDs(JsonGenerator g, HashSet<T> tests, String fname) throws IOException {
+    static <T extends OID> int[] OIDtoPrimitive(HashSet<T> set) {
+        int[] ai = new int[set.size()];
+        int i = 0;
+        for (T test : set) {
+            ai[i++] = test.getID();
+        }
+        return ai;
+    }
+
+    static int[] IntegerToPrimitive(HashSet<Integer> set) {
+        int[] ai = new int[set.size()];
+        int i = 0;
+        for (Integer o : set) {
+            ai[i++] = o;
+        }
+        return ai;
+    }
+
+    static void jsonArrayIDs(JsonGenerator g, int[] tests, String fname) throws IOException {
         if (fname != null) {
             g.writeArrayFieldStart(fname);
         }
-        for (T test : tests) {
-            g.writeNumber(test.getID());
+        for (int test : tests) {
+            g.writeNumber(test);
         }
         g.writeEndArray();
+    }
+
+    //TODO: all array of ID's should use this method.
+    static <T extends OID> void jsonArrayIDs(JsonGenerator g, HashSet<T> tests, String fname) throws IOException {
+        jsonArrayIDs(g, OIDtoPrimitive(tests), fname);
     }
 
     void fix_EKP_ETest_0() throws IOException {
@@ -730,13 +758,46 @@ public class App {
         System.out.println("\nserved");
     }
 
-    private void merge(String kpids) throws IOException {
+    private void mergeEKPs() throws IOException {
+        if (true) {
+            EKPbundle.distinctDesc();
+            return;
+        }
+        String kpids;
+//                    kpids="547,751,853,955"; //708,1036
+        kpids = "925,1033"; //708,1036
         EKP.merge(kpids).thenAccept(v -> {
-
         }).exceptionally(t -> {
             t.printStackTrace();
             return null;
         });
+    }
+
+    private void mergeETests() {
+        ETest.distinctAudioFile();
+    }
+
+    static class ConditionSearch implements Function<String, Boolean> {
+
+        String[] as;
+
+        ConditionSearch(String[] as) {
+            this.as = as;
+        }
+
+        @Override
+        public Boolean apply(String t) {
+            if (t == null) {
+                return false;
+            }
+            for (String s : as) {
+                if (t.contains(s)) {
+                } else {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 
 }

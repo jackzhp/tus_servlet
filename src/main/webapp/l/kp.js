@@ -241,7 +241,25 @@ var g = {
             console.log("exception 239:");
             console.log(e);
         });
-
+        var url = "kp?act=searchKPs&&s=" + encodeURIComponent(desc);
+        self.postReq(url).then(ojson => {
+          self.okpsR = ojson.kps;
+          var n0 = 0, n1 = 0;
+          for (var kpid in ojson.kps) {
+            n0++;
+            if (self.inLeftList(kpid)) {
+              delete ojson.kps[kpid];
+            } else {
+              n1++;
+            }
+          }
+          console.log(n0 + "->" + n1);
+          self.presentKPs(true, ojson.kps);
+        }).catch(e => {
+          console.log(e);
+          alert(e);
+        });
+    
     },
 
 };

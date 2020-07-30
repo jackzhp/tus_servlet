@@ -48,7 +48,9 @@ public class ETest implements OID {
 
 //    @Persistent
     String info; //TODO: this is language(instruction) dependent. 
-    boolean isDeleted; //set at last step. when this is true, this ETest does not have to be saved.
+    //flags: 1: intended to be deleted.  32: it is safe to reuse this id.
+    int deleted; //boolean isDeleted; //set at last step. when this is true, this ETest does not have to be saved.
+    int idReplacedBy = -1; //I want to implement staged deletion, so I need this.
     /*
     if an ETest does not have any EKP, then 
     itself is just an EKP, i.e. the ETest contains only 1 EKP.
@@ -182,6 +184,7 @@ public class ETest implements OID {
     public void addKP(EKP kp, EUser user) {
         //TODO: check user's role.
         kps.add(kp);
+        kp.add(this);
         save(20);
         //TODO: if the EKP is not used by any ETest, then delete the EKP.
     }
@@ -200,6 +203,7 @@ public class ETest implements OID {
         return newKP_cf(desc, level, user);
     }
 
+    //TODO: newKP should not be in this class. in this class add(EKP) is enough.
     public EKP newKP(String desc, ELevel level, EUser user) {
         try {
 //TODO: in the future, I should check the KP should not a really new one.
@@ -207,7 +211,7 @@ public class ETest implements OID {
             EKP kp = new EKP(null);
             kp.newID();
             kp.desc = desc;
-            kp.in(this);
+            kp.add(this);
             kp.toBeApplied = true;
             kp.hmLevels.put(sys, level);
             kp.getBundle_m();
@@ -215,13 +219,6 @@ public class ETest implements OID {
         } catch (Throwable t) {
             throw new IllegalStateException(t);
         }
-    }
-
-    public void associate(EKP kp, EUser user) {
-        kp.in(this);
-        kps.add(kp); //Yes. use kps
-        kp.apply(); //TODO: to put it off, or at least check the role of the user.        
-        save(100);
     }
 
     /**
@@ -242,7 +239,7 @@ public class ETest implements OID {
             EKP kp = new EKP(null);
             kp.newID();
             kp.desc = desc;
-            kp.in(this);
+            kp.add(this);
             kp.toBeApplied = true;
             kp.hmLevels.put(sys, level);
             return kp.getBundle_m().save_cf().
@@ -460,7 +457,7 @@ public class ETest implements OID {
                             if (t == JsonToken.START_ARRAY) {
                                 EKP kp = new EKP(null);
                                 kp.parse(p);
-                                kp.isRedundant = true;
+                                kp.setRedundant();// = true;
                                 EKP.cache(kp);
                             } else {
                                 throw new IllegalStateException("expecting start object, but " + t);
@@ -472,7 +469,9 @@ public class ETest implements OID {
                     } else if ("id".equals(name)) {
                         id = p.getValueAsInt();
                     } else if ("deleted".equals(name)) {
-                        this.isDeleted = p.getValueAsBoolean();
+                        this.deleted = p.getValueAsInt();// p.getValueAsBoolean();
+                    } else if ("idReplaced".equals(name)) {
+                        this.idReplacedBy = p.getValueAsInt();// p.getValueAsBoolean();
                     } else {
                         String value = p.getValueAsString();
                         if ("fnAudio".equals(name)) {
@@ -719,14 +718,66 @@ public class ETest implements OID {
     /**
      * TODO: merge test into this Object.
      *
+     * whatever referred by test, should be referred by this ETest. EKP
+     *
+     * whatever is referring to test, should refer to this ETest. EKP, ELevel
+     *
      * @param test
      */
     void merge(ETest test) {
-
+        if (this.fnAudio == null) {
+            this.fnAudio = test.fnAudio;
+        } else {
+            if (this.fnAudio.equals(test.fnAudio)) {
+            } else {
+                throw new IllegalStateException(this.fnAudio + ":" + test.fnAudio);
+            }
+        }
+        test.idReplacedBy = this.id;
+        test.deleted = 1; //isDeleted = true;
+        ELevelSystem[] asys = ELevelSystem.syss.values().toArray(new ELevelSystem[0]);
+        for (ELevelSystem sys : asys) {
+            ELevel level = test.highestLevel(sys);
+            level.removeTest(test.id);
+            level = this.highestLevel(sys);
+            level.removeTest(this.id); //we remoe them first, later add them back
+        }
+        kps.addAll(test.kps);
+        for (ELevelSystem sys : asys) {
+            ELevel level = this.highestLevel(sys);
+            level.addTest(this.id); //now add them back.
+        }
+        EKP[] akp = test.kps.toArray(new EKP[0]);
+        for (EKP kp : akp) {
+            kp.replace(test, this);
+        }
+        test.kps.clear();
+        this.save(30);
+        test.save(29);
     }
 
-    static void distinctAudioFile() { //TODO: ....
-
+    static void distinctAudioFile() {
+        HashMap<String, ETest> tests = new HashMap<>();
+        File dir = App.dirTests();
+        String[] af = dir.list(App.ff_json);
+        int merged = 0;
+        for (String fn : af) {
+            String[] as = fn.split("\\.");
+            int id = Integer.parseInt(as[0]);
+            ETest test = loadByID_m(id);
+            if (test.deleted > 0) {
+                continue;
+            }
+            ETest testO = tests.get(test.fnAudio);
+            if (testO != null) {
+                System.out.println("will merge:" + test.fnAudio);
+                testO.merge(test);
+                merged++;
+            } else {
+                tests.put(test.fnAudio, test);
+            }
+        }
+        System.out.println("merged:" + merged);
     }
 
     //to merge remove into keep.
@@ -736,12 +787,14 @@ public class ETest implements OID {
         }
         kps.remove(remove);
         kps.add(keep);
+        save(20);
     }
 
     void json(JsonGenerator g) throws IOException {
         g.writeStartObject();
         g.writeNumberField("id", id);
-        g.writeBooleanField("deleted", isDeleted);
+        g.writeNumberField("deleted", deleted); //g.writeBooleanField("deleted", isDeleted);
+        g.writeNumberField("idReplaced", this.idReplacedBy); //g.writeBooleanField("deleted", isDeleted);
         g.writeStringField("fnAudio", fnAudio);
         g.writeStringField("fsha", fsha);
         g.writeStringField("info", info); //the key word of the record.
@@ -761,6 +814,19 @@ public class ETest implements OID {
             g.writeEndObject(); //g.writeEndArray();
         }
         g.writeEndObject();
+    }
+
+    static void search(App.ConditionSearch cs, HashSet<ETest> tests) {
+        File dir = App.dirTests();
+        String[] af = dir.list(App.ff_json);
+        for (String fn : af) {
+            String[] as = fn.split("\\.");
+            int id = Integer.parseInt(as[0]);
+            ETest test = loadByID_m(id);
+            if (cs.apply(test.info)) {
+                tests.add(test);
+            }
+        }
     }
 
     //TODO: this is not needed at all.

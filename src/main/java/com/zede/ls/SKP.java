@@ -233,7 +233,7 @@ public class SKP extends HttpServlet {
                         return null;
                     });
                     App.sendFailed(ireason, sreason, response);
-                } else if ("mergeKPs".equals(action)) {
+                } else if ("mergeKPs".equals(action)) { //TODO: why this sometimes, it works, but most of time does not work.
                     String kpids = request.getParameter("kpids");
                     EKP.merge(kpids).get();
                     App.sendFailed(ireason, sreason, response);
@@ -251,7 +251,7 @@ public class SKP extends HttpServlet {
                      * Be noted, there is no point to list all EKP's. but we can
                      * list those EKP's with desc starts with the target string.
                      */
-                    ConditionSearch cs = new ConditionSearch(as);
+                    App.ConditionSearch cs = new App.ConditionSearch(as);
                     HashSet<EKP> kps = new HashSet<>();
                     EKPbundle.search(cs, kps);
                     serve(response, "search", kps);
@@ -293,28 +293,5 @@ public class SKP extends HttpServlet {
         g.flush();
         g.close();
         App.serve(response, baos);
-    }
-
-    static class ConditionSearch implements Function<String, Boolean> {
-
-        String[] as;
-
-        ConditionSearch(String[] as) {
-            this.as = as;
-        }
-
-        @Override
-        public Boolean apply(String t) {
-            if (t == null) {
-                return false;
-            }
-            for (String s : as) {
-                if (t.contains(s)) {
-                } else {
-                    return false;
-                }
-            }
-            return true;
-        }
     }
 }

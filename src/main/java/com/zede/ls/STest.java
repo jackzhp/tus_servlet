@@ -3,6 +3,7 @@ package com.zede.ls;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import static com.zede.ls.App.OIDtoPrimitive;
 import static com.zede.ls.App.serve;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
@@ -168,19 +169,7 @@ public class STest extends HttpServlet {
                     } else {
                         throw new Exception("unknow category:" + category);
                     }
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    JsonGenerator g = App.getJSONgenerator(baos);
-                    g.writeStartObject();
-                    g.writeStringField("category", category);
-                    g.writeObjectFieldStart("kps"); //g.writeArrayFieldStart("kps");
-//                    HashSet<EKP> set = new HashSet<>();
-//                    set.addAll(tests);
-//                    json(g, set);
-                    g.writeEndObject(); //g.writeEndArray();
-                    g.writeEndObject();
-                    g.flush();
-                    g.close();
-                    App.serve(response, baos);
+                    serve(response, category, tests);
                 } else if ("nokp".equals(action)) {
                     HashSet<ETest> tests = new HashSet<>();
                     ETest.EKP_none(tests);
@@ -245,63 +234,78 @@ public class STest extends HttpServlet {
                 sreason = "not authenticated";
             } else {
                 String action = request.getParameter("act");// "result";
-                String id_s = request.getParameter("idtest");
-                int id = Integer.parseInt(id_s);
-                ETest test = ETest.loadByID_m(id); //getByID
-                if (test == null) {
-                    ireason = -1;
-                    sreason = "can not find the ETest#" + id_s;
-                } else {
 //        if ("result".equals(action)) { //this moved to SUser
 ////            EUser user = App.user1;//TODO: for temp  null; 
 //            Set<EKP> kps = null;
 //            long lts = System.currentTimeMillis();
 //            test.onTested(user, lts, kps);
 //        } else 
-                    if ("chgInfo".equals(action)) {
-                        String info = request.getParameter("info");
-                        test.chgInfo(info, user);
-                        App.sendFailed(ireason, sreason, response);
-                    } else if ("newKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
-                        //TODO: turn into async mode.
-                        String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
-                        ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
-                        test.newKP_cf(desc, level, user).exceptionally(t -> {
-                            t.printStackTrace();
-                            return null;
-                        });
-                        App.sendFailed(ireason, sreason, response);
-                    } else if ("associate".equals(action)) {
-                        //TODO: turn into async mode.
-                        String kpid_s = request.getParameter("idkp");
-                        int kpid = Integer.parseInt(kpid_s);
-                        EKP kp = EKP.getByID_m(kpid);
-                        test.associate(kp, user);
-                        App.sendFailed(ireason, sreason, response);
-                    } else if ("deleteKP".equals(action)) {
-                        id_s = request.getParameter("idkp");
-                        id = Integer.parseInt(id_s);
-                        EKP kp = EKP.getByID(id);
-                        test.deleteKP(kp, user).thenAccept(tf -> {
+                if ("chgInfo".equals(action)) {
+                    String info = request.getParameter("info");
+                    ETest test = getETest(request);
+                    test.chgInfo(info, user);
+                    App.sendFailed(ireason, sreason, response);
+                } else if ("newKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
+                    //TODO: turn into async mode.
+                    String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
+                    ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
+                    ETest test = getETest(request);
+                    test.newKP_cf(desc, level, user).exceptionally(t -> {
+                        t.printStackTrace();
+                        return null;
+                    });
+                    App.sendFailed(ireason, sreason, response);
+                } else if ("deleteKP".equals(action)) {
+                    String id_s = request.getParameter("idkp");
+                    int id = Integer.parseInt(id_s);
+                    EKP kp = EKP.getByID(id);
+                    ETest test = getETest(request);
+                    test.deleteKP(kp, user).thenAccept(tf -> {
 
-                        }).exceptionally(t -> {
-                            t.printStackTrace();
-                            return null;
-                        });
-                        App.sendFailed(ireason, sreason, response);
-                    } else if ("addKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
-                        id_s = request.getParameter("idkp");
-                        id = Integer.parseInt(id_s);
-                        EKP kp = EKP.getByID(id);
-                        test.addKP_cf(kp, user).thenAccept(tf -> {
-                        }).exceptionally(t -> {
-                            t.printStackTrace();
-                            return null;
-                        });
-                        App.sendFailed(ireason, sreason, response);
-                    } else {
-                        throw new Exception("unknown action:" + action);
-                    }
+                    }).exceptionally(t -> {
+                        t.printStackTrace();
+                        return null;
+                    });
+                    App.sendFailed(ireason, sreason, response);
+//                } else if ("associate".equals(action)) {
+//                    //TODO: turn into async mode.
+//                    String kpid_s = request.getParameter("idkp");
+//                    int kpid = Integer.parseInt(kpid_s);
+//                    EKP kp = EKP.getByID_m(kpid);
+//                    ETest test = getETest(request);
+//                    test.associate(kp, user);
+//                    App.sendFailed(ireason, sreason, response);
+                } else if ("addKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
+                    String id_s = request.getParameter("idkp");
+                    int id = Integer.parseInt(id_s);
+                    EKP kp = EKP.getByID(id);
+                    ETest test = getETest(request);
+                    test.addKP_cf(kp, user).thenAccept(tf -> {
+                    }).exceptionally(t -> {
+                        t.printStackTrace();
+                        return null;
+                    });
+                    App.sendFailed(ireason, sreason, response);
+                } else if ("searchTests".equals(action)) { //TODO: not implemented yet.
+                    String s = request.getParameter("s");
+                    String[] as = s.split("AND");
+                    /**
+                     *
+                     * the usual use case: when a user wants to create a new
+                     * EKP. and the user wants to avoid making many copies of
+                     * the same EKP(they can be merged), so the user wants to
+                     * find out the EKP they are trying to creating. so we have
+                     * to search for it.
+                     *
+                     * Be noted, there is no point to list all EKP's. but we can
+                     * list those EKP's with desc starts with the target string.
+                     */
+                    App.ConditionSearch cs = new App.ConditionSearch(as);
+                    HashSet<ETest> kps = new HashSet<>();
+                    ETest.search(cs, kps);
+                    serve(response, kps, "search");
+                } else {
+                    throw new Exception("unknown action:" + action);
                 }
             }
         } catch (Throwable t) {
@@ -325,10 +329,16 @@ public class STest extends HttpServlet {
     }// </editor-fold>
 
     static void serve(HttpServletResponse response, HashSet<ETest> tests, String action) throws IOException {
+        int[] ids = App.OIDtoPrimitive(tests);
+        serve(response, ids, action);
+    }
+
+    static void serve(HttpServletResponse response, int[] ids, String category) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         JsonGenerator g = App.getJSONgenerator(baos);
         g.writeStartObject();
-        App.jsonArrayIDs(g, tests, action);
+        g.writeStringField("category", category);
+        App.jsonArrayIDs(g, ids, "tests"); //originally this is category.
 //        g.writeArrayFieldStart(action);
 //        for (ETest test : tests) {
 //            g.writeNumber(test.id);
@@ -340,4 +350,18 @@ public class STest extends HttpServlet {
         App.serve(response, baos);
     }
 
+    private void serve(HttpServletResponse response, String category, HashSet<Integer> tests) throws IOException {
+        int[] ids = App.IntegerToPrimitive(tests);
+        serve(response, ids, category);
+    }
+
+    static ETest getETest(HttpServletRequest request) {
+        String id_s = request.getParameter("idtest");
+        int id = Integer.parseInt(id_s);
+        ETest test = ETest.loadByID_m(id); //getByID
+        if (test == null) {
+            throw new IllegalStateException("can not find the ETest#" + id_s);
+        }
+        return test;
+    }
 }
