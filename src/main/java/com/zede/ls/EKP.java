@@ -784,7 +784,7 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
      *
      * @param kp
      */
-    CompletableFuture<Void> merge(EKP kp) throws IOException {
+    CompletableFuture<Boolean> merge(EKP kp) throws IOException {
         //all referring to kp, now should referring to this EKP.
         //who are referring to the kp? ELevel, ETest, EUser.
         //the trouble is with EUser. when this EKP is referred by EUser, this EKP does not know it.
@@ -800,7 +800,7 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
 //            return null;
 //        }
         int[] akpid = new int[]{this.id, kp.id};
-        return merge(akpid);
+        return merge(akpid, -1);
     }
 
     ETest[] mergeForETest(EKP kp) {
@@ -840,20 +840,28 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
     if go around, for example, for each EKP,  go with ETest, ELevel, EUser.
        this way, we might load same ETest for more than once.
      */
-    static CompletableFuture<Void> merge(String kpids) throws IOException {
+    static CompletableFuture<Boolean> merge(String kpids, int testid) throws IOException {
         if (kpids == null) {
             throw new IllegalArgumentException();
         }
         System.out.println("EKP to be merged:" + kpids);
         int[] akpid = App.getInts(kpids);
-        return merge(akpid);
+        return merge(akpid, testid);
     }
 
-    static CompletableFuture<Void> merge(int[] akpid) throws IOException {
+    /**
+     *
+     * @param akpid
+     * @param testid could be -1
+     * @return
+     * @throws IOException
+     */
+    static CompletableFuture<Boolean> merge(int[] akpid, int testid) throws IOException {
         if (akpid.length <= 1) {
             return CompletableFuture.completedFuture(null);
         }
         EKP kpt = null;
+        //TODO: if akpid[0] does not give an EKP, I should throw exception?
         for (int i = 0; i < akpid.length; i++) {
             try {
                 int kpid = akpid[i];
@@ -890,7 +898,8 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             }).thenCompose(v -> {
                 Merger<EUser> mergerUser = new MergerEUser(kp);
                 return merge_1(akpid, mergerUser);
-            }).thenAccept(v -> {
+            }).thenCompose(v -> {
+                ETest test = ETest.loadByID_m(testid);
                 for (int i = 1; i < akpid.length; i++) {
                     try {
                         int kpidt = akpid[i];
@@ -898,6 +907,7 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
                             continue;
                         }
                         EKP o = EKP.getByID_m(kpidt, true);
+                        test.kps.remove(o);
                         if (o.delete()) {
                         } else {
                             throw new IllegalStateException("EKP#" + kpidt + " is still being used");
@@ -906,7 +916,7 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
                         t.printStackTrace();
                     }
                 }
-
+                return test.save_cf();
             });
         }
     }
@@ -978,6 +988,11 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
         }
     }
 
+    /*
+     * for EKP(i) -> T, we will use EKP(this) -> T.
+     * 
+     * but for EKP(i) <- T, we do not do anything, since we do not know those T.    
+     */
     static <T> CompletableFuture<Void> merge_1(int[] akpid, Merger<T> merger) {
         try {
             HashSet<T> tests = new HashSet<>();

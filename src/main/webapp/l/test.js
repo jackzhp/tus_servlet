@@ -8,7 +8,8 @@ var g = {
   levelChosen: null,
   okps: null, //not array, but an object. all KPs used by ETests on this page.
   okpsB: null,
-  otests: null, //all the tests at the left side
+  otests: null, //all the tests for levelChosen.
+  otestsA: null, //newly added, this is for the left side. otests is kept for all ETests of the level.
   otestsB: null, //all the tests at the right side, usually exclude those in the left.
   onSystemChosen: function (sys) {
     var self = this;
@@ -51,7 +52,8 @@ var g = {
     p.then(olevel => {
       if (olevel) {
         self.otests = self.id2object(olevel.tests);
-        self.presentTests(self.otests, "testsA");
+        self.otestsA = self.otests;
+        self.presentTests(self.otestsA, "testsA");
       } else {
         var e = document.querySelector('#testsA');
         e.innerHTML = "";
@@ -62,9 +64,9 @@ var g = {
   },
   inLeftList: function (testid) {
     var self = this;
-    var n = self.otests.length;
+    var n = self.otestsA.length;
     for (var i = 0; i < n; i++) {
-      if (self.otests[i].id === testid)
+      if (self.otestsA[i].id === testid)
         return true;
     }
     return false;
@@ -80,25 +82,40 @@ var g = {
     return -1;
   },
   presentTest: function (atests, idx, eid) {
+    var right = false; //TODO: .... in arguments.
     var self = this;
     var ekps = document.querySelector("#" + eid); //TODO: rename to etests
     var enew = document.createElement("li");
     var otest = atests[idx];
     var testid = otest.id;
-    while (ekps.children.length <= idx) {
+    if (false) { //dead loop here.
+      while (ekps.children.length <= idx) {
+        enew.setAttribute("id", "litest" + ekps.children.length);
+        ekps.append(enew);
+      }
+    } else { //we always do sequentially, so
+      if (ekps.children.length < idx) {
+        throw new Error(ekps.children.length + ":" + idx);
+      }
       enew.setAttribute("id", "litest" + ekps.children.length);
       ekps.append(enew);
     }
     //ekps.insertBefore(enew, ekps.children[0]);
     if (ekps.children.length > idx) {
-      enew.setAttribute("id", "litest" + idx);
-      ekps.children[idx] = enew;
+      // enew.setAttribute("id", "litest" + idx);
+      // ekps.children[idx] = enew;
+      enew = ekps.children[idx];
     }
     var eidkps = 'test' + testid + 'kps';
-    var html = testid + ' <span id="info' + testid + '">' + otest.info + '<button onclick="g.editTest(' + testid + ')">Edit</button></span><button onclick="g.mergeSelectedKPs(' + testid + ')">Merge</button>'; //\'' + kpid + '\'
+    var html = testid + ' <span id="info' + testid + '">' + otest.info + '<button onclick="g.editTest(' + testid + ')">Edit</button></span><button onclick="g.mergeSelectedKPs(' + testid + ')">Merge</button><button onclick="g.getAndUpdateTestInfo(' + testid + ')">Update</button>'; //\'' + kpid + '\'
+    if (self.isOnly1) {
+      html += '<button onclick="g.onlyMany()">many</button>';
+    } else {
+      html += '<button onclick="g.only1(' + testid + ')">only1</button>';
+    }
     html += '<br/><ul id="' + eidkps + '"></ul>';
     enew.innerHTML = html;
-    self.presentKPs(testid, eidkps, self.getKPs_o(otest.akps)); //otest.kps
+    self.presentKPs(testid, eidkps, self.getKPs_o(otest.akps), right); //otest.kps
   },
   editTest: function (testid) {
     var self = this;
@@ -114,7 +131,9 @@ var g = {
     var info = e.value;
     var url = "test?act=chgInfo&idtest=" + testid + "&info=" + encodeURIComponent(info);
     self.postReq(url).then(ojson => {
-      self.updateTestInfo(testid);
+      // self.presentTests(self.otestsA, "testsA");
+      // self.updateTestInfo(testid);
+      self.getAndUpdateTestInfo(testid);
     }).catch(e => {
       console.log(e);
       alert(e);
@@ -187,6 +206,8 @@ var g = {
     p.then(ojson => {
       console.log(ojson);
       return self.presentTest(atests, idx, eid);
+    },e=>{
+      return self.presentTest(atests, idx, eid);
     }).then(tf => {
       idx++;
       if (idx < atests.length) {
@@ -195,12 +216,16 @@ var g = {
       return true;
     }).catch(e => {
       console.log("exception:");
-      console.log(e);
-      self.getAndPresentTest(idx, eid);
+      // console.log(e);  //this get into dead loop?
+      idx++;
+      if (idx < atests.length) {
+        self.getAndPresentTest(atests, idx, eid);
+      }
     });
   },
-  //testid could be -1: not known yet
-  presentKPs: function (testid, eid, okps) { //this is almost same as player.js'  presentTestInfo
+  /* testid could be -1: when I search EKPs, they are not associated with any ETest.
+  */
+  presentKPs: function (testid, eid, okps, right) { //this is almost same as player.js'  presentTestInfo
     var self = this;
     var e = document.querySelector("#" + eid);
     if (e) { } else {
@@ -225,7 +250,18 @@ var g = {
           nConflicts++;
         }
         //
-        html += '<li id="li' + eid + '"><input type="checkbox" id="cb' + eid + '"/><label for="cb' + eid + '">' + kpid + ":" + level + '  ' + kp.desc + ' </label><button onclick="g.removeKP(' + testid + "," + kpid + ')">Remove</button><button onclick="g.editKP(' + testid + "," + kpid + ')">Edit</button><button onclick="g.changeLevel(' + kpid + ')">ChangeLevel</button> </li>';
+        var html0 = '<li id="li' + eid + '">';
+        if (right) { } else html0 += '<input type="checkbox" id="cb' + eid + '"/><label for="cb' + eid + '">';
+        html0 += kpid + ":" + level + '  ' + kp.desc;
+        if (right) {
+          html0 += '<button onclick="g.addKP(' + kpid + ')">Add</button>'; //<button onclick="tester.editKP(' + kpid + ')">Edit</button>
+        } else {
+          html0 += ' </label>';
+          html0 += '<button onclick="g.removeKP(' + testid + "," + kpid + ')">Remove</button><button onclick="g.editKP(' + testid + "," + kpid + ')">Edit</button>'; //<button onclick="g.changeLevel(' + kpid + ')">ChangeLevel</button>
+        }
+        html0 += '</li>';
+        html += html0;
+
       }
     }
     e.innerHTML = html;
@@ -236,15 +272,20 @@ var g = {
     var self = this;
     self.postToTestAndUpdate(testid, "deleteKP", kpid);
   },
-  addKP: function (testid, kpid) {
+  addKP: function (kpid) {
     var self = this;
+    if (self.isOnly1) { } else {
+      alert("please choose only1 in the left side");
+      return;
+    }
+    var testid = self.otestsA[0].id;
     self.postToTestAndUpdate(testid, "addKP", kpid);
   },
   postToTestAndUpdate: function (testid, act, kpid) {
     var self = this;
     var url = "test?act=" + act + "&idtest=" + testid + "&idkp=" + kpid;
     self.postReq(url).then(ojson => {
-      self.updateTestInfo(testid);
+      self.getAndUpdateTestInfo(testid);//self.updateTestInfo(testid);
     }).catch(e => {
       console.log(e);
       alert(e);
@@ -279,7 +320,7 @@ var g = {
     var self = this;
     var otest = self.getETestByID(testid);
     var selected = self.getKPsSelected(testid, otest.akps);
-    var url = "kp?act=mergeKPs&kpids=" + selected;
+    var url = "kp?act=mergeKPs&kpids=" + selected + "&idtest=" + testid;
     self.postReq(url).then(ojson => {
       if (ojson.ireason != 0) {
         throw new Error("result for mergeSelected:" + JSON.stringify(ojson));
@@ -348,41 +389,47 @@ var g = {
     });
   },
   autoFixRelELevelETest: function () {
-     
+    alert("do it at server side");
   },
   autoFixRelETestEKP: function () {
-
+    alert("do it at server side");
   },
+  //when this is called?
   onETest: function (ojson) {
-    var self = this;
-    var atests, idx;
-    atests = self.otests;
-    if (atests) {
-      idx = self.getTestIdxByID(ojson.id, atests);
-    } else idx = -1;
-    if (idx == -1) {
-      atests = self.otestsB;
-      idx = self.getTestIdxByID(ojson.id, atests);
-    }
-    if (idx == -1) {
-      alert("can not find ETest for id:" + ojson.id);
-      return;
-    }
-    if (atests[idx].id != ojson.id) {
+    try {
+      var self = this;
+      ojson.loaded = true;
+      ojson.akps = self.onKPs(ojson.kps);
+      ojson.kps = null;
+      var a = [self.otests, self.otestsA, self.otestsB];
+      var n = 0;
+      for (var i = 0; i < a.length; i++) {
+        var atests = a[i], idx;
+        if (atests) {
+          idx = self.getTestIdxByID(ojson.id, atests);
+          if (idx == -1) {
+            continue;
+          }
+          if (atests[idx].id != ojson.id) {
+            console.log(ojson);
+            throw new Error("id " + ojson.id + " not expected:" + atests[idx]);
+          }
+          atests[idx] = ojson;
+          n++;
+        }
+      }
+      if (n == 0)
+        alert("can not find ETest for id:" + ojson.id);
+    } catch (e) {
       console.log(ojson);
-      throw new Error("id " + ojson.id + " not expected:" + atests[idx]);
+      console.log(e);
     }
-    atests[idx] = ojson;
-    ojson.loaded = true;
-    ojson.akps = self.onKPs(ojson.kps);
-    ojson.kps = null;
   },
   getAndUpdateTestInfo: function (testid) {
     var self = this;
     var url = webPath + "test?act=test&testid=" + testid;
-    p = self.getFromServer(url).then(ojson => {
+    self.getFromServer(url).then(ojson => {
       if (ojson.ireason) {
-      } else {
         console.log("failed:" + ojson.sreason);
         return;
       }
@@ -393,7 +440,19 @@ var g = {
     }).catch(e => {
       console.log(e);
     });
-
+  },
+  only1: function (testid) {
+    var self = this;
+    self.isOnly1 = true;
+    var otest = self.getETestByID(testid);
+    self.otestsA = [otest];
+    self.presentTests(self.otestsA, "testsA");
+  },
+  onlyMany: function () {
+    var self = this;
+    self.isOnly1 = false;
+    self.otestsA = self.otests;
+    self.presentTests(self.otestsA, "testsA");
   },
   updateTestInfo: function (testid) {
     if (testid) {
@@ -402,7 +461,7 @@ var g = {
       }
     } else throw new Error("testid undefined");
     var self = this;
-    var atests = self.otests;
+    var atests = self.otestsA;
     var eid, idx = -1;
     if (atests) {
       eid = "testsA";
@@ -454,7 +513,7 @@ var g = {
       }
     });
   },
-  getFromServer: function (url) {
+  getFromServer: function (url) { //TODO: this is almost same as postReq
     var self = this;
     return new Promise((resolve, reject) => {
       try {
@@ -466,7 +525,11 @@ var g = {
         request.responseType = 'json';
         request.onload = function () {
           var res = request.response;
-          resolve(res);
+          if (res.ireason) {
+            reject("failed:" + res.sreason);
+          } else {
+            resolve(res);
+          }
         };
         // request.onFailed;  //TODO: ....
         request.send();
@@ -584,15 +647,31 @@ var g = {
     var self = this;
     var e = document.querySelector('#searchText');
     var s = e.value;
-    //TODO: save search history
     console.log(s);
-    //self.searchKP_do()
-    Promise.resolve(self.okps).then(ojson => {
-      self.okpsB = ojson;
-      return self.presentKPs(-1, 'testsB', self.okpsB);
+    //TODO: save search history
+    var url = "kp?act=searchKPs&&s=" + encodeURIComponent(s);
+    // Promise.resolve(self.okps).then(ojson => {
+    //   self.okpsB = ojson;
+    //   return self.presentKPs(-1, 'testsB', self.okpsB);
+    // }).catch(e => {
+    //self.searchKP_do("kp", s)  //TODO: searchKP_do is not needed, remove it.
+    self.postReq(url).then(ojson => { //self.postReq(url)
+      self.okpsR = ojson.kps;
+      var n0 = 0, n1 = 0;
+      for (var kpid in ojson.kps) {
+        n0++;
+        // if (self.inLeftList(kpid)) {
+        //   delete ojson.kps[kpid];
+        // } else 
+        {
+          n1++;
+        }
+      }
+      console.log(n0 + "->" + n1);
+      self.presentKPs(-1, "testsB", ojson.kps, true);
     }).catch(e => {
-      console.log("exception 239:");
       console.log(e);
+      alert(e);
     });
   },
   postReq: function (urlSuffix) { //if we do not care the result, this method can be used.
@@ -640,7 +719,7 @@ var g = {
       console.log(ojson);
       self.otestsB = ojson.tests;
       var n0 = ojson.tests.length, n1 = 0;
-      if (self.otests) {
+      if (self.otestsA) {
         for (var i = n0 - 1; i >= 0; i--) {
           var testid = ojson.tests[i];
           var a = [];
@@ -761,9 +840,10 @@ var g = {
         alert("failed:" + ojson.sreason);
         return;
       }
+      // asdf asdf       
       self.okps[kpid] = ojson;
       self.updateKPinfo(ojson);
-      if (levelChanged_test) {
+      if (levelChanged_test && levelNew !== self.levelChosen) {
         if (confirm("test's level has changed, once reload the test will go to level " + levelNew + ". reload?")) {
           self.onSystemChosen(self.sysChosen);
         }
@@ -781,29 +861,6 @@ var g = {
     var kpid = "new";
     ekps.insertBefore(enew, ekps.children[0]);
     enew.innerHTML = '<input type="text" id="kp' + kpid + '" value="description of the KP"/> <input type="text" id="kplevel' + kpid + '" value="1.1"/><button onclick="tester.searchKP()">Search</button> <button onclick="tester.newKPdone()">Add</button>'; //\'' + kpid + '\'
-  },
-  searchKP: function () {
-    var self = this;
-    var e = document.querySelector("#kpnew");
-    var desc = e.value;
-    var url = "kp?act=searchKPs&&s=" + encodeURIComponent(desc);
-    self.postReq(url).then(ojson => {
-      self.okpsR = ojson.kps;
-      var n0 = 0, n1 = 0;
-      for (var kpid in ojson.kps) {
-        n0++;
-        if (self.inLeftList(kpid)) {
-          delete ojson.kps[kpid];
-        } else {
-          n1++;
-        }
-      }
-      console.log(n0 + "->" + n1);
-      self.presentKPs(true, ojson.kps);
-    }).catch(e => {
-      console.log(e);
-      alert(e);
-    });
   },
   newKPdone: function () {
     //this KP might exist already, so I have to allow the user to choose one of the exists.
@@ -826,32 +883,8 @@ var g = {
     var e = document.querySelector('#testid');
     var testid = e.value;
     console.log(testid);
-    self.updateTest(testid).then(tf => {
-      var otest = self.testCurrent;
-      //do I have to check tf? always true, otherwise rejected.
-      if (otest.dataAudio) {
-        otest.flagsLoad |= 256;
-        return Promise.resolve(otest.dataAudio);
-      } else
-        return self.getDataAudio(otest);
-    }).then(dataAudio => {
-      var otest = self.testCurrent;
-      otest.flagsLoad |= 256;
-      console.log((dataAudio instanceof ArrayBuffer) + " audio data:" + dataAudio + " " + (otest.flagsLoad & 258));
-      // self.testidLoading = -1;
-      // return self.preload();
-      return true;
-    }).then(tf => {
-      console.log("current:" + self.testCurrent.id);
-      return player.closeSource();
-    }).then(tf => {
-      self.presentTestInfo(); //self.clearTestInfo();
-      return player.decodeDataAndPlay(self.testCurrent.dataAudio);
-    }).catch(ex => {
-      console.log("exception 1274");
-      console.log(ex);
-    });
-
+    self.otestsA = [{ id: testid }];
+    self.getAndUpdateTestInfo(testid);
   },
 
 

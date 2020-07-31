@@ -240,7 +240,9 @@ public class SKP extends HttpServlet {
 //                    App.sendFailed(ireason, sreason, response);
                 } else if ("mergeKPs".equals(action)) { //TODO: why this sometimes, it works, but most of time does not work.
                     String kpids = request.getParameter("kpids");
-                    EKP.merge(kpids).get();
+                    String testid_s = request.getParameter("idtest");
+                    int testid = testid_s == null ? -1 : Integer.parseInt(testid_s);
+                    EKP.merge(kpids, testid).get();
                     App.sendFailed(ireason, sreason, response);
                 } else if ("searchKPs".equals(action)) { //TODO: not implemented yet.
                     String s = request.getParameter("s");

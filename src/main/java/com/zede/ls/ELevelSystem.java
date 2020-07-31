@@ -366,6 +366,13 @@ public class ELevelSystem {
         return n;
     }
 
+    /**
+     *
+     * @param sysName
+     * @param halvesLevel
+     * @return number of relations fixed
+     * @throws IOException
+     */
     static int fix_EKP_ELevel(String sysName, //HashSet<EKP> halvesKP, 
             HashSet<ELevel> halvesLevel) throws IOException {
         String[] afn = null;
@@ -382,6 +389,8 @@ public class ELevelSystem {
             String[] as = fn.split("\\.");
             String name = as[0];
             ELevelSystem sys = ELevelSystem.getByName(name);
+            sys.clearEKP(); //TODO: move to outside, or keep it here?
+            halvesLevel.addAll(sys.levels);
             n += sys.fix_EKP_ELevel(halvesLevel); //halvesKP, 
         }
         return n;
@@ -394,6 +403,18 @@ public class ELevelSystem {
         int n = EKP.halfELevel(this, App.FixHalf_Reciprocol, halvesLevel);
         n += halfEKP(App.FixHalf_Self, halfLevel);
         return n;
+    }
+
+    void clearEKP() {
+        for (ELevel level : levels) {
+            level.kps.clear();
+        }
+    }
+
+    void clearETest() {
+        for (ELevel level : levels) {
+            level.tests.clear();
+        }
     }
 
 }

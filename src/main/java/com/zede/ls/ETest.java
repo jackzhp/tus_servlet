@@ -635,9 +635,10 @@ public class ETest implements OID {
         filter(f); //, halves
     }
 
-    static void filter(Function<ETest, Boolean> f) { //, HashSet<ETest> halves
+    static int filter(Function<ETest, Boolean> f) { //, HashSet<ETest> halves
         File dir = App.dirTests();
         String[] af = dir.list(App.ff_json);
+        int fixed = 0;
 //        ArrayList<ETest> halves = new ArrayList<>(); //TODO: rename it.
         for (String fn : af) {
             String[] as = fn.split("\\.");
@@ -646,9 +647,11 @@ public class ETest implements OID {
 //            if (f.apply(test)) {
 //                halves.add(test);
 //            }
-            f.apply(test);
+            if (f.apply(test)) {
+                fixed++;
+            }
         }
-//        return tests;
+        return fixed;//        return tests;
     }
 
     boolean withEKP() {
@@ -689,7 +692,7 @@ public class ETest implements OID {
         filter(f);
     }
 
-    static void //HashSet<ETest>
+    static int //HashSet<ETest>
             ELevel_half(ELevelSystem sys, //int repair, HashSet<ETest> halvesTest,
                     HashSet<ELevel> halvesLevel) {
         //, halves
@@ -703,7 +706,7 @@ public class ETest implements OID {
 //        }
         Function<ETest, Boolean> f = new FunctionELevelHalf(sys, halvesLevel);//repair, halves);
 //        return
-        filter(f);
+        return filter(f);
     }
 
     /**
@@ -779,16 +782,42 @@ public class ETest implements OID {
             String[] as = fn.split("\\.");
             int id = Integer.parseInt(as[0]);
             ETest test = loadByID_m(id);
-            if (test.deleted > 0) {
+//            if (test.deleted > 0) {
+//                continue;
+//            }
+            if (test.fnAudio == null) {
+                System.out.println("fnAudio is null for " + test.id + " " + fn);
                 continue;
             }
             ETest testO = tests.get(test.fnAudio);
-            if (testO != null) {
+            if (test.idReplacedBy != -1) {
+                boolean shouldSet = true;
+                if (testO == null) {
+                } else {
+                    if (testO.id == test.idReplacedBy) {
+                        shouldSet = false;
+                    } else {
+                    }
+                }
+                if (shouldSet) {
+                    testO = loadByID_m(test.idReplacedBy);
+                    tests.put(test.fnAudio, testO);
+                }
+            } else {
+                if (testO != null) {
+                } else {
+                    testO = test;
+                    tests.put(test.fnAudio, test);
+                }
+            }
+            if (test == testO) {
+            } else {
                 System.out.println("will merge:" + test.fnAudio);
+                if (testO.deleted > 0) {
+                    throw new IllegalStateException();
+                }
                 testO.merge(test);
                 merged++;
-            } else {
-                tests.put(test.fnAudio, test);
             }
         }
         System.out.println("merged:" + merged);
@@ -892,14 +921,16 @@ public class ETest implements OID {
 
         @Override
         public Boolean apply(ETest test) {
-            ELevel level = test.levelsHighest.get(sys);
+            if (test.id == 1) {
+                test.id = 1;
+            }
+            ELevel level = test.highestLevel_cal(sys); //.levelsHighest.get(sys);
             if (level != null) {
                 if (level.tests.contains(test.id)) {
                     return false;
                 } else {
                     if (repair == App.FixHalf_Reciprocol) {
-                        level.tests.add(test.id);
-                        level.sys.save(10); //TODO: can be done when go through the HashSet later
+                        level.addTest(test.id);
                         halves.add(level);
                     } else {
                         throw new IllegalStateException("repair should be fixing ELevel");

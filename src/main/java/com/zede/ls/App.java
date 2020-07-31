@@ -547,19 +547,21 @@ public class App {
                 app.initUser();
                 return;
             }
-            if (true) {
-                app.fix_EKP_ELevel_0();
-                return;
+            if (true) { //fix relations
+                if (true) {
+                    app.fix_EKP_ELevel_0();
+//                return;
+                }
+                if (true) {
+                    app.fix_EKP_ETest_0();
+//                return;
+                }
+                if (true) {
+                    app.fix_ETest_ELevel_0();
+                    return;
+                }
             }
             if (false) {
-                app.fix_EKP_ETest_0();
-                return;
-            }
-            if (false) {
-                app.fix_ETest_ELevel_0();
-                return;
-            }
-            if (true) {
                 app.mergeEKPs();
                 return;
             }
@@ -719,19 +721,24 @@ public class App {
         HashSet<ETest> halvesTest = new HashSet<>();
         System.out.println("\nwill fix relation between EKP & ETest");
         fix_EKP_ETest(halvesKP, halvesTest);
-        System.out.println("halfKP #of tests:" + halvesTest.size());
-        serve(halvesTest, "halfkp");
-        System.out.println("\nhalfETest #of KPs:" + halvesKP.size());
-        serveKPs(halvesKP, "halftest");
+//        System.out.println("halfKP #of tests:" + halvesTest.size());
+//        serve(halvesTest, "halfkp");
+//        System.out.println("\nhalfETest #of KPs:" + halvesKP.size());
+//        serveKPs(halvesKP, "halftest");
     }
 
     /*
     for this relationship, we do not change ETest, we change only EKP.
+    so if ETest <- EKP without ->, we just remove the relationship.
+    but if ETest -> EKP without <-, we add make the relation reciprocol.
      */
     static void fix_EKP_ETest(HashSet<EKP> halvesKP, HashSet<ETest> halvesTest) throws IOException {
         EKP.halfETest(App.FixHalf_Self, halvesKP);
-        System.out.println("when EKP is done:" + halvesKP.size());
+        int n = halvesKP.size();
+        System.out.println("ETest <- EKP without ->, removed:" + n);
         ETest.EKP_half(halvesKP); //, App.FixHalf_Reciprocol
+        n = halvesKP.size() - n;
+        System.out.println("ETest -> EKP without <-, completed:" + n);
     }
 
     void fix_EKP_ELevel_0() throws IOException {
@@ -740,22 +747,22 @@ public class App {
 //        HashSet<ETest> halvesTest = new HashSet<>();
 
         System.out.println("will fix relation between EKP & ELevel");
-        ELevelSystem.fix_EKP_ELevel("misc", halvesLevel); //, halvesKP
-        ELevelSystem sys = ELevelSystem.getByName("misc");
-        sys.fix_EKP_ELevel(halvesLevel); //halvesKP, 
-        System.out.println("halfELevel #of KPs:" + halvesKP.size());
+        int fixed = ELevelSystem.fix_EKP_ELevel("misc", halvesLevel); //, halvesKP
+//        ELevelSystem sys = ELevelSystem.getByName("misc");
+//        sys.fix_EKP_ELevel(halvesLevel); //halvesKP, 
+        System.out.println("# of relation fixed:" + fixed);
+        System.out.println("# of ELevel modified:" + halvesLevel.size());
 //        STest.serve(null, tests, "nokp");
-        serveKPs(halvesKP, "halflevel");
+//        serveKPs(halvesKP, "halflevel");
 
     }
 
     void fix_ETest_ELevel_0() throws IOException {
-        HashSet<EKP> halvesKP = new HashSet<>();
         HashSet<ELevel> halvesLevel = new HashSet<>();
         HashSet<ETest> halvesTest = new HashSet<>();
 
         ELevelSystem sys = ELevelSystem.getByName("misc");
-        if (false) {
+        if (false) { //every ETest is associated with ELevel. this information is not saved, but deducted from its EKP's.
             System.out.println("\nwill call noELevel");
             ETest.ELevel_none(sys, halvesTest);
             System.out.println("nolevel #of tests:" + halvesTest.size());
@@ -763,12 +770,15 @@ public class App {
             serve(halvesTest, "nolevel");
             System.out.println("\nserved");
         }
-        System.out.println("\nwill call halfELevel");
-        ETest.ELevel_half(sys, halvesLevel);
-        System.out.println("halflevel #of tests:" + halvesTest.size());
+        System.out.println("\nwill fix relation between ETest & ELevel");
+        System.out.println("will clear all ETest <- ELevel");
+        sys.clearETest(); //then whatever is needed will be created in ETest.ELevel_half
+        System.out.println("will fix ETest -> ELevel without <-");
+        int fixed = ETest.ELevel_half(sys, halvesLevel);
+        System.out.println("ETest -> ELevel without <- fixed:" + fixed + "  # of ELevel modified:" + halvesLevel.size());
 //        STest.serve(null, tests, "nokp");
-        serve(halvesTest, "halflevel");
-        System.out.println("\nserved");
+//        serve(halvesLevel, "halflevel");
+        System.out.println("\n");
     }
 
     private void mergeEKPs() throws IOException {
@@ -779,7 +789,8 @@ public class App {
         String kpids;
 //                    kpids="547,751,853,955"; //708,1036
         kpids = "925,1033"; //708,1036
-        EKP.merge(kpids).thenAccept(v -> {
+        int testid = -1;
+        EKP.merge(kpids, testid).thenAccept(v -> {
         }).exceptionally(t -> {
             t.printStackTrace();
             return null;
