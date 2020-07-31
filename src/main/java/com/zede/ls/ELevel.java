@@ -209,12 +209,12 @@ instead, belong to the which which is the highest level of its EKP's.
         kps.add(keep.id);
     }
 
-    void add(int id) {
+    void addKP(int id) {
         kps.add(id);
         sys.save(20);
     }
 
-    void remove(int id) {
+    void removeKP(int id) {
         kps.remove(id);
         sys.save(20);
     }

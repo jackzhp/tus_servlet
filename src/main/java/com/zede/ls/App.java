@@ -31,6 +31,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 //import javax.jdo.JDOHelper;
@@ -223,6 +225,17 @@ public class App {
         sos.close();
     }
 
+    static void serve(HttpServletResponse response, EKP kp) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        JsonGenerator g = App.getJSONgenerator(baos);
+        kp.json(g);
+        g.flush();
+        g.close();
+//            byte[] bytes=baos.toByteArray();
+//            System.out.write(bytes);
+        serve(response, baos);
+    }
+
     static byte[] sha256(File f) throws NoSuchAlgorithmException, IOException {
         MessageDigest digest;
         digest = MessageDigest.getInstance("SHA-256");
@@ -347,7 +360,7 @@ public class App {
         EUser user = null;
         EKP.getByID_cf(id, true).thenCompose((EKP kp) -> {
             return kp.chgDesc_cf(desc, user);
-        }).thenApply(tf -> {
+        }).thenApply((EKP kp) -> {
             System.out.println("KP desc changed, and saved");
 //            return kp.getBundle_m().save_cf();
             return true;
@@ -548,7 +561,7 @@ public class App {
             }
             if (true) {
                 app.mergeEKPs();
-                return; 
+                return;
             }
             if (true) {
                 app.mergeETests();

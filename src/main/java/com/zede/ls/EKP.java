@@ -53,6 +53,7 @@ if this is not -1, then this variable should replace this.id.
     int deleted; //512: isIdle, 256: isRedundant, 128: deleted
 //    boolean isDeleted, //the intention to be deleted, but not deleted only because other objects still referring to this EKP.
 //            isIdle;//=true;  when an EKP is deleted, or merged with another one, it becomes idle.
+    long lts; //the last time stamp this EKP is modified.
 
     /* the ones load from ETest should set this to true.
     any modification should be make to the object with this==false.
@@ -124,6 +125,9 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
 
     @Override
     public int getID() {
+        if (this.replacedBy != -1) {
+            return this.replacedBy;
+        }
         return id;
     }
 
@@ -245,6 +249,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         g.writeNumberField("replacedBy", replacedBy);
 //        g.writeBooleanField("idle", isIdle);
         g.writeNumberField("deleted", deleted);//g.writeBooleanField("deleted", isDeleted);
+        g.writeNumberField("ts", lts / 1000);
         g.writeStringField("desc", desc);
         g.writeArrayFieldStart("tests");
         if (false) {
@@ -324,6 +329,8 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
 ////                        } else {
 ////                            sreason = "expecting boolean value, but " + t;
 ////                        }
+                    } else if ("ts".equals(name)) {
+                        lts = p.getValueAsLong() * 1000;// isDeleted = p.getBooleanValue();
                     } else if ("deleted".equals(name)) {
                         deleted = p.getValueAsInt();// isDeleted = p.getBooleanValue();
                     } else if ("tests".equals(name)) {
@@ -493,7 +500,16 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         if (wrO != null) {
             EKP kpO = wrO.get();
             if (kpO != null) {
-                if (kpO.isRedundant() && kp.isRedundant() == false) {
+                boolean replace = false;
+                if (kpO.isRedundant()) {
+                    if (kp.isRedundant() == false) {
+                        replace = true;
+                    } else { //both are redundant, use the last modified one.
+                        //this is not really needed. when EKP is modifed, all ETest referring to it will also be changed.
+                        replace = kp.lts > kpO.lts;
+                    }
+                }
+                if (replace) {
                     cached.put(kp.id, wr);
                     App.getExecutor().submit(() -> {
                         //now, we have 2 objects for the same EKP. the one with isRedundant==true, and the other one ==false.
@@ -507,10 +523,25 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         }
     }
 
+    /**
+     * memory object change
+     *
+     * @param kp
+     */
     private void replaceWith(EKP kp) {
+        if (kp.id != id) {
+            throw new IllegalStateException();
+        }
         try {
             //TODO: anyone who refer to this object, now should refer to kp.
             //in fact, at present, only ETest
+            if (tests != null) {
+                for (ETest test : tests) {
+                    //TODO: this is a problem during the time in between.
+                    test.kps.remove(this);
+                    test.kps.add(kp);
+                }
+            }
         } catch (Throwable t) {
             t.printStackTrace();
         }
@@ -542,7 +573,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         return kp;
     }
 
-    CompletableFuture<Void> chgDesc_cf(String desc, EUser user) {
+    CompletableFuture<EKP> chgDesc_cf(String desc, EUser user) {
         //TODO: I better put it in other places
         //   merge then after review
         //but for now I just change directly
@@ -557,7 +588,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                 acf[i] = test.save_cf();
             }
             return CompletableFuture.allOf(acf);
-        });
+        }).thenApply(v -> this);
     }
 
     ETest[] getTests() {
@@ -616,12 +647,12 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
             if (lO.idMajor == level.idMajor && lO.idMinor == level.idMinor) {
                 return false;
             }
-            lO.remove(id);
+            lO.removeKP(id);
         }
         hmLevels.put(level.sys, level);
         save(10); //by default, will save in 10 seconds
         App.executor.schedule(() -> {
-            level.add(id);
+            level.addKP(id);
             ETest[] tests = getTests();
             for (ETest test : tests) {
                 test.onLevelChanged(this, level);
@@ -1078,6 +1109,25 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
                 ArrayList<Integer> t0 = tests0;
                 if (t0 != null) {
                     t0.add(test.id);
+                    if (tests0 != null) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    void remove(ETest test) {
+        while (true) {
+            if (tests != null) {
+                tests.remove(test);
+                save(20);
+                break;
+            } else {
+                ArrayList<Integer> t0 = tests0;
+                if (t0 != null) {
+                    Integer o = test.id;
+                    t0.remove(o);
                     if (tests0 != null) {
                         break;
                     }

@@ -40,11 +40,18 @@
 <li>change their levels to this level.</li>
 </ol>
 -->        
-        <button onclick="g.autoFixRelELevel();">auto fix the relationship between knowledge points and levels</button>
+        <button onclick="g.autoFixRelELevelEKP();">auto fix the relationship between knowledge points and levels</button>
         <span id="infoShort"></span>
+        <br/>
+        <button onclick="g.autoFixRelELevelETest();">auto fix the relationship between tests and levels</button>
+        <br/>
+        <button onclick="g.autoFixRelETestEKP();">auto fix the relationship between tests and knowledge points</button>
+
         <br/>
         <input type="text" id="searchText"/><button onclick="g.searchKP();">Search Knowledge Points</button> <button onclick="g.searchTest();">Search test</button>
         <br/>
+<input type="text" id="testid"/> <button id="loadTest" onclick="g.loadTest()">load Test</button>
+<br/>
  <!-- <input type="text" id="searchText"/> -->
  <button onclick="g.mergeTests();">Merge Selected Tests</button>
         <br/>

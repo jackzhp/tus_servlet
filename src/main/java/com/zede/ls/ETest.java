@@ -75,6 +75,9 @@ public class ETest implements OID {
 
     @Override
     public int getID() {
+        if (idReplacedBy != -1) {
+            return idReplacedBy;
+        }
         return id;
     }
 
@@ -175,7 +178,10 @@ public class ETest implements OID {
      */
     public CompletableFuture<Boolean> deleteKP(EKP kp, EUser user) {
         //TODO: check user's role.
+//        this.highestLevel()
         kps.remove(kp);
+        kp.remove(this);
+        //the highest level of this test might be changed for some level system.
         //TODO: if the EKP is not used by any ETest, then delete the EKP.
         return save_cf();
     }
@@ -733,6 +739,14 @@ public class ETest implements OID {
                 throw new IllegalStateException(this.fnAudio + ":" + test.fnAudio);
             }
         }
+        if (this.info.equals(test.info)) {
+        } else { //keep the longer one.
+            int len1 = this.info.length();
+            int len2 = test.info.length();
+            if (len2 > len1) {
+                this.info = test.info;
+            }
+        }
         test.idReplacedBy = this.id;
         test.deleted = 1; //isDeleted = true;
         ELevelSystem[] asys = ELevelSystem.syss.values().toArray(new ELevelSystem[0]);
@@ -780,7 +794,14 @@ public class ETest implements OID {
         System.out.println("merged:" + merged);
     }
 
-    //to merge remove into keep.
+    /**
+     * to merge remove into keep.
+     *
+     * this is not the memory object change.
+     *
+     * @param remove
+     * @param keep
+     */
     void replace(EKP remove, EKP keep) {
         if (remove == keep) {
             throw new IllegalArgumentException();

@@ -191,13 +191,15 @@ public class SKP extends HttpServlet {
                     String id_s = request.getParameter("idkp");
                     int id = Integer.parseInt(id_s);
                     String desc = request.getParameter("desc");
-                    EKP.getByID_cf(id, true).thenCompose((EKP kp) -> {
-                        return kp.chgDesc_cf(desc, user);
-                    }).exceptionally((Throwable t) -> {
-                        t.printStackTrace();
-                        return null;
-                    });
-                    App.sendFailed(ireason, sreason, response);
+                    EKP kp = EKP.getByID_cf(id, true).thenCompose((EKP kpt) -> {
+                        return kpt.chgDesc_cf(desc, user);
+                    }).get();
+//                            .exceptionally((Throwable t) -> {
+//                        t.printStackTrace();
+//                        return null;
+//                    });
+                    App.serve(response, kp);
+//                    App.sendFailed(ireason, sreason, response);
                 } else if ("delete".equals(action)) {
                     String id_s = request.getParameter("idkp");
                     int id = Integer.parseInt(id_s);
@@ -209,7 +211,7 @@ public class SKP extends HttpServlet {
                         return null;
                     });
                     App.sendFailed(ireason, sreason, response);
-                } else if ("addKP".equals(action)) { //moved from STest.addKP
+                } else if ("addKP".equals(action)) { //moved from STest.newKP
                     //TODO: turn into async mode.
                     String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
                     ELevel level = ELevel.get_m(user.target.sys, request.getParameter("level"));
@@ -225,14 +227,17 @@ public class SKP extends HttpServlet {
                     String level_s = request.getParameter("level");
 //                ELevelSystem sys=ELevelSystem.getByName(sysName);
                     ELevel level = ELevel.get_m(sysName, level_s);//sys.getLevel_m(major, minor);
-                    EKP.getByID_cf(id, true).thenApply((EKP kp) -> {
-                        kp.set(level);
-                        return true;
-                    }).exceptionally((Throwable t) -> {
-                        t.printStackTrace();
-                        return null;
-                    });
-                    App.sendFailed(ireason, sreason, response);
+                    EKP kp = EKP.getByID_cf(id, true).thenApply((EKP kpt) -> {
+                        kpt.set(level);
+                        return kpt;
+                    })
+                            //                            .exceptionally((Throwable t) -> {
+                            //                                t.printStackTrace();
+                            //                                return null;
+                            //                            })
+                            .get();
+                    App.serve(response, kp);
+//                    App.sendFailed(ireason, sreason, response);
                 } else if ("mergeKPs".equals(action)) { //TODO: why this sometimes, it works, but most of time does not work.
                     String kpids = request.getParameter("kpids");
                     EKP.merge(kpids).get();
