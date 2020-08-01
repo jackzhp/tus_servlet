@@ -519,7 +519,7 @@ public class App {
                 a = App.getInts(s);
 
             }
-            if (true) {
+            if (false) {
                 app.searchETests("でも");
                 return;
             }
@@ -552,11 +552,11 @@ public class App {
                 return;
             }
             if (true) { //fix relations
-                if (true) {
+                if (false) {
                     app.fix_EKP_ELevel_0();
 //                return;
                 }
-                if (true) {
+                if (false) {
                     app.fix_EKP_ETest_0();
 //                return;
                 }

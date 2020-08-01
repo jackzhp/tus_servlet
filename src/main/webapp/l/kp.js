@@ -38,6 +38,7 @@ var g = {
         });
     },
     presentKPs: function (eid, okps) { //this is almost same as player.js'  presentTestInfo
+        var right = false; //TODO: ...
         var self = this;
         var e = document.querySelector(eid);
         // e.innerHTML = "";
@@ -57,21 +58,147 @@ var g = {
                 } else {
                     nConflicts++;
                 }
-                html += '<li id="li' + eid + '">' + kpid + ":" + level + '  <input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label><button onclick="tester.deleteKP(' + kpid + ')">Remove</button><button onclick="tester.editKP(' + kpid + ')">Edit</button><button onclick="g.changeLevel(' + kpid + ')">ChangeLevel</button> </li>';
+                var html0 = '<li id="li' + eid + '"><input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label>';
+                if (right) {
+                    html0 += '<button onclick="tester.addKP(' + kpid + ')">Add</button><button onclick="g.editKP(' + kpid + ')">Edit</button>';
+                } else {
+                    html0 += '<button onclick="tester.deleteKP(' + kpid + ')">Remove</button><button onclick="g.editKP(' + kpid + ')">Edit</button>';
+                }
+                html0 += '</li>';
+                html += html0;
             }
         }
         e.innerHTML = html;
         e = document.querySelector('#levelConflicts');
         e.innerHTML = "" + nConflicts;
     },
+    presentKP: function (kpid) {
+        var self = this;
+        // var kp =self.getEKPbyID(kpid);
+        var right = false, kp = self.okps[kpid]; //.testCurrent.kps[kpid + ""];
+        if (kp) { } else {
+            kp = self.okpsR[kpid + ""];
+            right = true;
+        }
+        if (kp) {
+        } else {
+            console.log("can not find KP:" + kpid);
+            return;
+        }
+        // console.log(kpid + ":" + kp);
+        if (kp.deleted) { } else {
+            var eid = "kp" + kpid;
+            var level = kp.levels[self.sysChosen];
+            if (level === self.levelChosen) {
+            } else {
+                // nConflicts++;
+            }
+            var html0 = '<input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label>';
+            if (right) {
+                html0 += '<button onclick="tester.addKP(' + kpid + ')">Add</button><button onclick="g.editKP(' + kpid + ')">Edit</button>';
+            } else {
+                html0 += '<button onclick="tester.deleteKP(' + kpid + ')">Remove</button><button onclick="g.editKP(' + kpid + ')">Edit</button>';
+            }
+            var e = document.querySelector('#likp' + kpid);
+            e.innerHTML = html0;
+        }
+
+    },
+    getEKPbyID: function (kpid) {
+        var self = this;
+        var kp = self.okps[kpid]; //.testCurrent.kps[kpid + ""];
+        if (kp) { } else {
+            kp = self.okpsR[kpid + ""];
+        }
+        return kp;
+    },
+    editKP: function (kpid) {
+        var self = this;
+        var kp = self.getEKPbyID(kpid);
+        var e = document.querySelector("#likp" + kpid);
+        var sysName = g.sysChosen; //levelSystem;
+        e.innerHTML = '<input type="text" id="kp' + kpid + '" value="' + kp.desc + '"/><input type="text" id="kplevel' + kpid + '" value="' + kp.levels[sysName] + '"/> <button onclick="g.editKPdone(' + kpid + ')">Done</button>';
+    },
+    editKPdone: function (kpid) {
+        var self = this;
+        var e = document.querySelector("#kp" + kpid);
+        var desc = e.value;
+        var kp = self.getEKPbyID(kpid);
+        var kpChanged_desc = false;
+        var el = document.querySelector("#kplevel" + kpid);
+        var ls = el.value;
+        var kpChanged_level = ls != kp.levels[g.sysChosen];
+        if (desc === kp.desc) {
+            p = Promise.resolve(self.okps[kpid]);
+        } else {
+            kpChanged_desc = true;
+            var url = "kp?act=chgKPdesc&idkp=" + kpid + "&desc=" + encodeURIComponent(desc);
+            p = self.postReq(url);
+        }
+        p = p.then(ojson => {
+            if (kpChanged_desc) {
+                self.okps[kpid] = ojson;
+            }
+            if (kpChanged_level) {
+                var sysName = g.sysChosen; // user.levelSystem;
+                var url = "kp?act=chgKPlevel&idkp=" + kpid + "&sys=" + sysName + "&level=" + encodeURIComponent(ls);
+                return self.postReq(url);
+            } else {
+                return Promise.resolve(self.okps[kpid]);
+            }
+        });
+        p.then(ojson => {
+            console.log(ojson);
+            if (kpChanged_desc || kpChanged_level) {
+                self.okps[kpid] = ojson;
+                self.presentKP(kpid); //self.updateTestInfo();
+            } else {
+                // return Promise.reject("nothing changed");
+            }
+        }).catch(e => {
+            console.log(e);
+            alert(e);
+        });
+    },
     getKPs: function (sys, level) {
         var self = this;
+        var url = "kp?act=kps&c=4level&sys=" + sys + "&level=" + level + "&t=" + new Date().getTime();
+        return self.getFromServer(url).then(ojson => {
+            self.okps = ojson.kps;
+        });
+    },
+    postReq: function (urlSuffix) { //if we do not care the result, this method can be used.
+        var self = this;
+        return new Promise((resolve, reject) => {
+            try {
+                var request = new XMLHttpRequest();
+                var url = webPath + urlSuffix;
+                request.open('POST', url, true); //&reviewOnly=false when false, can be omitted.
+                request.responseType = 'json';
+                request.onload = function () {
+                    var ojson = request.response;
+                    console.log(ojson);
+                    if (ojson.ireason) {
+                        reject(url + " returns: " + JSON.stringify(ojson));
+                    } else {
+                        // console.log("succeeded");
+                        resolve(ojson);
+                    }
+                };
+                // request.onFailed;  //TODO: ....
+                request.send();
+            } catch (e) {
+                reject(e);
+            }
+        });
+    },
+    getFromServer: function (urlSuffix) {
+        var url = webPath + urlSuffix;
         return new Promise((resolve, reject) => {
             try {
                 // isStarted = false;  //TODO: ensure this is right in player
                 //can it be reused? or a new one is must? "AudioBufferSourceNode': cannot call start more than once." so we must create a new one.
                 var request = new XMLHttpRequest();
-                var url = webPath + "kp?act=kps&c=4level&sys=" + sys + "&level=" + level + "&t=" + new Date().getTime();
                 console.log(url);
                 request.open('GET', url, true); //path
                 request.responseType = 'json';
@@ -80,7 +207,6 @@ var g = {
                     if (res.ireason) {
                         reject("error:" + res.sreason);
                     } else {
-                        self.okps = res.kps;
                         resolve(res);
                     }
                 };
@@ -200,6 +326,22 @@ var g = {
             console.log(e);
         });
     },
+    listNoTest: function () {
+        var self = this;
+        if (confirm("this is safe only after the relationship between ETest & EKP has been checked")) {
+        } else {
+            return;
+        }
+        var url = "kp?act=kps&c=notest&t=" + new Date().getTime();
+        self.getFromServer(url).then(ojson => {
+            console.log(ojson);
+            self.okps = ojson.kps;
+            self.presentKPs('#kpsA', self.okps);
+        }).catch(e => {
+            console.log("exception 81");
+            console.log(e);
+        });
+    },
     searchKP_do: function (s) {
         var self = this;
         return new Promise((resolve, reject) => {
@@ -243,23 +385,23 @@ var g = {
         });
         var url = "kp?act=searchKPs&&s=" + encodeURIComponent(desc);
         self.postReq(url).then(ojson => {
-          self.okpsR = ojson.kps;
-          var n0 = 0, n1 = 0;
-          for (var kpid in ojson.kps) {
-            n0++;
-            if (self.inLeftList(kpid)) {
-              delete ojson.kps[kpid];
-            } else {
-              n1++;
+            self.okpsR = ojson.kps;
+            var n0 = 0, n1 = 0;
+            for (var kpid in ojson.kps) {
+                n0++;
+                if (self.inLeftList(kpid)) {
+                    delete ojson.kps[kpid];
+                } else {
+                    n1++;
+                }
             }
-          }
-          console.log(n0 + "->" + n1);
-          self.presentKPs(true, ojson.kps);
+            console.log(n0 + "->" + n1);
+            self.presentKPs(true, ojson.kps);
         }).catch(e => {
-          console.log(e);
-          alert(e);
+            console.log(e);
+            alert(e);
         });
-    
+
     },
 
 };

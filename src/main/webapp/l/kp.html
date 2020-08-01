@@ -20,15 +20,19 @@
     </head>
     <body onload="init();">
 
-        <button onclick="g.listNoLevel();">list all EKP's without ELevel.</button>
-
+        <button onclick="g.listNoTest();">list EKP's without ETest.
+        this can be safely list after the relationship between ETest &amp; EKP has been checked.
+        </button>
+<br/>
+TODO: list deleted EKP's. an EKP is not used by any ETest, is deemed as deleted.
+<br/>
 
         and for each EKP, we can present their desc, and their ETest.
         we can decide to merge any two of them, or delete any one of them,
         or set(change) ELevel for any one of them.
 
 
-        there is no point to list EKP's without ETest.
+        
 <br/>
         choose a level system: <select id="select_sys" onchange="g.onSystemChosen();"></select>
         <br/>

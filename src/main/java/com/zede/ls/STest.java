@@ -89,14 +89,9 @@ public class STest extends HttpServlet {
                 ireason = -1;
                 sreason = "not authenticated";
             } else {
-
-                String id_s = request.getParameter("testid");
-                if (id_s == null) {
-                    throw new Exception("testid is a must"); //IllegalState
-                }
-                int id = Integer.parseInt(id_s);
                 String action = request.getParameter("act");
                 if ("test".equals(action)) {
+                    int id = getInt(request, "testid");
 //        ArrayList<ETest> tests = null;
 //
 //        File fdir = new File(dir);
@@ -165,15 +160,19 @@ public class STest extends HttpServlet {
 //                            }
                         }
                     } else if ("nokp".equals(category)) {
-//                        EKP.noETest(tests);
+                        HashSet<ETest> otests = new HashSet<>();
+                        ETest.EKP_none(otests); //use ETest.id, not ETest.getID();
+                        int[] ids = App.OIDtoPrimitive(otests);
+                        serve(response, ids, category);//serve(response, otests, action);
+                        return;
                     } else {
                         throw new Exception("unknow category:" + category);
                     }
                     serve(response, category, tests);
-                } else if ("nokp".equals(action)) {
-                    HashSet<ETest> tests = new HashSet<>();
-                    ETest.EKP_none(tests);
-                    serve(response, tests, action);
+//                } else if ("nokp".equals(action)) {
+//                    HashSet<ETest> tests = new HashSet<>();
+//                    ETest.EKP_none(tests);
+//                    serve(response, tests, action);
                 } else if ("halfkp".equals(action)) {
 //                    HashSet<ETest> tests = new HashSet<>();
                     HashSet<EKP> kps = new HashSet<>();
@@ -332,10 +331,10 @@ public class STest extends HttpServlet {
         return "Short description";
     }// </editor-fold>
 
-    static void serve(HttpServletResponse response, HashSet<ETest> tests, String action) throws IOException {
-        tests=ETest.distinct(tests);
+    static void serve(HttpServletResponse response, HashSet<ETest> tests, String category) throws IOException {
+        tests = ETest.distinct(tests);
         int[] ids = App.OIDtoPrimitive(tests);
-        serve(response, ids, action);
+        serve(response, ids, category);
     }
 
     static void serve(HttpServletResponse response, int[] ids, String category) throws IOException {
@@ -368,5 +367,14 @@ public class STest extends HttpServlet {
             throw new IllegalStateException("can not find the ETest#" + id_s);
         }
         return test;
+    }
+
+    private int getInt(HttpServletRequest request, String name) throws Exception {
+        String id_s = request.getParameter(name);
+        if (id_s == null) {
+            throw new Exception(name + " is a must"); //IllegalState
+        }
+        int id = Integer.parseInt(id_s);
+        return id;
     }
 }

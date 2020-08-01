@@ -66,6 +66,24 @@ var g = {
       console.log(e);
     })
   },
+  listNoKP: function () {
+    var self = this;
+    var url = webPath + "test?act=tests&c=nokp&t=" + new Date().getTime();
+    self.getFromServer(url).then(res => {
+      if (res.ireason) {
+        throw new Error("error:" + res.sreason);
+      } else {
+        self.okps = res.kps;
+        return res; //TODO: check is this really needed?
+      }
+    }).then(ojson => {
+      self.otestsA = self.id2object(ojson.tests);
+      self.presentTests(self.otestsA, "testsA");
+    }).catch(e => {
+      console.log("exception 81");
+      console.log(e);
+    });
+  },
   inLeftList: function (testid) {
     var self = this;
     var n = self.otestsA.length;
@@ -189,7 +207,9 @@ var g = {
     console.log("will clear e:" + eid);
     var e = document.querySelector('#' + eid);
     e.innerHTML = "";
-    self.getAndPresentTest(atests, 0, eid); //it will recursively call itself with other idx
+    if (atests.length > 0) {
+      self.getAndPresentTest(atests, 0, eid); //it will recursively call itself with other idx
+    }
   },
   getAndPresentTest: function (atests, idx, eid) { //
     var self = this;

@@ -619,9 +619,9 @@ public class ETest implements OID {
 
     /**
      */
-    static void EKP_none(HashSet<ETest> halves) {
-        ELevel levelRepair = ELevelSystem.getByName("misc").getLevel_m(1, 1);
-        Function<ETest, Boolean> f = new FunctionEKPNone(levelRepair);
+    static void EKP_none(HashSet<ETest> tests) {
+//        ELevel levelRepair = ELevelSystem.getByName("misc").getLevel_m(1, 1);
+        Function<ETest, Boolean> f = new FunctionEKPNone(tests); //(test)->test.kps.isEmpty(); //
         filter(f); //, halves
     }
 
@@ -1045,18 +1045,21 @@ public class ETest implements OID {
 
     static class FunctionEKPNone implements Function<ETest, Boolean> {
 
-        ELevel level;        //        private boolean repair;
+//        ELevel level;        //        private boolean repair;
+        HashSet<ETest> tests;
 
-        FunctionEKPNone(ELevel level) { //boolean repair
-            this.level = level;;//this.repair = repair;
+        FunctionEKPNone(HashSet<ETest> tests) { //boolean repair,ELevel level
+//            this.level = level;;//this.repair = repair;
+            this.tests = tests;
         }
 
         @Override
         public Boolean apply(ETest test) {
             if (test.kps.isEmpty()) {
-                if (level != null) { //do repair. use ETest.info as EKP.desc
-                    test.newKP(test.info, level, null);
-                }
+//                if (level != null) { //do repair. use ETest.info as EKP.desc
+//                    test.newKP(test.info, level, null);
+//                }
+                tests.add(test);
                 return true;
             }
             return false;
