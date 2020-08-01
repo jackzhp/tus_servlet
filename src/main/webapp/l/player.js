@@ -744,8 +744,8 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
             // msg += " domstring:" + (res instanceof DOMString); //ReferenceError: DOMString is not defined
             msg += " doc:" + (res instanceof Document);
             msg += " blob:" + (res instanceof Blob);
-            console.log(msg); //why false?
-            console.log(res);
+            // console.log(msg); //why false?
+            // console.log(res);
             otest.dataAudio = request.response;
             otest.flagsLoad |= 256;
             resolve(request.response);
@@ -1041,7 +1041,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       if (self.isReady(self.testNext) || self.isReady(self.testNext2)) return Promise.resolve(true);
       if (self.testNext) return self.preload(self.testNext);
       if (self.testNext2) return self.preload(self.testNext2);
-      throw Error("should not happen");
+      throw Error("should not happen"); //TODO: happened. 
     });
   },
   isReady: function (otest) {
@@ -1103,9 +1103,9 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
         var eid = "kp" + kpid; //+ tag. I do not need tag, since I can ensure there is only 1. the case that the same KP present on both sides will not happen.
         var html0 = '<li id="li' + eid + '"><input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label>';
         if (right) {
-          html0 += '<button onclick="tester.addKP(' + kpid + ')">Add</button><button onclick="tester.editKP(' + kpid + ')">Edit</button>';
+          // html0 += '<button onclick="tester.addKP(' + kpid + ')">Add</button><button onclick="tester.editKP(' + kpid + ')">Edit</button>';
         } else {
-          html0 += '<button onclick="tester.deleteKP(' + kpid + ')">Remove</button><button onclick="tester.editKP(' + kpid + ')">Edit</button>';
+          // html0 += '<button onclick="tester.deleteKP(' + kpid + ')">Remove</button><button onclick="tester.editKP(' + kpid + ')">Edit</button>';
         }
         html0 += '</li>';
         html += html0;

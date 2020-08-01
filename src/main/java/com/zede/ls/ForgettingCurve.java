@@ -23,7 +23,7 @@ public class ForgettingCurve {
      */
 //    public long scheduleWith(Set<ETestResult> tested) {
     public long scheduleWith(ArrayList<ETestResult> tested) {
-        Collections.sort(tested, ETestResult.cTime);
+        Collections.sort(tested, ETestResult.cTime);  //TODO: I should utilize the good & bad info.
         int n = tested.size();
         long dt;
         if (n <= 1) {

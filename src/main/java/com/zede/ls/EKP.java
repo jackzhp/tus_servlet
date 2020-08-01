@@ -424,7 +424,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         if (kp == null) {
             EKPbundle b = EKPbundle.getByID_m(id);
             wr = cached.get(id);
-            if (wr == null) { //happened.
+            if (wr == null) { //happened. happened again.
                 throw new IllegalStateException("missing EKP:" + id);
             }
             kp = wr.get();

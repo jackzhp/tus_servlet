@@ -70,7 +70,7 @@ between the actual and the target, there might be a huge gap.
      */
 //    TreeMap<ETestResult, ETestResult> testsUsed = new TreeMap<>(); //HashSet<ETestResult> testsUsed = new HashSet<>();
     HashMap<Integer, ETestResult> testsUsed = new HashMap<>(); //HashSet<ETestResult> testsUsed = new HashSet<>();
-    static int testsUsed_sizeMin = 100, testsUsed_sizeMax = 120;
+    static int testsUsed_sizeMin = 32, testsUsed_sizeMax = 64;
     static float LevelThreshold = 0.9f; // 0.75f;
 
     /*
@@ -159,7 +159,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     int total = lt.good + lt.bad;
                     if (total * LevelThreshold >= lt.good) {//  good/(good+bad) < t
                         //do not have enough good, so the user's level is lower than this
-                        actual = lO != null ? lO : level;
+                        actual = level; // lO != null ? lO : level;
                         set = true;
                         break;
                     } else { //the current level is the actual level.
@@ -231,11 +231,6 @@ the KP's level is too low compared to the actual level, then its test result cou
                 kps.set(kp); //kps.kp = kp; //kps.id = kpid;
                 results.put(kpid, kps); //tested
             }
-            kps.updateSchedule().thenAccept(tf -> {
-            }).exceptionally(t -> {
-                t.printStackTrace();
-                return null;
-            });
             kps.tested.add(tr);
             save(100); //since we are the server, continuously running, so 100 seconds should be good.
             return kps;
@@ -1312,6 +1307,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     testsT.clear();
                     return kps.filterTests(limit, testsT);
                 } else {
+                    //usually, should not get here.
                     return CompletableFuture.completedFuture(false);
                 }
             }).thenAccept((Boolean tf) -> {
@@ -1320,6 +1316,9 @@ the KP's level is too low compared to the actual level, then its test result cou
 //                ETest testT = null;
 //            ETestResult tr = new ETestResult(); //temp
                     int i0 = testsT.size() - 1;
+                    if (i0 < 0) {
+                        System.out.println("no test for limit " + limit.levelString());
+                    }
                     for (int i = i0; i >= 0; i--) {
                         ETest test = testsT.get(i);
 //                tr.testid = test.id;
@@ -1346,8 +1345,26 @@ the KP's level is too low compared to the actual level, then its test result cou
                     if (done) {
                     } else {
                         idx++;
-                        testsT.clear();
-                        App.getExecutor().submit(this);
+                        boolean doneReal = false;
+                        if (idx >= scheduled.length) {
+                            ELevel l = limit.sys.nextLevel(limit);
+                            if (l == null) {
+                                doneReal = true;
+                            } else {
+                                limit = l;
+                            }
+                            idx = 0;
+                        }
+                        if (doneReal) {
+                            if (results.isEmpty()) {
+                                onFailed(new Exception("no more test"));
+                            } else {
+                                onSucceeded();
+                            }
+                        } else {
+                            testsT.clear();
+                            App.getExecutor().submit(this);
+                        }
                     }
                 } else {
                     onSucceeded();
@@ -1363,7 +1380,7 @@ the KP's level is too low compared to the actual level, then its test result cou
         }
 
         private void onSucceeded() {
-            System.out.println("succeeded:" + results.size() + " n:" + n);
+            System.out.println("succeeded:" + results.size() + " n:" + n + " limit:" + limit.levelString());
             if (n < 1) {
                 throw new IllegalStateException();
             }
