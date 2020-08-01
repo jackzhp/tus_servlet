@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
@@ -193,6 +194,7 @@ public class ETest implements OID {
         //TODO: check user's role.
         kps.add(kp);
         kp.add(this);
+        this.updateHighestLevel();
         save(20);
         //TODO: if the EKP is not used by any ETest, then delete the EKP.
     }
@@ -378,6 +380,21 @@ public class ETest implements OID {
         levelsHighest.put(sys, highest);
 //        save(15);  //this is not needed since we do not save levelsHighest.
         return highest;
+    }
+
+    //this should be called when a new EKP is added to this ETest
+    private void updateHighestLevel() {
+        Collection<ELevelSystem> c = ELevelSystem.syss.values();
+        for (ELevelSystem sys : c) {
+            ELevel levelO = levelsHighest.get(sys);
+            ELevel level = this.highestLevel_cal(sys);
+            if (level != levelO) {
+                level.addTest(this.id);
+                if (levelO != null) {
+                    levelO.removeTest(id);
+                }
+            }
+        }
     }
 
     ELevel highestLevel(ELevelSystem sys) {
@@ -735,7 +752,7 @@ public class ETest implements OID {
         if (testids == null) {
             throw new IllegalArgumentException();
         }
-        System.out.println("EKP to be merged:" + testids);
+        System.out.println("ETest to be merged:" + testids);
         int[] atestid = App.getInts(testids);
         return merge(atestid);
     }
@@ -815,6 +832,9 @@ public class ETest implements OID {
      *
      * whatever is referring to test, should refer to this ETest. EKP, ELevel
      *
+     *
+     * no rush to active this method.
+     *
      * @param test
      */
     void merge(ETest test) {
@@ -822,12 +842,12 @@ public class ETest implements OID {
             this.fnAudio = test.fnAudio;
         } else {
             if (this.fnAudio.equals(test.fnAudio)) {
-            } else {
+            } else { //TODO: can be disabled
                 throw new IllegalStateException(this.fnAudio + ":" + test.fnAudio);
             }
         }
         if (this.info.equals(test.info)) {
-        } else { //keep the longer one.
+        } else { //TODO: keep the longer one.  I do not need this. I have chosen the target for the merge.
             int len1 = this.info.length();
             int len2 = test.info.length();
             if (len2 > len1) {

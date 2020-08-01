@@ -71,7 +71,7 @@ between the actual and the target, there might be a huge gap.
 //    TreeMap<ETestResult, ETestResult> testsUsed = new TreeMap<>(); //HashSet<ETestResult> testsUsed = new HashSet<>();
     HashMap<Integer, ETestResult> testsUsed = new HashMap<>(); //HashSet<ETestResult> testsUsed = new HashSet<>();
     static int testsUsed_sizeMin = 100, testsUsed_sizeMax = 120;
-    static float LevelThreshold =0.9f; // 0.75f;
+    static float LevelThreshold = 0.9f; // 0.75f;
 
     /*
 the KP's level is too low compared to the actual level, then its test result could be ommitted, unless
@@ -161,6 +161,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                         //do not have enough good, so the user's level is lower than this
                         actual = lO != null ? lO : level;
                         set = true;
+                        break;
                     } else { //the current level is the actual level.
                         lO = level;
                     }

@@ -57,7 +57,7 @@ var g = {
       if (olevel) {
         self.otests = self.id2object(olevel.tests);
         self.otestsA = self.otests;
-        self.presentTests(self.otestsA, "testsA");
+        self.presentTests(false);
       } else {
         var e = document.querySelector('#testsA');
         e.innerHTML = "";
@@ -78,7 +78,7 @@ var g = {
       }
     }).then(ojson => {
       self.otestsA = self.id2object(ojson.tests);
-      self.presentTests(self.otestsA, "testsA");
+      self.presentTests(false);
     }).catch(e => {
       console.log("exception 81");
       console.log(e);
@@ -103,9 +103,13 @@ var g = {
     }
     return -1;
   },
-  presentTest: function (atests, idx, eid) {
-    var right = false; //TODO: .... in arguments.
-    var self = this;
+  presentTest: function (right, idx) {
+    var self = this, atests, eid, tagAB;
+    if (right) {
+      atests = self.otestsB, eid = "testsB"; tagAB = "B";
+    } else {
+      atests = self.otestsA, eid = "testsA"; tagAB = "A";
+    }
     var ekps = document.querySelector("#" + eid); //TODO: rename to etests
     var enew = document.createElement("li");
     var otest = atests[idx];
@@ -128,12 +132,14 @@ var g = {
       // ekps.children[idx] = enew;
       enew = ekps.children[idx];
     }
-    var eidkps = 'test' + testid + 'kps';
+    var eidkps = 'test' + testid + 'kps' + tagAB;
     var html = '<input type="checkbox" id="cb' + testid + '"/><label for="cb' + testid + '">' + testid + (otest.deleted ? "Deleted" : "") + '</label> <span id="info' + testid + '">' + otest.info + '<button onclick="g.editTest(' + testid + ')">Edit</button></span><button onclick="g.mergeSelectedKPs(' + testid + ')">Merge</button><button onclick="g.getAndUpdateTestInfo(' + testid + ')">Update</button>'; //\'' + kpid + '\'
-    if (self.isOnly1) {
-      html += '<button onclick="g.onlyMany()">many</button>';
-    } else {
-      html += '<button onclick="g.only1(' + testid + ')">only1</button>';
+    if (right) { } else {
+      if (self.isOnly1) {
+        html += '<button onclick="g.onlyMany()">many</button>';
+      } else {
+        html += '<button onclick="g.only1(' + testid + ')">only1</button>';
+      }
     }
     html += '<br/><ul id="' + eidkps + '"></ul>';
     enew.innerHTML = html;
@@ -153,7 +159,7 @@ var g = {
     var info = e.value;
     var url = "test?act=chgInfo&idtest=" + testid + "&info=" + encodeURIComponent(info);
     self.postReq(url).then(ojson => {
-      // self.presentTests(self.otestsA, "testsA");
+      // self.presentTests(false);
       // self.updateTestInfo(testid);
       self.getAndUpdateTestInfo(testid);
     }).catch(e => {
@@ -202,17 +208,27 @@ var g = {
   },
   // getKPs_a: function(okps){
   // },
-  presentTests: function (atests, eid) {
-    var self = this;
+  presentTests: function (right) {
+    var self = this, atests, eid;
+    if (right) {
+      atests = self.otestsB, eid = "testsB";
+    } else {
+      atests = self.otestsA, eid = "testsA";
+    }
     console.log("will clear e:" + eid);
     var e = document.querySelector('#' + eid);
     e.innerHTML = "";
     if (atests.length > 0) {
-      self.getAndPresentTest(atests, 0, eid); //it will recursively call itself with other idx
+      self.getAndPresentTest(right, 0); //it will recursively call itself with other idx
     }
   },
-  getAndPresentTest: function (atests, idx, eid) { //
-    var self = this;
+  getAndPresentTest: function (right, idx) { //
+    var self = this, atests, eid;
+    if (right) {
+      atests = self.otestsB, eid = "testsB";
+    } else {
+      atests = self.otestsA, eid = "testsA";
+    }
     var p;
     if (atests[idx]) { } else {
       throw new Error(idx + "/" + atests.length + " :" + eid);
@@ -229,13 +245,13 @@ var g = {
     }
     p.then(ojson => {
       console.log(ojson);
-      return self.presentTest(atests, idx, eid);
+      return self.presentTest(right, idx);
     }, e => {
-      return self.presentTest(atests, idx, eid);
+      return self.presentTest(right, idx);
     }).then(tf => {
       idx++;
       if (idx < atests.length) {
-        self.getAndPresentTest(atests, idx, eid);
+        self.getAndPresentTest(right, idx);
       }
       return true;
     }).catch(e => {
@@ -243,7 +259,7 @@ var g = {
       // console.log(e);  //this get into dead loop?
       idx++;
       if (idx < atests.length) {
-        self.getAndPresentTest(atests, idx, eid);
+        self.getAndPresentTest(right, idx);
       }
     });
   },
@@ -251,6 +267,7 @@ var g = {
   */
   presentKPs: function (testid, eid, okps, right) { //this is almost same as player.js'  presentTestInfo
     var self = this;
+    var tagAB = right ? "B" : "A";
     var e = document.querySelector("#" + eid);
     if (e) { } else {
       console.log("can not find element:" + eid);
@@ -266,26 +283,24 @@ var g = {
     for (var kpid in okps) {
       var kp = okps[kpid];
       // console.log(kpid + ":" + kp);
-      if (kp.deleted) { } else {
-        var eid = testid + "kp" + kpid;
-        var level = kp.levels[self.sysChosen];
-        if (level === self.levelChosen) {
-        } else {
-          nConflicts++;
-        }
-        //
-        var html0 = '<li id="li' + eid + '">';
-        if (right) { } else html0 += '<input type="checkbox" id="cb' + eid + '"/><label for="cb' + eid + '">';
-        html0 += '<span ondblclick="g.checkKP(' + kpid + ')">' + kpid + ":" + level + '  ' + kp.desc + '</span>';
-        if (right) {
-          html0 += '<button onclick="g.addKP(' + kpid + ')">Add</button>'; //<button onclick="tester.editKP(' + kpid + ')">Edit</button>
-        } else {
-          html0 += ' </label>';
-          html0 += '<button onclick="g.removeKP(' + testid + "," + kpid + ')">Remove</button><button onclick="g.editKP(' + testid + "," + kpid + ')">Edit</button>'; //<button onclick="g.changeLevel(' + kpid + ')">ChangeLevel</button>
-        }
-        html0 += '</li>';
-        html += html0;
+      var eid = testid + "kp" + kpid + tagAB;
+      var level = kp.levels[self.sysChosen];
+      if (level === self.levelChosen) {
+      } else {
+        nConflicts++;
       }
+      //
+      var html0 = '<li id="li' + eid + '">';
+      if (right) { } else html0 += '<input type="checkbox" id="cb' + eid + '"/><label for="cb' + eid + '">';
+      html0 += '<span ondblclick="g.checkKP(' + kpid + ')">' + kpid + (kp.deleted ? "Deleted" : "") + ":" + level + '  ' + kp.desc + '</span>';
+      if (right) {
+        html0 += '<button onclick="g.addKP(' + kpid + ')">Add</button>'; //<button onclick="tester.editKP(' + kpid + ')">Edit</button>
+      } else {
+        html0 += ' </label>';
+        html0 += '<button onclick="g.removeKP(' + testid + "," + kpid + ')">Remove</button><button onclick="g.editKP(' + testid + "," + kpid + ',\'' + tagAB + '\')">Edit</button>'; //<button onclick="g.changeLevel(' + kpid + ')">ChangeLevel</button>
+      }
+      html0 += '</li>';
+      html += html0;
     }
     e.innerHTML = html;
     e = document.querySelector('#levelConflicts');
@@ -303,7 +318,7 @@ var g = {
     p.then(okp => {
       var otests = self.id2object(okp.tests);
       self.otestsB = otests;
-      self.presentTests(self.otestsB, "testsB");
+      self.presentTests(true);
     }).catch(e => {
       console.log("exception");
       console.log(e);
@@ -340,18 +355,22 @@ var g = {
     var self = this;
     var selected = "";
     var first = true;
-    for (var i = 0; i < akps.length; i++) {
-      var kpid = akps[i];
-      var eid = testid + "kp" + kpid;
-      var e = document.querySelector('#cb' + eid);
-      if (e) {
-        if (e.checked) {
-          if (first) {
-            first = false;
-          } else {
-            selected += ",";
+    var tags = ["A", "B"];
+    for (var t = 0; t < tags.length; t++) {
+      var tag = tags[t];
+      for (var i = 0; i < akps.length; i++) {
+        var kpid = akps[i];
+        var eid = testid + "kp" + kpid + tag;
+        var e = document.querySelector('#cb' + eid);
+        if (e) {
+          if (e.checked) {
+            if (first) {
+              first = false;
+            } else {
+              selected += ",";
+            }
+            selected += kpid;
           }
-          selected += kpid;
         }
       }
     }
@@ -361,6 +380,10 @@ var g = {
     var self = this;
     var otest = self.getETestByID(testid);
     var selected = self.getKPsSelected(testid, otest.akps);
+    if (selected === "") {
+      alert("nothing to merge");
+      return;
+    }
     var url = "kp?act=mergeKPs&kpids=" + selected + "&idtest=" + testid;
     self.postReq(url).then(ojson => {
       if (ojson.ireason != 0) {
@@ -503,8 +526,10 @@ var g = {
     try {
       var self = this;
       ojson.loaded = true;
-      ojson.akps = self.onKPs(ojson.kps);
-      ojson.kps = null;
+      if (ojson.kps) {
+        ojson.akps = self.onKPs(ojson.kps);
+        ojson.kps = null;
+      }
       var a = [self.otests, self.otestsA, self.otestsB];
       var n = 0;
       for (var i = 0; i < a.length; i++) {
@@ -550,13 +575,13 @@ var g = {
     self.isOnly1 = true;
     var otest = self.getETestByID(testid);
     self.otestsA = [otest];
-    self.presentTests(self.otestsA, "testsA");
+    self.presentTests(false);
   },
   onlyMany: function () {
     var self = this;
     self.isOnly1 = false;
     self.otestsA = self.otests;
-    self.presentTests(self.otestsA, "testsA");
+    self.presentTests(false);
   },
   updateTestInfo: function (testid) {
     if (testid) {
@@ -565,22 +590,16 @@ var g = {
       }
     } else throw new Error("testid undefined");
     var self = this;
-    var atests = self.otestsA;
-    var eid, idx = -1;
-    if (atests) {
-      eid = "testsA";
-      idx = self.getTestIdxByID(testid, atests);
-      if (idx != -1) {
-        self.presentTest(atests, idx, eid);
-      }
-    }
-    if (idx === -1) {
-      atests = self.otestsB;
+    var a = [self.otestsA, self.otestsB];
+    // var aeid = ["testsA", "testsB"];
+    var aright = [false, true];
+    for (var i = 0; i < a.length; i++) {
+      var atests = a[i], right = aright[i];
+      var idx = -1;
       if (atests) {
-        eid = "testsB";
         idx = self.getTestIdxByID(testid, atests);
         if (idx != -1) {
-          self.presentTest(atests, idx, eid);
+          self.presentTest(right, idx);
         }
       }
     }
@@ -813,7 +832,7 @@ var g = {
     // Promise.resolve(self.okps).then(ojson => {
     //   self.okpsB = ojson;
     //   //return self.presentKPs(-1, 'testsB', self.okpsB);
-    //   return self.presentTests(self.otestsB, "testsB");
+    //   return self.presentTests(true);
     // }).catch(e => {
     //   console.log("exception 239:");
     //   console.log(e);
@@ -845,7 +864,7 @@ var g = {
       e.innerHTML = "" + n0;
       // console.log(n0 + "->" + n2);
       if (n2 > 0) {
-        return self.presentTests(self.otestsB, "testsB");
+        return self.presentTests(true);
       } else {
         return Promise.resolve(true);
       }
@@ -895,17 +914,17 @@ var g = {
     }
     return lh;
   },
-  editKP: function (testid, kpid) {
+  editKP: function (testid, kpid, tagAB) {
     var self = this;
     var kp = self.getEKPbyID(kpid);
-    var eid = testid + "kp" + kpid;
+    var eid = testid + "kp" + kpid + tagAB;
     var e = document.querySelector("#li" + eid);
     var sysName = self.sysChosen;// user.levelSystem;
-    e.innerHTML = '<input type="text" id="desc' + eid + '" value="' + kp.desc + '"/><input type="text" id="level' + eid + '" value="' + kp.levels[sysName] + '"/> <button onclick="g.editKPdone(' + testid + ',' + kpid + ')">Done</button>';
+    e.innerHTML = '<input type="text" id="desc' + eid + '" value="' + kp.desc + '"/><input type="text" id="level' + eid + '" value="' + kp.levels[sysName] + '"/> <button onclick="g.editKPdone(' + testid + ',' + kpid + ',\'' + tagAB + '\')">Done</button>';
   },
-  editKPdone: function (testid, kpid) {
+  editKPdone: function (testid, kpid, tagAB) {
     var self = this;
-    var eid = testid + "kp" + kpid;
+    var eid = testid + "kp" + kpid + tagAB;
     var e = document.querySelector("#desc" + eid);
     var desc = e.value;
     var levelChanged_kp = false, levelChanged_test = false;

@@ -1430,7 +1430,7 @@ var user = {
     return new Promise((resolve, reject) => {
       try {
         var request = new XMLHttpRequest();
-        var url = webPath + "user?act=level";
+        var url = webPath + "user?act=level&t=" + new Date().getTime();
         request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
         request.responseType = 'json';
         request.onload = function () {

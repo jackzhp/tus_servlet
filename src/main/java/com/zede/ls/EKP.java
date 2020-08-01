@@ -810,7 +810,7 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             test.replace(kp, this);
         }
         kp.tests.clear();
-//        kp.save(20);
+        kp.save(20);
         //Be noted that I still can not delete EKP here.
         return atest;
     }
@@ -824,6 +824,7 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             level.replace(kp, this);
         }
         kp.hmLevels.clear();
+        kp.save(20);
         return asys;
     }
 
@@ -858,31 +859,27 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
      * @throws IOException
      */
     static CompletableFuture<Boolean> merge(int[] akpid, int testid) throws IOException {
-        if (akpid.length <= 1) {
-            return CompletableFuture.completedFuture(null);
-        }
-        EKP kpt = null;
-        //TODO: if akpid[0] does not give an EKP, I should throw exception?
-        for (int i = 0; i < akpid.length; i++) {
-            try {
-                int kpid = akpid[i];
-                kpt = EKP.getByID_m(kpid, true);
-                if (kpt != null) {
-                    if (i != 0) {
-                        akpid[0] = kpid;
-                        akpid[i] = -1;
-                    }
-                    break;
-                }
-            } catch (Throwable t) {
-                t.printStackTrace();
-                akpid[i] = -1;
+        try {
+            if (akpid.length <= 1) {
+                throw new IllegalArgumentException("at least 2 kpid");
             }
-        }
-        if (kpt == null) {
-            throw new IOException();
-        }
-        EKP kp = kpt;
+            EKP kp = EKP.getByID_m(akpid[0], true);;
+            if (kp == null) {
+                throw new Exception("can not find EKP#" + akpid[0]);
+            }
+//            ETest test = null;
+//            if (testid != -1) {
+//                test = ETest.loadByID_m(testid);
+//                if (test == null) {
+//                    throw new Exception("can not find ETest#" + testid);
+//                }
+//                for (int i = 1; i < akpid.length; i++) {
+//                    int kpidt = akpid[i];
+//                    EKP o = EKP.getByID_m(kpidt, true);
+//                    test.kps.remove(o);
+//                }
+//                test.save(10);
+//            }
 //        if (false) {
 //            for (int i = 1; i < akpid.length; i++) {
 //                int kpidt = akpid[i];
@@ -890,35 +887,45 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
 //                kp.merge(kpt);
 //            }
 //        } else 
-        {
-            Merger<ETest> mergerTest = new MergerETest(kp);
-            CompletableFuture<Void> cf = merge_1(akpid, mergerTest);
-            return cf.thenCompose(v -> {
-                Merger<ELevelSystem> mergerLevel = new MergerELevel(kp);
-                return merge_1(akpid, mergerLevel);
-            }).thenCompose(v -> {
-                Merger<EUser> mergerUser = new MergerEUser(kp);
-                return merge_1(akpid, mergerUser);
-            }).thenCompose(v -> {
-                ETest test = ETest.loadByID_m(testid);
-                for (int i = 1; i < akpid.length; i++) {
-                    try {
-                        int kpidt = akpid[i];
-                        if (kpidt == -1) {
-                            continue;
-                        }
-                        EKP o = EKP.getByID_m(kpidt, true);
-                        test.kps.remove(o);
-                        if (o.delete()) {
-                        } else {
-                            throw new IllegalStateException("EKP#" + kpidt + " is still being used");
-                        }
-                    } catch (Throwable t) {
-                        t.printStackTrace();
+            {
+                Merger<ETest> mergerTest = new MergerETest(kp);
+                CompletableFuture<Void> cf = merge_1(akpid, mergerTest);
+                return cf.thenCompose(v -> {
+                    Merger<ELevelSystem> mergerLevel = new MergerELevel(kp);
+                    return merge_1(akpid, mergerLevel);
+                }).thenCompose(v -> {
+                    Merger<EUser> mergerUser = new MergerEUser(kp);
+                    return merge_1(akpid, mergerUser);
+                }).thenCompose(v -> { //Apply
+                    ETest test = null;
+                    if (testid != -1) {
+                        test = ETest.loadByID_m(testid);
                     }
-                }
-                return test.save_cf();
-            });
+                    for (int i = 1; i < akpid.length; i++) {
+                        try {
+                            int kpidt = akpid[i];
+                            if (kpidt == -1) {
+                                continue;
+                            }
+                            EKP o = EKP.getByID_m(kpidt, true);
+                            if (test != null) {
+                                test.kps.remove(o);
+                            }
+                            if (o.delete()) {
+                            } else {
+                                throw new IllegalStateException("EKP#" + kpidt + " is still being used");
+                            }
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                        }
+                    }
+                    return test != null ? test.save_cf() : CompletableFuture.completedFuture(true); //true; //
+                });
+            }
+        } catch (Throwable t) {
+            CompletableFuture<Boolean> cf = new CompletableFuture<>();
+            cf.completeExceptionally(t);
+            return cf;
         }
     }
 
