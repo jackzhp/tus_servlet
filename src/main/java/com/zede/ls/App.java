@@ -519,6 +519,10 @@ public class App {
                 a = App.getInts(s);
 
             }
+            if (true) {
+                app.searchETests("でも");
+                return;
+            }
 
             if (false) {
                 app.initLevelSystem();
@@ -566,7 +570,7 @@ public class App {
                 return;
             }
             if (true) {
-                app.mergeETests();
+//                app.mergeETests();
                 return;
             }
         } catch (Throwable t) {
@@ -797,10 +801,29 @@ public class App {
         });
     }
 
-    private void mergeETests() {
-        ETest.distinctAudioFile();
+    private void searchETests(String s) {
+        String[] as = s.split("AND");
+        App.ConditionSearch cs = new App.ConditionSearch(as);
+        HashSet<ETest> tests = new HashSet<>();
+//why did I got result: {"category":"search","tests":[136,341,341,136]}. Be noted I am using HashSet.                    
+        ETest.search(cs, tests);
+        tests = ETest.distinct(tests);
+        for (ETest test : tests) {
+            System.out.print(test.id);
+            System.out.print(',');
+            System.out.println(test.getID());
+        }
+        System.out.println();
     }
 
+//    private void mergeETests() {
+//        if(true){
+//            ETest.merge("");
+//    return;
+//        }
+//        
+//        ETest.distinctAudioFile();
+//    }
     static class ConditionSearch implements Function<String, Boolean> {
 
         String[] as;

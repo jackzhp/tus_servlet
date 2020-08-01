@@ -248,7 +248,8 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         g.writeNumberField("id", id);
         g.writeNumberField("replacedBy", replacedBy);
 //        g.writeBooleanField("idle", isIdle);
-        g.writeNumberField("deleted", deleted);//g.writeBooleanField("deleted", isDeleted);
+        //256: redundant, it is only meaningful in memory.
+        g.writeNumberField("deleted", (deleted & ~256));//g.writeBooleanField("deleted", isDeleted);
         g.writeNumberField("ts", lts / 1000);
         g.writeStringField("desc", desc);
         g.writeArrayFieldStart("tests");

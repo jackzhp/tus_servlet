@@ -175,7 +175,7 @@ public class STest extends HttpServlet {
                     ETest.EKP_none(tests);
                     serve(response, tests, action);
                 } else if ("halfkp".equals(action)) {
-                    HashSet<ETest> tests = new HashSet<>();
+//                    HashSet<ETest> tests = new HashSet<>();
                     HashSet<EKP> kps = new HashSet<>();
                     ETest.EKP_half(kps);//tests, App.FixHalf_Reciprocol);
                     //for a ELevel refers to a ETest, but the ETest does not refer to the ELevel.
@@ -286,6 +286,10 @@ public class STest extends HttpServlet {
                         return null;
                     });
                     App.sendFailed(ireason, sreason, response);
+                } else if ("mergeTests".equals(action)) {
+                    String id_s = request.getParameter("testids");
+                    ETest.merge(id_s).get();
+                    App.sendFailed(ireason, sreason, response);
                 } else if ("searchTests".equals(action)) { //TODO: not implemented yet.
                     String s = request.getParameter("s");
                     String[] as = s.split("AND");
@@ -301,9 +305,9 @@ public class STest extends HttpServlet {
                      * list those EKP's with desc starts with the target string.
                      */
                     App.ConditionSearch cs = new App.ConditionSearch(as);
-                    HashSet<ETest> kps = new HashSet<>();
-                    ETest.search(cs, kps);
-                    serve(response, kps, "search");
+                    HashSet<ETest> tests = new HashSet<>();
+                    ETest.search(cs, tests);
+                    serve(response, tests, "search");
                 } else {
                     throw new Exception("unknown action:" + action);
                 }
@@ -329,6 +333,7 @@ public class STest extends HttpServlet {
     }// </editor-fold>
 
     static void serve(HttpServletResponse response, HashSet<ETest> tests, String action) throws IOException {
+        tests=ETest.distinct(tests);
         int[] ids = App.OIDtoPrimitive(tests);
         serve(response, ids, action);
     }

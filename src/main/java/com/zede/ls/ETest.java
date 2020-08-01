@@ -3,6 +3,8 @@ package com.zede.ls;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import static com.zede.ls.EKP.merge;
+import static com.zede.ls.EKP.merge_1;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -333,6 +335,8 @@ public class ETest implements OID {
 
     void chgInfo(String info, EUser user) {
         this.info = info;
+        this.deleted = 0;
+        this.idReplacedBy = -1;
         save(20);
 //.exceptionally((Throwable t) -> {
 //            t.printStackTrace();
@@ -644,6 +648,9 @@ public class ETest implements OID {
             String[] as = fn.split("\\.");
             int id = Integer.parseInt(as[0]);
             ETest test = loadByID_m(id);
+            if (test.deleted != 0) {
+                continue;
+            }
 //            if (f.apply(test)) {
 //                halves.add(test);
 //            }
@@ -722,6 +729,83 @@ public class ETest implements OID {
 
         //at last step.
         //this.isDeleted = true;
+    }
+
+    static CompletableFuture<Boolean> merge(String testids) throws IOException {
+        if (testids == null) {
+            throw new IllegalArgumentException();
+        }
+        System.out.println("EKP to be merged:" + testids);
+        int[] atestid = App.getInts(testids);
+        return merge(atestid);
+    }
+
+    static CompletableFuture<Boolean> merge(int[] atestid) throws IOException {
+        try {
+            if (atestid.length <= 1) {
+                throw new IllegalArgumentException("at least 2 ids to merge");
+            }
+            int testid = atestid[0];
+            ETest testT = ETest.loadByID_m(testid);
+            if (testT == null) {
+                throw new Exception("can not load ETest#" + testid);
+            }
+//        if (true) {
+//            for (int i = 1; i < akpid.length; i++) {
+//                int kpidt = akpid[i];
+//                EKP kpt = EKP.getByID_m(kpidt);
+//                kp.merge(kpt);
+//            }
+            for (int i = 1; i < atestid.length; i++) {
+                try {
+                    testid = atestid[i];
+                    if (testid == -1) {
+                        continue;
+                    }
+                    ETest test = ETest.loadByID_m(testid);
+                    testT.merge(test);
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+            }
+            return testT.save_cf();
+//        }
+//        else 
+//        {
+//            EKP.Merger<ETest> mergerTest = new EKP.MergerETest(kp);
+//            CompletableFuture<Void> cf = merge_1(atestid, mergerTest);
+//            return cf.thenCompose(v -> {
+//                EKP.Merger<ELevelSystem> mergerLevel = new EKP.MergerELevel(kp);
+//                return merge_1(atestid, mergerLevel);
+//            }).thenCompose(v -> {
+//                EKP.Merger<EUser> mergerUser = new EKP.MergerEUser(kp);
+//                return merge_1(atestid, mergerUser);
+//            }).thenCompose(v -> {
+//                ETest test = ETest.loadByID_m(testid);
+//                for (int i = 1; i < atestid.length; i++) {
+//                    try {
+//                        int kpidt = atestid[i];
+//                        if (kpidt == -1) {
+//                            continue;
+//                        }
+//                        EKP o = EKP.getByID_m(kpidt, true);
+//                        test.kps.remove(o);
+//                        if (o.delete()) {
+//                        } else {
+//                            throw new IllegalStateException("EKP#" + kpidt + " is still being used");
+//                        }
+//                    } catch (Throwable t) {
+//                        t.printStackTrace();
+//                    }
+//                }
+//                return test.save_cf();
+//            });
+//        }
+        } catch (Throwable t) {
+            CompletableFuture<Boolean> cf = new CompletableFuture<>();
+            cf.completeExceptionally(t);
+            return cf;
+        }
     }
 
     /**
@@ -877,6 +961,21 @@ public class ETest implements OID {
                 tests.add(test);
             }
         }
+    }
+
+    /* why did I got result: {"category":"search","tests":[136,341,341,136]}. Be noted I am using HashSet.                    
+    because even though test.id, is different, but test.getID() are same.
+     */
+    static HashSet<ETest> distinct(HashSet<ETest> tests) {
+        HashSet<ETest> results = new HashSet<>();
+        ETest[] a = tests.toArray(new ETest[0]);
+        tests.clear();
+        for (ETest test : a) {
+            int id = test.getID();
+//            set.add(id); //test.id might be different, but test.getID() might be same
+            results.add(ETest.loadByID_m(id));
+        }
+        return results;
     }
 
     //TODO: this is not needed at all.

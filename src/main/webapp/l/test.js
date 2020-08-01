@@ -11,6 +11,8 @@ var g = {
   otests: null, //all the tests for levelChosen.
   otestsA: null, //newly added, this is for the left side. otests is kept for all ETests of the level.
   otestsB: null, //all the tests at the right side, usually exclude those in the left.
+  targetTestToMerge: "", //merge related stuff
+  targetKPToMerge: "", //merge related stuff
   onSystemChosen: function (sys) {
     var self = this;
     if (sys) {
@@ -26,10 +28,12 @@ var g = {
     });
   },
   id2object: function (atests) {
+    var self = this;
     var otests = [];
     for (var i = 0; i < atests.length; i++) {
       var testid = atests[i];
-      otests[i] = { id: testid };
+      var otest = self.getETestByID(testid);
+      otests[i] = otest ? otest : { id: testid };
     }
     return otests;
   },
@@ -107,7 +111,7 @@ var g = {
       enew = ekps.children[idx];
     }
     var eidkps = 'test' + testid + 'kps';
-    var html = testid + ' <span id="info' + testid + '">' + otest.info + '<button onclick="g.editTest(' + testid + ')">Edit</button></span><button onclick="g.mergeSelectedKPs(' + testid + ')">Merge</button><button onclick="g.getAndUpdateTestInfo(' + testid + ')">Update</button>'; //\'' + kpid + '\'
+    var html = '<input type="checkbox" id="cb' + testid + '"/><label for="cb' + testid + '">' + testid + (otest.deleted ? "Deleted" : "") + '</label> <span id="info' + testid + '">' + otest.info + '<button onclick="g.editTest(' + testid + ')">Edit</button></span><button onclick="g.mergeSelectedKPs(' + testid + ')">Merge</button><button onclick="g.getAndUpdateTestInfo(' + testid + ')">Update</button>'; //\'' + kpid + '\'
     if (self.isOnly1) {
       html += '<button onclick="g.onlyMany()">many</button>';
     } else {
@@ -206,7 +210,7 @@ var g = {
     p.then(ojson => {
       console.log(ojson);
       return self.presentTest(atests, idx, eid);
-    },e=>{
+    }, e => {
       return self.presentTest(atests, idx, eid);
     }).then(tf => {
       idx++;
@@ -252,7 +256,7 @@ var g = {
         //
         var html0 = '<li id="li' + eid + '">';
         if (right) { } else html0 += '<input type="checkbox" id="cb' + eid + '"/><label for="cb' + eid + '">';
-        html0 += kpid + ":" + level + '  ' + kp.desc;
+        html0 += '<span ondblclick="g.checkKP(' + kpid + ')">' + kpid + ":" + level + '  ' + kp.desc + '</span>';
         if (right) {
           html0 += '<button onclick="g.addKP(' + kpid + ')">Add</button>'; //<button onclick="tester.editKP(' + kpid + ')">Edit</button>
         } else {
@@ -261,12 +265,29 @@ var g = {
         }
         html0 += '</li>';
         html += html0;
-
       }
     }
     e.innerHTML = html;
     e = document.querySelector('#levelConflicts');
     e.innerHTML = "" + nConflicts;
+  },
+  checkKP: function (kpid) {
+    var self = this;
+    var kp = self.okps[kpid];
+    var p;
+    if (kp) {
+      p = Promise.resolve(kp);
+    } else {
+      p = null; //TODO: get it from server.
+    }
+    p.then(okp => {
+      var otests = self.id2object(okp.tests);
+      self.otestsB = otests;
+      self.presentTests(self.otestsB, "testsB");
+    }).catch(e => {
+      console.log("exception");
+      console.log(e);
+    });
   },
   removeKP: function (testid, kpid) {
     var self = this;
@@ -316,7 +337,7 @@ var g = {
     }
     return selected;
   },
-  mergeSelectedKPs: function (testid) {
+  mergeSelectedKPs: function (testid) { //TODO: merge Target should learn from mergeTests
     var self = this;
     var otest = self.getETestByID(testid);
     var selected = self.getKPsSelected(testid, otest.akps);
@@ -326,6 +347,69 @@ var g = {
         throw new Error("result for mergeSelected:" + JSON.stringify(ojson));
       } else {
         //TODO: I should go with EKP's, so all ETest could be updated.
+        self.updateTestInfo(testid);
+      }
+    }).catch(e => {
+      console.log("exception 457:");
+      console.log(e);
+    });
+  },
+  getTestsSelected: function (selected) {
+    var self = this;
+    var a = [self.otestsA, self.otestsB];
+    for (var i = 0; i < a.length; i++) {
+      var atests = a[i];
+      if (atests) {
+        for (var j = 0; j < atests.length; j++) {
+          var otest = atests[j];
+          var eid = 'cb' + otest.id;
+          var e = document.querySelector('#' + eid);
+          if (e.checked) {
+            //deselect these? this is not needed, if merge succeeded, then all these will be updated.
+            var id_s = "" + otest.id;
+            if (selected.includes(id_s))
+              continue;
+            if (selected === "") {
+            } else {
+              selected += ",";
+            }
+            selected += id_s;
+          }
+        }
+      }
+    }
+    return selected;
+  },
+  mergeTests: function () {
+    var self = this;
+    var target = self.targetTestToMerge;
+    var selected = self.getTestsSelected(target);
+    var idx = selected.indexOf(",");
+    if (target) {
+      self.targetTestToMerge = "";// null;//delete self.targetTestToMerge;
+      var e = document.querySelector('#mergeTests');
+      e.innerHTML = "merge selected Tests";
+      if (idx === -1) {
+        return;
+      }
+    } else {
+      if (idx === -1) {
+        self.targetTestToMerge = selected;
+        var e = document.querySelector('#mergeTests');
+        e.innerHTML = "merge Targeted";
+        return;
+      } else {
+        //to avoid mistake, force the user to do it in 2 steps.
+        alert("please select only 1 as merge target:" + selected);
+        return;
+      }
+    }
+    var url = "test?act=mergeTests&testids=" + selected;
+    self.postReq(url).then(ojson => {
+      if (ojson.ireason != 0) {
+        throw new Error("result for mergeSelected:" + JSON.stringify(ojson));
+      } else {
+        //TODO: reload the target ETest. no. all the ETests in selected.
         self.updateTestInfo(testid);
       }
     }).catch(e => {
