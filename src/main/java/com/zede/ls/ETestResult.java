@@ -10,9 +10,7 @@ import java.util.Comparator;
 //import javax.jdo.annotations.PersistenceCapable;
 //import javax.jdo.annotations.Persistent;
 
-/**
- *
- */
+
 //@PersistenceCapable
 public class ETestResult implements Serializable {
 
@@ -26,7 +24,8 @@ public class ETestResult implements Serializable {
      */
     long lts;
 //    @Persistent
-    boolean good;
+    boolean good; //to measure the 1/0 test result
+    int n=1; //to measure the hesitation. now this takes to be the times of record played. default=1. 
 
     static Comparator<ETestResult> cETestID = new Comparator<ETestResult>() { //this is the natural order for this class of objects.
         @Override

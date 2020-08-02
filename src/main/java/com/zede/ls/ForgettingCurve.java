@@ -5,8 +5,21 @@ import java.util.Collections;
 //import java.util.Set;
 
 /**
+ * I should use AI.
+ * 
+ * the evaluated object is the memory retention of EKP, the test  
+ * 
+ * dependent variables: ETestResult.good, ETestResult.n
+ * 
+ * independent variables: dt[i]=t[i]-t[i-1], dT[i]=t[i]-t[0]
+ * 
+ * meta parameters: the complexity of ETest: words of ETest.info, length of the audio record(seconds)
+ *      other meta parameters.
+ * 
+ * 
  *
  */
+
 public class ForgettingCurve {
     //https://www.ane.pl/pdf/5535.pdf
 
