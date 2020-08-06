@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -551,6 +552,11 @@ public class App {
                 app.initUser();
                 return;
             }
+            if (true) {
+                RetentionCurve rc = RetentionCurve.one;
+                app.someTests(rc);
+                return;
+            }
             if (true) { //fix relations
                 if (false) {
                     app.fix_EKP_ELevel_0();
@@ -814,6 +820,37 @@ public class App {
             System.out.println(test.getID());
         }
         System.out.println();
+    }
+
+    private void someTests(RetentionCurve rc) {
+        rc.load();//        rc.init();
+        ETestResult tr = new ETestResult();
+        long t0 = System.currentTimeMillis();
+        long t1 = t0;
+        long tf = 1000;
+        int nStimuli = 100;
+        Random r = new Random();
+        for (int i = 0; i < nStimuli; i++) {
+            tr.good = false; // r.nextDouble()>0.7; // false; true; //
+            tr.setT0T1(t0, t1);
+            tr.tf = tf;
+            tr.t = tf / 2;
+//            tf =
+            rc.stimulate(tr);
+            tf = rc.forecast(tr.t);
+            System.out.println(tr.tf + ":" + tr.t + "  " + tr.good + " " + (tf - tr.tf));
+        }
+        for (int i = 0; i < nStimuli; i++) {
+            tr.good = r.nextDouble() > 0.7; // false; true; //
+            tr.setT0T1(t0, t1);
+            tr.tf = tf;
+            //tr.t = tf / 2;
+            tr.t = tf + 2;
+            rc.stimulate(tr);
+            tf = rc.forecast(tr.t);
+            System.out.println((tr.tf-tr.t1) + ":"  + "  " + tr.good + " " + (tf - tr.t));
+        }
+
     }
 
 //    private void mergeETests() {

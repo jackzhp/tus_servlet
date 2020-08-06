@@ -94,6 +94,7 @@ the KP's level is too low compared to the actual level, then its test result cou
     EKPscheduled[] scheduled;// ArrayList<EKPscheduled> scheduled = new ArrayList<>();
     boolean shouldSortScheduled;
     Scheduler scheduler;
+    RetentionCurve fc; //.getFor(EUser.this)
 
     //we do not use WeakReference since we have authentication and deauthentication.
     static ConcurrentHashMap<String, EUser> users = new ConcurrentHashMap<>();
@@ -552,6 +553,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     }
                 }
             }
+            fc = RetentionCurve.one; //now I am using the same one for all users.
         } else {
             throw new IllegalStateException("expecting start object, but " + t);
         }
@@ -1136,8 +1138,10 @@ the KP's level is too low compared to the actual level, then its test result cou
                 if (kpid == 0 || kpid == 97) {
                     System.out.println(kpid + " # of tested:" + tested.size());
                 }
-
-                ltsScheduled = ForgettingCurve.getFor(EUser.this).scheduleWith(tested);
+//                ltsScheduled = fc.scheduleWith(tested); //ForgettingCurve.getFor(EUser.this)
+                ETestResult tr = tested.get(tested.size() - 1);
+                tr.setT0T1(tested.get(0).lts, ltsScheduled); fc.stimulate(tr);
+                ltsScheduled = tr.t + fc.forecast(tr.t);
 //                System.out.println("dt:" + (ltsScheduled - System.currentTimeMillis()));
                 shouldSortScheduled = true;
                 cf.complete(true);

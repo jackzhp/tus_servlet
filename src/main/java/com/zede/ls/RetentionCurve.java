@@ -7,7 +7,9 @@ import static com.zede.ls.ETest.getFileByID;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -331,6 +333,16 @@ public class RetentionCurve {
                 } else {
                     init();
                 }
+                Arrays.sort(segments, new Comparator<Segment>() {
+                    @Override
+                    public int compare(Segment o1, Segment o2) {
+                        return (int) (o1.s0 - o2.s0);
+                    }
+                });
+                for (int i = 0; i < segments.length; i++) {
+                    Segment s = segments[i];
+                    s.idx = i;
+                }
             } catch (Throwable t) {
                 t.printStackTrace();
             } finally {
@@ -361,11 +373,12 @@ public class RetentionCurve {
         the derivative of P(t): P'(t)=-a*e^(b-a*t) + d
         
          */
-        final int idx;
+//        final 
+        int idx;
         final long s0, s1; //the time interval since the first stimulus.
         double //a, 
                 b, d;  //d < alpha
-        long dtE; //the expected time interval from 
+        long dtE; //the expected time interval from. TODO: when not using exponential function, this should not be used.
         /**
          * do not utilize this, I have not think this through.
          *
@@ -403,10 +416,12 @@ public class RetentionCurve {
             } else { //if (s.t < s0 || s.t >= s1)  //should be s.t1 as s.t chould be over s1.
                 throw new IllegalStateException();
             }
+            double dt = tf(Ptarget, s.t1);
+            double tf = s.t1 + dt;
             boolean shouldAdjust = false,
                     toLarger = false, shouldDeliver = false;
             if (s.good) {
-                if (s.tf > s.t) {
+                if (tf > s.t) {
                     //tested too early
                     //we do not have to adjust nothing
                 } else { // s.tf < s.t
@@ -421,7 +436,7 @@ public class RetentionCurve {
                     toLarger = true;
                 }
             } else { //bad
-                if (s.tf >= s.t) {
+                if (tf >= s.t) {
                     /*
                     the lost time point must be less than t, and tf is even larger than t, so we should have forecasted a smaller tf.
                      */
@@ -460,7 +475,7 @@ public class RetentionCurve {
                 if (tfTarget < tfMax) {
                     double tfLearned = tfTarget; //if learning rate is 100%. or we can deem Pdelta as the learning rate.
                     tfLearned = tfO + (tfTarget - tfO) / 2; //50%
-                    findParameters(true, tfLearned, tr.t);
+                    findParameters(1, tfLearned, tr.t);
                     if (true) { //test
                         double dt = tf(Ptarget, tr.t);
                         System.out.println("\ttransmitted in, old:" + dtO + " targeted: " + dtT + " achieved:" + dt);
@@ -471,42 +486,47 @@ public class RetentionCurve {
 
         /**
          * P(t)=a*t^2-b*t+c
-         * 
+         *
          * P(t1)=1, 1 root(i.e. b^2=4*a*c)
-         * 
+         *
          * do not use this constraint: P(tMax)=0, tMax=b/2/a
-         * 
+         *
          * P(t)=a^2*t^2-b*t + c^2 with a>0, b>0. c's sign does not matter.
-         * P(t1)=1, 1 root(i.e. b^2=4*a^2*c^2, i.e. b=2*a*c or b=-2*a*c. which one?)
-         * P(t)=(a*t)^2-2*c*(a*t)+c^2=(a*t-c)^2
-         * 
-         * P'(t)=2*a^2*t-b = 2*a^2*t - 2*a*c=2*a(a*t - c) should always be less than 0, i.e. t less than c/a so c >0.
-         * 
-         * P(t1)=1 gives (a*t1-c)^2=1, i.e. a*t1-c=1 or a*t1-c=-1. we can only choose the latter.
-         * so c=a*t1 +1, so b=2*a*c=2*a^2*t1+2*a.
+         * P(t1)=1, 1 root(i.e. b^2=4*a^2*c^2, i.e. b=2*a*c or b=-2*a*c. which
+         * one?) P(t)=(a*t)^2-2*c*(a*t)+c^2=(a*t-c)^2
+         *
+         * P'(t)=2*a^2*t-b = 2*a^2*t - 2*a*c=2*a(a*t - c) should always be less
+         * than 0, i.e. t less than c/a so c >0.
+         *
+         * P(t1)=1 gives (a*t1-c)^2=1, i.e. a*t1-c=1 or a*t1-c=-1. we can only
+         * choose the latter. so c=a*t1 +1, so b=2*a*c=2*a^2*t1+2*a.
          * P'(t)=2*a^2*t-b= 2*a^2*t - 2*a^2*t1-2*a =2*a^2*(t -t1)-2*a
-         * 
-         * in order to become flatter, 4*(t-t1)*a -2 &gt; 0, i.e. a &gt; 1/(t-t1)/2.
-         * in order to become steeper, 4*(t-t1)*a -2 &lt; 0, i.e. a &lt; 1/(t-t1)/2.
-         * 
+         *
+         * in order to become flatter, 4*(t-t1)*a -2 &gt; 0, i.e. a &gt;
+         * 1/(t-t1)/2. in order to become steeper, 4*(t-t1)*a -2 &lt; 0, i.e. a
+         * &lt; 1/(t-t1)/2.
+         *
          * s0 is dynamically determined, s0 is c/a.
-         * 
-         * 
-         * P(t)=a*t^2-b*t + c with a>0, b>0. c's sign does not matter.
-         * P(t1)=1
-         * P(t)=a*(t^2-t1^2)-b(t-t1)+1
-         * P(t) is positive for the range[t1,s1], b(t-t1) &lt; a*(t^2-t1^2) + 1. 
-         * i.e. b &gt; (a*(t^2-t1^2) + 1)/(t-t1) = a*(t+t1) + 1/(t-t1)
-         * 
-         * P'(t)=2*a^2*t-b should be negative for the range[s0,s1], b &lt; 2*a^2*s1
-         * 
-         * 
+         *
+         *
+         * P(t)=a*t^2-b*t + c with a>0, b>0. c's sign does not matter. P(t1)=1
+         * P(t)=a*(t^2-t1^2)-b(t-t1)+1 P(t) is positive for the range[t1,s1],
+         * b(t-t1) &lt; a*(t^2-t1^2) + 1. i.e. b &gt; (a*(t^2-t1^2) + 1)/(t-t1)
+         * = a*(t+t1) + 1/(t-t1)
+         *
+         * P'(t)=2*a*t-b should be negative for the range[s0,s1], b &lt; 2*a*s1
+         *
+         * a is the this.d
+         *
          * @param t
          * @param t1
-         * @return 
+         * @return
          */
-        double P(double t, double t1) {
-
+        double P(double t1, double t) {
+            if (t < t1) {
+                throw new IllegalStateException(t + " : " + t1);
+            }
+            return d * (t * t - t1 * t1) - b * (t - t1) + 1;
         }
 
         /* originally, it is 
@@ -527,9 +547,10 @@ public class RetentionCurve {
         
          */
         double slope(double t, double t1) {
-            double a = (b - Math.log(1 - d)) / t1;
-            double slope = 0 - a * Math.exp(b - a * t);
-            return slope;
+//            double a = (b - Math.log(1 - d)) / t1;
+//            double slope = 0 - a * Math.exp(b - a * t);
+//            return slope;
+            return 2 * d * t - b;
         }
 
         /**
@@ -539,22 +560,62 @@ public class RetentionCurve {
          * @return dt where t1+dt = tf in P(tf)=P
          */
         double tf(double P, double t1) {
+            if (s0 <= t1 && t1 <= s1) {
+            } else {
+                throw new IllegalArgumentException();
+            }
             if (P > 1) {
                 P = 1;
             }
-//            if (t1 == 0) {
-//                t1 = 1;
-//            }
-            double dt = dtE;
-            if (dt == 0) {
-                double tmp = s0 * (b - Math.log(P - d)) / (b - Math.log(1 - d)); //s0 is right!!
-                dt = tmp - s0; //s0 is right!!
-                dtE = (long) dt;
-                dt = dtE;
+            if (true) {
+                //P(t)=a*(t^2-t1^2)-b(t-t1)+1
+                double delta = b * b - 4 * d * (1 - P + (b - d * t1) * t1);
+                /**
+                 * it is negative!!!
+                 * 
+                 * delta=b^2 -4*a(1-P)-4*a*b*t1 + 4*a^2*t1^2    ----(30)
+                 * its first derivative over t1: -4*a*b +8*a^2*t1
+                 * its 2nd derivative over t1: 8*a^2 &gt; 0, so there exists a minimum at t1=4*a*b/8/a^2=b/(2*a)
+                 * s2=(4*a*b)^2 - 4*(4*a^2)*(b^2 -4*a(1-P)) = 4^3*a^3*(1-P) &gt; 0.
+                 * when t1= (4*a*b-s)/8*a^2  or t1=(4*a*b+s)/8*a^2, 
+                 * delta=0
+                 * for delta>=0, we need t1 &le; (4*a*b-s)/8*a^2=b/(2*a) - 8*a(1-P)  ----(35)
+                 * 
+                 * the maximum t1 is s1, so we require s1 &le; b/(2*a) - 8*a(1-P)   ----(36)
+                 * i.e. b &ge; 2*s1*a +16*(1-P)*a^2   ----(37)
+                 * i.e.  a &le; 0 or a &ge; s1/8/(1-P) ----(38)   anything wrong?
+                 *
+                 *
+                 */
+                double delta2 = Math.sqrt(delta);
+                double tf = (b - delta2) / (d * 2);
+                return tf - t1;
             }
-//            double dt = t1 - s0;
-            return //t1 + 
-                    dt; //dt + tmp;
+////            if (t1 == 0) {
+////                t1 = 1;
+////            }
+//            double dt = dtE;
+//            if (dt == 0) {
+//                double tmp = s0 * (b - Math.log(P - d)) / (b - Math.log(1 - d)); //s0 is right!!
+//                dt = tmp - s0; //s0 is right!!
+//                dtE = (long) dt;
+//                dt = dtE;
+//            }
+////            double dt = t1 - s0;
+//            return //t1 + 
+//                    dt; //dt + tmp;
+
+//P(t)=a*(t^2-t1^2)-b(t-t1)+1
+            double delta = b * 2 - 4 * d * (1 - P + (b - d * t1) * t1);
+            if (delta < 0) {
+                throw new IllegalStateException("delta:" + delta);
+            }
+            double delta2 = Math.sqrt(delta);
+            double tf = (b - delta2) / d / 2;
+            if (true) { //test verification
+                System.out.println("is 0:" + (P(t1, tf) - P));
+            }
+            return tf - t1;
         }
 
         /*
@@ -572,21 +633,182 @@ public class RetentionCurve {
          * to find b,d such that P(tf)=Ptarget while P(t1)=1
          *
          *
-         * @param flatter if true, choose the one with flatter slope.
+         * @param flatter 1: flatter, -1: steeper, 0: init
          * @param tf
          * @param t1 at least 1.
          */
-        void findParameters(boolean flatter, double tf, double t1) {
+        void findParameters(int flatter, double tf, double t1) {
             if (t1 < 1) {
                 throw new IllegalArgumentException("t1:" + t1);
             }
-
+            if (true) {
+                /**
+                 * P(t)=a*t^2-b*t+c ----(1)
+                 *
+                 * P'(t)=2*a*t-b ----(2)
+                 *
+                 * P"(t)=2*a ----(3)
+                 *
+                 * P"(t) &gt; 0 ----(4) this is desirable. over time, its
+                 * meaning is that .....
+                 *
+                 * (4) gives a &gt; 0 ----(4-2)
+                 *
+                 * somewhere wrote a &lt; b ----(?) why do I have this?
+                 *
+                 * s0 &lt; t1 &lt; s1 ----- this is obvious; t1 &lt; tf ---this
+                 * is also obvious; but tf can be larger than s1 or smaller than
+                 * s1.
+                 *
+                 * P(t1)=1 ----(9)
+                 *
+                 * From (1) & (9), we have P(t;t1)=a*(t^2-t1^2)-b(t-t1)+1
+                 * ----(10) and its derivative over t: P'(t;t1)=2*a*t-b still
+                 * same as (2) over t1: b-2*a*t1
+                 *
+                 * 2nd derivative over t: P"(t;t1)=2*a this is (3), over t1:
+                 * -2*a &lt; 0. but be noted the slope over t does not change
+                 * with t1.
+                 *
+                 *
+                 *
+                 * Ptarget=P(tf;t1) ----(11) has at least 1 root, i.e.
+                 * b^2-4*a*(1-Ptarget+b*t1-a*t1^2) &ge; 0 ----(12) , where 0
+                 * &lt; Ptarget &lt; 1.
+                 *
+                 * this is an ellipse of (a,b) and (a,b) should not be inside
+                 * the ellipse.
+                 *
+                 * (11) gives b=a*(tf+t1) + (1-Ptarget)/(tf-t1) ---(13)
+                 *
+                 * combine (11) & (12), we have 0 &le;
+                 * b^2-4*a*(1-Ptarget+b*t1-a*t1^2) = b^2-4*a*t1*b + 4*a^2*t1^2
+                 * -4*a*(1-Ptarget) = (b-2*a*t1)^2 - 4*a*(1-Ptarget) =
+                 * a^2*(tf-t1)^2 - 4*a*(1-Ptarget) = a*(a*(tf-t1)^2 -
+                 * 4*(1-Ptarget)) I had made the next conclusion wrong, and
+                 * reversed, and then reversed it again. so 0 &le; a &le;
+                 * 4*(1-Ptarget)/(tf-t1)^2 ----(22)
+                 *
+                 *
+                 *
+                 * (10) is positive for t in [t1,tf] and t1 in [s0,s1], i.e.
+                 * b(t-t1) &lt; a*(t^2-t1^2) + 1. i.e. b &lt; (a*(t^2-t1^2) +
+                 * 1)/(t-t1) = a*(t+t1) + 1/(t-t1) ----(14).
+                 *
+                 * (14) does not contain (12). That (10) is positive for t in
+                 * [t1,tf] and t1 in [s0,s1] does not entail (10)=Ptarget has at
+                 * least 1 root. since (10) can just be greater than Ptarget.
+                 *
+                 * I need a minimum for (14)' RHS. how?
+                 *
+                 * the first derivative of (14)'s RHS over t: a - 1/(t-t1)^2,
+                 * over t1: a + 1/(t-t1)^2 &gt; 0
+                 *
+                 * the 2nd derivative over t: 2/(t-t1)^3 &gt; 0, over t1:
+                 * 2/(t-t1)^3 &gt; 0
+                 *
+                 * so t1 should take its minimum s0.
+                 *
+                 *
+                 * (2) should be negative for the range[t1,tf], i.e. b &gt;
+                 * 2*a*t ----(15). the maximum of its RHS is 2*a*tf;
+                 *
+                 * (13) & (15) gives a cross point
+                 *
+                 * 2*a*tf=a*(tf+t1) + (1-Ptarget)/(tf-t1) ---(25) i.e.
+                 * a*(tf-t1)=(1-Ptarget)/(tf-t1), i.e. a =(1-Ptarget)/(tf-t1)^2
+                 * ----(26) (13) & (15) entails a &lt; (1-Ptarget)/(tf-t1)^2
+                 * ----(27)
+                 *
+                 * (22) & (27) are consistent.
+                 *
+                 */
+                //why the following equation?
+                // a cross point of 2 lines! which two?
+                //Ptarget = a*s1^2 - a*t1^2 - 2*a*s1^2 + 2*a*s1*t1 + 1
+                //        = -a*( s1-t1)^2 + 1
+                // a < (1 - Ptarget)/(s1-t1)^2
+                //  b > 2*a*s1 i.e.  a*(s1+t1) + (1-Ptarget)/(s1-t1) > 2*a*s1
+                //                               (1-Ptarget)/(s1-t1) > a*(2*s1-s1-t1) = a*(s1-t1)
+                //                               (1-Ptarget)/(s1-t1)^2 <  a
+                double dtft1 = tf - t1;
+                dtft1 = dtft1 * dtft1;
+                double dMax = (1 - Ptarget) / dtft1;
+                double dT2 = 0, bT2 = 0, step = 0.05;
+                if (flatter > 0) { //P'(tf)=a*(tf-t1) - (1-Ptarget)/(tf-t1) should increase(it is negative) on change of (a,b)
+                    dT2 = d;
+                    while (true) {
+                        dT2 -= dMax * step;
+                        if (dT2 <= 0) {
+                            dT2 = step;
+                        }
+//                        if (dT2 > dMax) {
+////                        throw new IllegalStateException("can not add it any more");
+////                            dT2 += 10;
+//                        } else {
+//                            dT2 = (dT2 + dMax) / 2;
+//                        }
+                        bT2 = dT2 * (tf + t1) + (1 - Ptarget) / (tf - t1);
+                        if (2 * dT2 * tf - bT2 < 0) { //P(tf;t1)
+                            break;
+                        } else {
+                            throw new IllegalStateException();
+                        }
+                    }
+                } else if (flatter < 0) { //steep. since it is negative, so I should decrease a(d)
+                    dT2 = d;
+                    while (true) {
+                        dT2 -= dMax * step;
+                        if (dT2 > dMax) {
+                            dT2 = dMax;
+                        }
+//                        if (dT2 < dMax) {
+//                            dT2-=10; //throw new IllegalStateException("can not decrease it any more");
+//                        } else {
+////                            dT2 = (dT2 + dMax) / 2;
+//                        }
+                        bT2 = dT2 * (tf + t1) + (1 - Ptarget) / (tf - t1);
+                        if (2 * dT2 * tf - bT2 < 0) { //P(tf;t1)
+                            break;
+                        } else {
+                            throw new IllegalStateException();
+                        }
+                    }
+                } else { //flatter ==0, i.e. init
+                    dT2 = dMax / 2;
+                    while (true) {
+                        bT2 = dT2 * (tf + t1) + (1 - Ptarget) / (tf - t1);
+                        if (2 * dT2 * tf - bT2 < 0) { //P(tf;t1)
+                            break;
+                        } else {
+                            throw new IllegalStateException();
+                        }
+//                        dT2 *= 2;
+                    }
+                }
+                d = dT2;
+                b = bT2;
+                System.out.println("found parameters for P(" + t1 + "," + (tf - t1) + ")=" + Ptarget);
+                System.out.println("\tP(" + t1 + "," + tf + ")=" + Ptarget + "  verify P:" + (P(t1, tf) - Ptarget) + " verify tf:" + (t1 + tf(Ptarget, t1) - tf));
+                try {
+                    double fT = s1 + tf(Ptarget, s1);
+                    if (Double.isNaN(fT)) {
+                        tf(Ptarget, s1);
+                    }
+                    System.out.println("farthest forecast:" + fT);
+                    fT = s0 + tf(Ptarget, s0);
+                    System.out.println(" closest forecast:" + fT);
+                } catch (Throwable t) {
+                    t.printStackTrace();
+                }
+                return;
+            }
             double b = this.b, d = this.d;
             double a = (b - Math.log(1 - d)) / t1;
             double Pt1 = Math.exp(b - a * t1) + d;
             double P = Math.exp(b - a * tf) + d;
             double ratio = tf / t1;
-            double dN = 0, bN = 0, slopeC = flatter ? 0 : Double.NEGATIVE_INFINITY;
+            double dN = 0, bN = 0, slopeC = flatter > 0 ? 0 : Double.NEGATIVE_INFINITY;
             int points2 = 5;
             double step = 0.1 / points2;
             double slopeO = slope(tf, t1);
@@ -598,7 +820,7 @@ public class RetentionCurve {
                     a = (bt - Math.log(1 - dt)) / t1;
                     double slope = 0 - a * Math.exp(bt - a * tf);
                     System.out.println(slope + " close?: " + (slope - slopeO) + " P:" + (Math.exp(bt - a * tf) + dt));
-                    if (flatter) {
+                    if (flatter > 0) {
                         if (slope > slopeO) { //become flatter since both are negative
                             //I pick the one closest to slopeO, so looking for the minimum
                             if (slope < slopeC) {
@@ -646,7 +868,7 @@ public class RetentionCurve {
             double tfLearned = tfTarget; //if learning rate is 100%. or we can deem Pdelta as the learning rate.
             while (true) {
                 tfLearned = tf0 + (tfTarget - tf0) / 2; //50%.  "learing" as in "machine learning"
-                findParameters(true, tfLearned, s.t1);
+                findParameters(1, tfLearned, s.t1);
                 if (true) { //test
                     double dt = tf(Ptarget, s.t1);
                     System.out.println("\ttargeted: " + dtTarget + " achieved:" + dt);
@@ -671,7 +893,7 @@ public class RetentionCurve {
             double tfLearned = tfTarget; //if learning rate is 100%. or we can deem Pdelta as the learning rate.
             while (true) {
                 tfLearned = tf0 + (dtTarget - dt0) / 2; // s.tf - (s.tf - tfTarget) / 2; //tfTarget + (s.tf - tfTarget) / 2; //50%
-                findParameters(false, tfLearned, s.t1);
+                findParameters(0, tfLearned, s.t1);
                 double dt = tf(Ptarget, s.t1);
                 if (true) { //test
                     System.out.println("\ttargeted: " + dtTarget + " achieved:" + dt);
@@ -725,6 +947,9 @@ public class RetentionCurve {
             }
         }
         s = new Segment(idx, as[0], as[1], bd[0], bd[1]);
+        if (true) {
+            s.findParameters(0, (s.s0 + s.s1) / 2, s.s0);
+        }
         return s;
     }
 
@@ -782,7 +1007,7 @@ public class RetentionCurve {
                         dT = s.tf(Ptarget, t);
                         tfT = t + dT;
                         if (tfT > tfMax) {
-                            s.findParameters(false, tfMax, t);
+                            s.findParameters(0, tfMax, t);
                         } else {
                             break;
                         }

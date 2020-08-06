@@ -10,7 +10,6 @@ import java.util.Comparator;
 //import javax.jdo.annotations.PersistenceCapable;
 //import javax.jdo.annotations.Persistent;
 
-
 //@PersistenceCapable
 public class ETestResult implements Serializable {
 
@@ -22,10 +21,25 @@ public class ETestResult implements Serializable {
     /* granularity to be minute. 4085 years from 1970. when save and load use minute.
     in memory, use milliseconds.
      */
-    long lts;
+    long lts; //==t0+t milliseconds from 1970
 //    @Persistent
     boolean good; //to measure the 1/0 test result
-    int n=1; //to measure the hesitation. now this takes to be the times of record played. default=1. 
+    int nPlayed = 1; //to measure the hesitation. now this takes to be the times of record played. default=1. 
+
+
+    /*    one stimulus(t: a time point(long), good: good at the time point(boolean), hesitate at the time point(time elapsed, or times of audio record played), 
+ *                n-th stimulus ,
+ *                ETest(all kinds of properties:its id?, words of ETest.info0, time length of the audio, time point of last used),
+ *                the EKP(all kinds of properties: its id?, tf: last forecasted forgetting time point,t0: time point of the first stimulus)
+ *                ).
+     */
+    long t; //minutes since t0
+    long t0, //the timestamp of the first stimulus, minutes since 1970
+            t1, //minutes from t0, where P(t1)=1
+            tf; //previously forecasted, minutes since t0
+    int n; //0: first stimulus, 1: 2nd 
+    int testWords, testAudioSeconds; //properties of the ETest used
+    long testlts; //the last timestamp this same ETest is used for the user. minutes since 1970
 
     static Comparator<ETestResult> cETestID = new Comparator<ETestResult>() { //this is the natural order for this class of objects.
         @Override
@@ -74,6 +88,7 @@ public class ETestResult implements Serializable {
                     }
                 }
             }
+//            this.t = lts - t0;
         } else {
             throw new IllegalStateException("expecting start object, but " + t);
         }
@@ -93,5 +108,19 @@ public class ETestResult implements Serializable {
     @Override
     public int hashCode() {
         return testid;
+    }
+
+    /**
+     * both are minutes since 1970
+     *
+     * @param t0
+     * @param t1
+     */
+    void setT0T1(long t0, long t1) {
+        this.t0 = t0 / 1000 / 60;
+        this.t1 = (t1 - t0) / 1000 / 60;
+        this.t = (this.lts - t0) / 1000 / 60;
+        if(this.t1==0)
+            this.t1=1;
     }
 }
