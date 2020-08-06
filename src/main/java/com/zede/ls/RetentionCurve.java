@@ -526,6 +526,15 @@ public class RetentionCurve {
             if (t < t1) {
                 throw new IllegalStateException(t + " : " + t1);
             }
+            if (true) {
+                /* P(t)=b-a*t
+                P(t1)=1, i.e. b-a*t1=1
+                P(t1;t)=1-a(t-t1)
+                t=t1+(1-P)/a
+                 */
+                return 1 - d * (t - t1);
+
+            }
             return d * (t * t - t1 * t1) - b * (t - t1) + 1;
         }
 
@@ -547,6 +556,14 @@ public class RetentionCurve {
         
          */
         double slope(double t, double t1) {
+            if (true) {
+                /* P(t)=b-a*t
+                P(t1)=1, i.e. b-a*t1=1
+                P(t1;t)=1-a(t-t1)
+                t=t1+(1-P)/a
+                 */
+                return -d;
+            }
 //            double a = (b - Math.log(1 - d)) / t1;
 //            double slope = 0 - a * Math.exp(b - a * t);
 //            return slope;
@@ -568,22 +585,34 @@ public class RetentionCurve {
                 P = 1;
             }
             if (true) {
+                /* P(t)=b-a*t
+                P(t1)=1, i.e. b-a*t1=1
+                P(t1;t)=1-a(t-t1)
+                t=t1+(1-P)/a
+                 */
+                double dt = (1 - P) / d;
+                if (Double.isInfinite(dt)) {
+                    dt = tfMax - t1;
+                }
+                return dt;
+            }
+            if (true) {
                 //P(t)=a*(t^2-t1^2)-b(t-t1)+1
                 double delta = b * b - 4 * d * (1 - P + (b - d * t1) * t1);
                 /**
                  * it is negative!!!
-                 * 
-                 * delta=b^2 -4*a(1-P)-4*a*b*t1 + 4*a^2*t1^2    ----(30)
-                 * its first derivative over t1: -4*a*b +8*a^2*t1
-                 * its 2nd derivative over t1: 8*a^2 &gt; 0, so there exists a minimum at t1=4*a*b/8/a^2=b/(2*a)
-                 * s2=(4*a*b)^2 - 4*(4*a^2)*(b^2 -4*a(1-P)) = 4^3*a^3*(1-P) &gt; 0.
-                 * when t1= (4*a*b-s)/8*a^2  or t1=(4*a*b+s)/8*a^2, 
-                 * delta=0
-                 * for delta>=0, we need t1 &le; (4*a*b-s)/8*a^2=b/(2*a) - 8*a(1-P)  ----(35)
-                 * 
-                 * the maximum t1 is s1, so we require s1 &le; b/(2*a) - 8*a(1-P)   ----(36)
-                 * i.e. b &ge; 2*s1*a +16*(1-P)*a^2   ----(37)
-                 * i.e.  a &le; 0 or a &ge; s1/8/(1-P) ----(38)   anything wrong?
+                 *
+                 * delta=b^2 -4*a(1-P)-4*a*b*t1 + 4*a^2*t1^2 ----(30) its first
+                 * derivative over t1: -4*a*b +8*a^2*t1 its 2nd derivative over
+                 * t1: 8*a^2 &gt; 0, so there exists a minimum at
+                 * t1=4*a*b/8/a^2=b/(2*a) s2=(4*a*b)^2 - 4*(4*a^2)*(b^2
+                 * -4*a(1-P)) = 4^3*a^3*(1-P) &gt; 0. when t1= (4*a*b-s)/8*a^2
+                 * or t1=(4*a*b+s)/8*a^2, delta=0 for delta>=0, we need t1 &le;
+                 * (4*a*b-s)/8*a^2=b/(2*a) - 8*a(1-P) ----(35)
+                 *
+                 * the maximum t1 is s1, so we require s1 &le; b/(2*a) -
+                 * 8*a(1-P) ----(36) i.e. b &ge; 2*s1*a +16*(1-P)*a^2 ----(37)
+                 * i.e. a &le; 0 or a &ge; s1/8/(1-P) ----(38) anything wrong?
                  *
                  *
                  */
@@ -640,6 +669,26 @@ public class RetentionCurve {
         void findParameters(int flatter, double tf, double t1) {
             if (t1 < 1) {
                 throw new IllegalArgumentException("t1:" + t1);
+            }
+            double step = 0.05;
+            if (true) {
+                /* P(t)=b-a*t
+                P(t1)=1, i.e. b-a*t1=1
+                P(t1;t)=1-a(t-t1)
+                
+                its 1st derivative over t: -a
+                
+                
+                t=t1+(1-P)/a
+                 */
+                if (flatter > 0) { //since slope is negative, so I should increase slope, i.e. decrease a.
+                    d *= (1 - step);
+                } else if (flatter < 0) {
+                    d *= (1 + step);
+                } else {
+                    d = (1 - Ptarget) / (tf - t1);
+                }
+                return;
             }
             if (true) {
                 /**
@@ -734,7 +783,7 @@ public class RetentionCurve {
                 double dtft1 = tf - t1;
                 dtft1 = dtft1 * dtft1;
                 double dMax = (1 - Ptarget) / dtft1;
-                double dT2 = 0, bT2 = 0, step = 0.05;
+                double dT2 = 0, bT2 = 0;
                 if (flatter > 0) { //P'(tf)=a*(tf-t1) - (1-Ptarget)/(tf-t1) should increase(it is negative) on change of (a,b)
                     dT2 = d;
                     while (true) {
@@ -810,7 +859,7 @@ public class RetentionCurve {
             double ratio = tf / t1;
             double dN = 0, bN = 0, slopeC = flatter > 0 ? 0 : Double.NEGATIVE_INFINITY;
             int points2 = 5;
-            double step = 0.1 / points2;
+            step = 0.1 / points2;
             double slopeO = slope(tf, t1);
             System.out.println("1? " + (Pt1 - 1) + " slope:" + slopeO + " P " + P + " -> " + Ptarget); //must be.
             for (int j = 0; j < 2; j++) {
@@ -853,16 +902,17 @@ public class RetentionCurve {
         void adjustTowardLarger(ETestResult s) {
             double dtTarget = tf(Ptarget - Pdelta, s.t1);
             double tfTarget = s.t1 + dtTarget;
+//            if (s.t1 >= s0) {
+//                if (tfTarget < s.tf) {
+//                    //what to do????
+//                    throw new IllegalStateException(tfTarget + " < " + s.tf);
+//                }
+//            }
             if (tfTarget > tfMax) {
                 tfTarget = tfMax;
                 dtTarget = tfTarget - s.t1;
                 adjustTowardSmaller(s);
                 return;
-            }
-            if (s.t1 >= s0) {
-                if (tfTarget < s.tf) {
-                    throw new IllegalStateException(tfTarget + " < " + s.tf);
-                }
             }
             double tf0 = s.t1 + tf(Ptarget, s.t1);
             double tfLearned = tfTarget; //if learning rate is 100%. or we can deem Pdelta as the learning rate.
@@ -871,8 +921,12 @@ public class RetentionCurve {
                 findParameters(1, tfLearned, s.t1);
                 if (true) { //test
                     double dt = tf(Ptarget, s.t1);
+                    if (Double.isInfinite(dt)) {
+                        tf(Ptarget, s.t1);
+                    }
                     System.out.println("\ttargeted: " + dtTarget + " achieved:" + dt);
                 }
+                break;
             }
         }
 
@@ -895,6 +949,9 @@ public class RetentionCurve {
                 tfLearned = tf0 + (dtTarget - dt0) / 2; // s.tf - (s.tf - tfTarget) / 2; //tfTarget + (s.tf - tfTarget) / 2; //50%
                 findParameters(0, tfLearned, s.t1);
                 double dt = tf(Ptarget, s.t1);
+                if (Double.isInfinite(dt)) {
+                    tf(Ptarget, s.t1);
+                }
                 if (true) { //test
                     System.out.println("\ttargeted: " + dtTarget + " achieved:" + dt);
                 }
@@ -996,7 +1053,12 @@ public class RetentionCurve {
             }
             int n = al.size();
             if (n == 0) {
-                throw new IllegalStateException(t + " not in " + segments[0].s0 + " & " + segments[segments.length - 1].s1);
+//                try {
+//                    throw new IllegalStateException(t + " not in " + segments[0].s0 + " & " + segments[segments.length - 1].s1);
+//                } catch (Throwable e) {
+//                    e.printStackTrace();
+//                }
+                return tfMax;
             } else //if (n == 1) 
             {
                 double dt = Double.POSITIVE_INFINITY; //choose the minimum one.

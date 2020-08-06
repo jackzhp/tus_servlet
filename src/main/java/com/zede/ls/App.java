@@ -848,7 +848,8 @@ public class App {
             tr.t = tf + 2;
             rc.stimulate(tr);
             tf = rc.forecast(tr.t);
-            System.out.println((tr.tf-tr.t1) + ":"  + "  " + tr.good + " " + (tf - tr.t));
+            System.out.println((tr.tf - tr.t1) + ":" + "  " + tr.good + " " + (tf - tr.t));
+            tr.t1 = tr.t;
         }
 
     }
