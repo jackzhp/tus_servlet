@@ -32,15 +32,17 @@ public class Analyzer {
 
     String sysName = "misc";
     String grade = "1.1";
-    ELevel level;
-    String url = "https://www.thejapanesepage.com/japanese-grammar-100-part-i/";
+    ELevel level; //the default level
+    ELevel levelt; //the using level.
+    String url = "https://www.thejapanesepage.com/japanese-grammar-100-part-ii/";
     File dirDst = new File("/Users/yogi/jack/japanese");
 
     public static void main(String[] args) {
         try {
             Analyzer a = new Analyzer();
-            if (false) {
+            if (true) {
                 a.run();
+                return;
             }
             if (false) {
                 a.modifyLevels_ETest();
@@ -112,7 +114,7 @@ public class Analyzer {
                             test = new ETest();
                             test.newID();
                             test.fnAudio = fn;
-                            ELevel levelt = getLevelID(test.fnAudio);
+                            levelt = getLevelID(test.fnAudio);
                             if (levelt == null) {
                                 levelt = level;
                             }
@@ -120,12 +122,24 @@ public class Analyzer {
                             int iloc = fn.lastIndexOf(".mp3");
                             test.info = fn.substring(0, iloc);
                             ETest ot = test;
-                            return test.newKP_cf(test.info, levelt, user).thenCompose((kp) -> {
+                            kps.clear();
+                            searchEKP(test.info, kps);
+                            CompletableFuture<EKP> p;
+                            if (kps.size() > 0) {
+                                EKP[] a = kps.toArray(new EKP[0]);
+                                if (a.length > 1) {
+                                    System.out.println("\tfound " + a.length + " for " + test.info);
+                                }
+                                p = CompletableFuture.completedFuture(a[0]);
+                            } else {
+                                p = test.newKP_cf(test.info, levelt, user);
+                            }
+                            return p.thenCompose((kp) -> {
                                 System.out.println(" EKP saved, now will save ETest");
                                 return ot.save_cf();
                             }).thenApply((tf) -> {
                                 System.out.println(" test " + fn + " saved");
-                                level.tests.add(ot.id); //do this after ETest has been saved.
+                                levelt.tests.add(ot.id); //do this after ETest has been saved.
                                 return true;
                             });
 //                                    .exceptionally(t -> {
@@ -159,7 +173,7 @@ public class Analyzer {
         ELevelSystem sys = user.target.sys;
         level = ELevel.get_m(sys, grade);
 
-        fdownloading = new File("tmp.html");
+        fdownloading = new File(dirDst, "ii.html");
         System.out.println("location:" + fdownloading.getAbsolutePath());
         if (fdownloading.exists()) {
         } else {
@@ -437,4 +451,21 @@ public class Analyzer {
         }
     }
 
+    static void searchEKP(String s, HashSet<EKP> kps) {
+        String[] as = s.split("AND");
+        /**
+         *
+         * the usual use case: when a user wants to create a new EKP. and the
+         * user wants to avoid making many copies of the same EKP(they can be
+         * merged), so the user wants to find out the EKP they are trying to
+         * creating. so we have to search for it.
+         *
+         * Be noted, there is no point to list all EKP's. but we can list those
+         * EKP's with desc starts with the target string.
+         */
+        App.ConditionSearch cs = new App.ConditionSearch(as);
+        EKPbundle.search(cs, kps);
+
+    }
+    static HashSet<EKP> kps = new HashSet<>();
 }

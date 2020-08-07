@@ -58,7 +58,7 @@ var g = {
                 } else {
                     nConflicts++;
                 }
-                var html0 = '<li id="li' + eid + '"><input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label>';
+                var html0 = '<li id="li' + eid + '"><input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kpid + (kp.deleted ? "Deleted" : "") + ":" + level + ":" + kp.desc + '</label>';
                 if (right) {
                     html0 += '<button onclick="tester.addKP(' + kpid + ')">Add</button><button onclick="g.editKP(' + kpid + ')">Edit</button>';
                 } else {
@@ -93,7 +93,7 @@ var g = {
             } else {
                 // nConflicts++;
             }
-            var html0 = '<input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label>';
+            var html0 = '<input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kpid + ":" + level + ":" + kp.desc + '</label>';
             if (right) {
                 html0 += '<button onclick="tester.addKP(' + kpid + ')">Add</button><button onclick="g.editKP(' + kpid + ')">Edit</button>';
             } else {
@@ -350,7 +350,7 @@ var g = {
                 //can it be reused? or a new one is must? "AudioBufferSourceNode': cannot call start more than once." so we must create a new one.
                 var request = new XMLHttpRequest();
                 //this is very costly, so I remove the timestamp, hence the result can be cached.
-                var url = webPath + "kp?act=search&s=" + encodeURIComponent(s);// + "&t=" + new Date().getTime(); //&sys=" + sys + "
+                var url = webPath + "kp?act=searchKPs&&s=" + encodeURIComponent(s);// + "&t=" + new Date().getTime(); //&sys=" + sys + "
                 console.log(url);
                 request.open('GET', url, true); //path
                 request.responseType = 'json';
@@ -375,16 +375,20 @@ var g = {
         var s = e.value;
         //TODO: save search history
         console.log(s);
-        //self.searchKP_do()
-        Promise.resolve(self.okps).then(ojson => {
-            self.okpsB = ojson;
-            return self.presentKPs('#kpsB', self.okpsB);
-        }).catch(e => {
-            console.log("exception 239:");
-            console.log(e);
-        });
-        var url = "kp?act=searchKPs&&s=" + encodeURIComponent(desc);
+        // //TODO: redundant ...
+        // self.searchKP_do(s).then(ojson => {  //Promise.resolve(self.okps)
+        //     self.okpsB = ojson;
+        //     return self.presentKPs('#kpsB', self.okpsB);
+        // }).catch(e => {
+        //     console.log("exception 239:");
+        //     console.log(e);
+        // });
+        var url = "kp?act=searchKPs&&s=" + encodeURIComponent(s);
         self.postReq(url).then(ojson => {
+            if(true){
+            self.okpsB = ojson.kps;
+            return self.presentKPs('#kpsB', self.okpsB);
+            }
             self.okpsR = ojson.kps;
             var n0 = 0, n1 = 0;
             for (var kpid in ojson.kps) {

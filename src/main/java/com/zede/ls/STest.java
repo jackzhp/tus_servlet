@@ -61,7 +61,6 @@ public class STest extends HttpServlet {
         }
     }
 
-    // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
     /**
      * Handles the HTTP <code>GET</code> method.
      *
@@ -138,7 +137,7 @@ public class STest extends HttpServlet {
                         String level_s = request.getParameter("level");
                         if ("0.0".equals(level_s)) { //nolevel. this will not happen!
 //                            ETest.noELevel(sys, tests);
-                        } else { //TODO: this is not needed at all. 
+                        } else { //TODO: this is not needed at all. since the client can get the whole level system file.
 //                            ELevel level = ELevel.get_m(sys, level_s);
 //                            if (level != null) {
 ////                                kps = new ArrayList<>(level.kps.size());
@@ -159,7 +158,7 @@ public class STest extends HttpServlet {
 //                                throw new Exception("level is null for " + sysName + ":" + level_s);
 //                            }
                         }
-                    } else if ("nokp".equals(category)) {
+                    } else if ("nokp".equals(category) || "nolevel".equals(category)) {
                         HashSet<ETest> otests = new HashSet<>();
                         ETest.EKP_none(otests); //use ETest.id, not ETest.getID();
                         int[] ids = App.OIDtoPrimitive(otests);
@@ -329,7 +328,7 @@ public class STest extends HttpServlet {
     @Override
     public String getServletInfo() {
         return "Short description";
-    }// </editor-fold>
+    }
 
     static void serve(HttpServletResponse response, HashSet<ETest> tests, String category) throws IOException {
         tests = ETest.distinct(tests);

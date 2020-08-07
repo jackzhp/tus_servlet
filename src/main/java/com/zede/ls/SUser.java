@@ -1,19 +1,13 @@
 package com.zede.ls;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Set;
 import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -102,7 +96,7 @@ public class SUser extends HttpServlet {
                 } else {
                     if ("tests".equals(action)) {
                         boolean reviewOnly = "true".equals(request.getParameter("reviewOnly"));
-                        ETest[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
+                        EUser.ETestForEKP[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
 //                    ETest test = tests[0];
 //                    File f = test.getFile(false);
 //                    App.serve(response, f);
@@ -121,9 +115,13 @@ public class SUser extends HttpServlet {
 //            g.writeEndObject();
 //        }
                         } else {
-                            for (ETest test : tests) {
+                            for (EUser.ETestForEKP t4 : tests) {
 //                                test.json(g);
-                                g.writeNumber(test.id);
+                                g.writeStartObject();
+                                g.writeNumberField("id", t4.test.getID());
+                                g.writeFieldName("kp4"); //Integer.toString(test.test.id)
+                                t4.kps.json(g, true);
+                                g.writeEndObject();
                             }
                         }
                         g.writeEndArray();
@@ -131,10 +129,10 @@ public class SUser extends HttpServlet {
                         g.flush();
                         g.close();
                         App.serve(response, baos);
-                    } else if ("test".equals(action)) {
+                    } else if ("test".equals(action)) { //TODO: seems not used any more use "tests" instead. remove this after confirmation.
                         boolean reviewOnly = "true".equals(request.getParameter("reviewOnly"));
-                        ETest[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
-                        ETest test = tests[0];
+                        EUser.ETestForEKP[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
+                        ETest test = tests[0].test;
                         File f = test.getFile(false);
                         App.serve(response, f);
                     } else if ("level".equals(action)) {

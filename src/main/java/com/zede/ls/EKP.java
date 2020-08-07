@@ -605,7 +605,12 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                         shouldSave = true;
 //                        tests0.remove(atestid[i]); //not needed, it will be set with null.
                     } else {
-                        al.add(test);
+                        //TODO: I just fix it directly, or I post an alert, and then the relation fixing(EKP & ETest) is followed
+                        if (test.contains(this)) {
+                            al.add(test);
+                        } else {
+                            shouldSave = true;
+                        }
                     }
                 }
                 tests = al;// al.toArray(new ETest[0]);
@@ -1099,10 +1104,10 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
 
     boolean withETest() {
         //ETest[] ots = tests;
+        ArrayList<Integer> t0 = tests0;
         if (tests != null) {
             return tests.size() > 0; //ots.length > 0;
         } else {
-            ArrayList<Integer> t0 = tests0;
             if (t0 != null) {
                 return t0.size() > 0;
             }

@@ -292,7 +292,7 @@ var g = {
       //
       var html0 = '<li id="li' + eid + '">';
       if (right) { } else html0 += '<input type="checkbox" id="cb' + eid + '"/><label for="cb' + eid + '">';
-      html0 += '<span ondblclick="g.checkKP(' + kpid + ')">' + kpid + (kp.deleted ? "Deleted" : "") + ":" + level + '  ' + kp.desc + '</span>';
+      html0 += '<span ondblclick="g.checkKP(' + kpid + ')">' + kpid + (kp.deleted ? "Deleted" : "") + ":" + level + ':' + kp.desc + '</span>';
       if (right) {
         html0 += '<button onclick="g.addKP(' + kpid + ')">Add</button>'; //<button onclick="tester.editKP(' + kpid + ')">Edit</button>
       } else {
@@ -611,6 +611,8 @@ var g = {
       self.updateTestInfo(testid);
     }
   },
+  //this is not used at all. then why do I have this?
+  // how is this functionality achieved?
   getTests: function (sys, level) {
     var self = this;
     //get tests seems not needed!
@@ -772,7 +774,7 @@ var g = {
     var s = e.value;
     console.log(s);
     //TODO: save search history
-    var url = "kp?act=searchKPs&&s=" + encodeURIComponent(s);
+    var url = "kp?act=searchKPs&s=" + encodeURIComponent(s);
     // Promise.resolve(self.okps).then(ojson => {
     //   self.okpsB = ojson;
     //   return self.presentKPs(-1, 'testsB', self.okpsB);
@@ -892,13 +894,15 @@ var g = {
   getETestByID: function (testid) {
     var self = this;
     var otest = null;
-    if (self.otests)
-      otest = self.getETest(self.otests, testid);
-    if (otest) { } else {
-      if (self.otestsB)
-        otest = self.getETest(self.otestsB, testid);
+    var a = [self.otests, self.otestsA, self.otestsB];
+    for (var i = 0; i < a.length; i++) {
+      var otests = a[i];
+      if (otests)
+        otest = self.getETest(otests, testid);
+      if (otest)
+        return otest;
     }
-    return otest;
+    return null;
   },
   getETestLevel: function (otest) {
     var self = this;

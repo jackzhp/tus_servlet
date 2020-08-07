@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +31,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 //import javax.jdo.annotations.Persistent;
@@ -241,8 +243,10 @@ the KP's level is too low compared to the actual level, then its test result cou
 
     public CompletableFuture<Void> onTested(long lts, int testid, int[] bads) {
 //                ETest test = ETest.loadByID_m(testid);      
+        if (fetcher != null) {
+            fetcher.onTested(testid);
+        }
         return ETest.getByID_cf(testid).thenApply((ETest test) -> { //Compose
-
             return test.getKPs(); //test.getKPs_cf();
         }).thenCompose((EKP[] kps) -> {
             CompletableFuture[] cfs = new CompletableFuture[kps.length];
@@ -310,16 +314,16 @@ the KP's level is too low compared to the actual level, then its test result cou
 //        App.getExecutor().submit(scheduler);
     }
 
-    void updateSchedule0() {
-        updateSchedule(target, true);
-    }
-
+//    void updateSchedule0() {
+//        updateSchedule(target, true);
+//    }
     /**
      *
      *
      *
      * @param level
-     * @param must always true? seems no point to be false.
+     * @param must always true? seems no point to be false. must be nonempty for
+     * the final results.
      * @return
      */
     CompletableFuture<Boolean> updateSchedule(ELevel level, boolean must) {
@@ -342,7 +346,7 @@ the KP's level is too low compared to the actual level, then its test result cou
      *
      * @return
      */
-    CompletableFuture<ETest[]> getTest(boolean reviewOnly) {
+    CompletableFuture<ETestForEKP[]> getTest(boolean reviewOnly) {
         //now we choose a test from ETests covering kps
         //at present, I do not try to find the minimum covering set of ETest. I serve the user one by one.
         ELevel limit;
@@ -358,10 +362,10 @@ the KP's level is too low compared to the actual level, then its test result cou
         if (fetcher == null) {
             fetcher = new Fetcher();
         }
-        return fetcher.fetch(2, limit);
+        return fetcher.fetch(2, limit); //if with this limit, the result is empty, we should move the limit level to its next level.
     }
 
-    Comparator<ETest> cETests = new Comparator<ETest>() {
+    Comparator<ETest> cETestByHighestLevel = new Comparator<ETest>() {
         @Override
         public int compare(ETest o1, ETest o2) {
             ELevelSystem sys = target.sys;
@@ -554,6 +558,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                 }
             }
             fc = RetentionCurve.one; //now I am using the same one for all users.
+            fc.load();
         } else {
             throw new IllegalStateException("expecting start object, but " + t);
         }
@@ -641,7 +646,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     g.writeStartObject(); //results
                     for (Integer kpid : s) {
                         g.writeFieldName(kpid.toString());
-                        results.get(kpid).json(g);
+                        results.get(kpid).json(g, false);
                     }
                     g.writeEndObject(); //results
                     g.writeEndObject();
@@ -744,7 +749,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                             sb.append("null");
                         }
                         System.out.println(sb.toString());
-                        user.updateSchedule0();
+//                        user.updateSchedule0(); //TODO: why do I need this? I think this is not needed.
                         return user;
                     } else {
                         System.out.println("sig:" + sigCalculated + ":" + sig);
@@ -923,7 +928,16 @@ the KP's level is too low compared to the actual level, then its test result cou
 
     class Scheduler implements Runnable {
 
+        /*
+        why do I need this class?
+        when user's level is not determined, we need to test the user.
+        
         //TODO: should shoulde be triggered only when a test results is saved.
+         */
+ /* why did I need this? nonempty final result. No. 
+        when must=true, the level's EKP should be scheduled.
+        when must ==false, and kpsRelevant is not empty, we are done.
+         */
         private boolean must;
         private ELevel level;
         AtomicBoolean running = new AtomicBoolean();
@@ -931,12 +945,25 @@ the KP's level is too low compared to the actual level, then its test result cou
         /*
         those EKP of low level, and mastered should be removed(not to be rescheduled unncecessarily).
          */
-        private final HashSet<EKPscheduled> kpsRelevant = new HashSet<>();
+//        private final HashSet<EKPscheduled> kpsRelevant = new HashSet<>();
+        private final HashMap<Integer, EKPscheduled> kpsRelevant = new HashMap<>();
 
         Scheduler(Collection<EKPscheduled> values) {
-            kpsRelevant.addAll(values);
+//            kpsRelevant.addAll(values);
+            for (EKPscheduled kps : values) {
+                if (kps.kp != null) {
+                    if (kps.kp.deleted != 0) {
+                        continue;
+                    }
+                    if (kps.kp.withETest()) {
+                    } else {
+                        continue;
+                    }
+                }
+                kpsRelevant.put(kps.kpid, kps);// .add(kps);
+            }
             System.out.println("scheduler inited with " + kpsRelevant.size());
-            if (false) { //I have scheduled field saved, so I do not have to redo it at this time.
+            if (false) { //I have the scheduled time point for each EKP saved, so I do not have to redo it at this time.
                 App.getExecutor().submit(() -> {
                     for (EKPscheduled kps : values) {
                         kps.updateSchedule();
@@ -945,7 +972,7 @@ the KP's level is too low compared to the actual level, then its test result cou
             }
         }
 
-        CompletableFuture<Boolean> set(ELevel level, boolean must) {
+        CompletableFuture<Boolean> set(ELevel level, boolean must) { //TODO: rename this
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             try {
                 if (level == null) {
@@ -974,7 +1001,7 @@ the KP's level is too low compared to the actual level, then its test result cou
         @Override
         public void run() {
 //            if (running.compareAndSet(false, true)) {
-            CompletableFuture<Boolean> cf;
+//            CompletableFuture<Boolean> cf;
             try {
                 if (level != null) {
                     if (level.sys == null) {
@@ -985,18 +1012,22 @@ the KP's level is too low compared to the actual level, then its test result cou
                 }
                 schedule().thenApply(tf -> {
                     System.out.println(level.levelString() + " is scheduled:" + kpsRelevant.size());
-                    if (level.sys == null) {
-                        throw new IllegalStateException("this should not happen");
-                    }
-                    level = level.sys.previousLevel(level.idMajor, level.idMinor);
-                    if (level != null) {
+                    if (kpsRelevant.isEmpty()) {
                         if (level.sys == null) {
                             throw new IllegalStateException("this should not happen");
                         }
-                        App.getExecutor().submit(this);
+                        level = level.sys.previousLevel(level.idMajor, level.idMinor);
+                        if (level != null) {
+                            if (level.sys == null) {
+                                throw new IllegalStateException("this should not happen");
+                            }
+                            App.getExecutor().submit(this);
+                        } else {
+                            onSucceeded();
+                            System.out.println("no more level");
+                        }
                     } else {
                         onSucceeded();
-                        System.out.println("no more level");
                     }
                     return true;
                 }).exceptionally(t -> {
@@ -1023,14 +1054,17 @@ the KP's level is too low compared to the actual level, then its test result cou
             for (int i = 0; i < cfs.length; i++) {
                 Integer kpid = akpid[i];
                 kpst.kpid = kpid;
-                if (kpsRelevant.contains(kpst)) {
+                if (kpsRelevant.containsKey(kpid)) { //kpst
                     cfs[i] = CompletableFuture.completedFuture(true);
                     continue;
                 }
                 cfs[i] = EKP.getByID_cf(kpid).thenCompose((EKP kp) -> {
-                    EKPscheduled kps = new EKPscheduled();
+                    if (kp.deleted != 0) {
+                        return CompletableFuture.completedFuture(true);
+                    }
+                    EKPscheduled kps = new EKPscheduled(); //TODO: before creation, I should check existence.
                     kps.set(kp);
-                    kpsRelevant.add(kps);
+                    kpsRelevant.put(kpid, kps);//.add(kps);
                     return kps.updateSchedule();
                 }).exceptionally(t -> {
                     if (t instanceof FileNotFoundException) {
@@ -1055,22 +1089,37 @@ the KP's level is too low compared to the actual level, then its test result cou
         }
 
         private void onSucceeded() {
-            scheduled = kpsRelevant.toArray(new EKPscheduled[0]);
-            System.out.println("eventually # scheduled:" + scheduled.length);
-            //TODO: do we have to sort them now?
-            shouldSortScheduled = true;
-            running.set(false); //succeeded
-            for (CompletableFuture<Boolean> cf : request) {
-                cf.complete(true);
+            try {
+                scheduled = kpsRelevant.values().toArray(new EKPscheduled[0]);
+                System.out.println("eventually # scheduled:" + scheduled.length);
+                //TODO: do we have to sort them now?
+                shouldSortScheduled = true;
+                @SuppressWarnings("unchecked")
+                CompletableFuture<Boolean>[] ar = request.toArray(new CompletableFuture[0]);
+                for (CompletableFuture<Boolean> cf : ar) {
+                    request.remove(cf);
+                    cf.complete(true);
+                }
+            } catch (Throwable t) {
+//                t.printStackTrace();
+                onFailed(t);
             }
+            running.set(false); //succeeded
         }
 
         private void onFailed(Throwable t) {
             t.printStackTrace();
-            running.set(false); //failed
-            for (CompletableFuture<Boolean> cf : request) {
-                cf.completeExceptionally(t);
+            try {
+                @SuppressWarnings("unchecked")
+                CompletableFuture<Boolean>[] ar = request.toArray(new CompletableFuture[0]);
+                for (CompletableFuture<Boolean> cf : ar) {
+                    request.remove(cf);
+                    cf.completeExceptionally(t);
+                }
+            } catch (Throwable t2) {
+                t2.printStackTrace();
             }
+            running.set(false); //failed
         }
     }
     static Comparator<EKPscheduled> cTime = new Comparator<EKPscheduled>() {
@@ -1093,10 +1142,11 @@ the KP's level is too low compared to the actual level, then its test result cou
 //        ArrayList<Integer> tests0 = new ArrayList<>();
 //        ArrayList<ETest> tests = new ArrayList<>();
         CompletableFuture<ETest[]> getTests() {
-            return getEKP().thenApply((EKP kp) -> {
-                return kp.getTests();
+            return getEKP().thenApply((EKP kpt) -> {
+                return kpt.getTests();
             }); //null;
         }
+        ELevel level; //working variable, so it might be null.
 
         CompletableFuture<EKP> getEKP() {
             if (kp == null) {
@@ -1110,6 +1160,7 @@ the KP's level is too low compared to the actual level, then its test result cou
         /* this should be updated as more data is collected for the user.
     at present, I update this upon the user logged in. No. do it when new data is collected.
          */
+        int dt;
         long ltsScheduled;
         /* this EKP are tested with many different ETest
         are they sorted? yes, since they are added sequentially over time.
@@ -1135,17 +1186,26 @@ the KP's level is too low compared to the actual level, then its test result cou
         CompletableFuture<Boolean> updateSchedule() {
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             try {
-                if (kpid == 0 || kpid == 97) {
-                    System.out.println(kpid + " # of tested:" + tested.size());
-                }
+                long ltsnow = System.currentTimeMillis();
+                if (tested.isEmpty()) {
+                    ltsScheduled = ltsnow;
+                } else {
+                    if (kpid == 0 || kpid == 97) {
+                        System.out.println(kpid + " # of tested:" + tested.size());
+                    }
 //                ltsScheduled = fc.scheduleWith(tested); //ForgettingCurve.getFor(EUser.this)
-                ETestResult tr = tested.get(tested.size() - 1);
-                tr.setT0T1(tested.get(0).lts, ltsScheduled); fc.stimulate(tr);
-                ltsScheduled = tr.t + fc.forecast(tr.t);
+                    ETestResult tr = tested.get(tested.size() - 1);
+                    long lts0 = get_t0();
+                    tr.setT0T1(lts0, ltsnow); //ltsScheduled
+                    fc.stimulate(tr);
+                    dt = fc.forecast(tr.t);
+                    ltsScheduled = lts0 + tr.t + dt;
 //                System.out.println("dt:" + (ltsScheduled - System.currentTimeMillis()));
+                }
                 shouldSortScheduled = true;
                 cf.complete(true);
             } catch (Throwable t) {
+                t.printStackTrace();
                 cf.completeExceptionally(t);
             }
             return cf;
@@ -1155,7 +1215,7 @@ the KP's level is too low compared to the actual level, then its test result cou
         is this possible?
          */
         /**
-         *
+         * TODO: no more used, so remove this.
          *
          * @param limit
          * @param tests2
@@ -1165,7 +1225,7 @@ the KP's level is too low compared to the actual level, then its test result cou
             ELevelSystem sys = limit.sys;
             return getTests().thenApply((ETest[] tests) -> {
 //                System.out.println("#ofETests:" + tests.length);
-                Arrays.sort(tests, cETests);
+                Arrays.sort(tests, cETestByHighestLevel);
                 for (int i = tests.length - 1; i >= 0; i--) {
                     ETest test = tests[i];
                     if (sys.c.compare(test.highestLevel(sys), limit) <= 0) {
@@ -1183,8 +1243,12 @@ the KP's level is too low compared to the actual level, then its test result cou
             });
         }
 
-        private void json(JsonGenerator g) throws IOException {
+        void json(JsonGenerator g, boolean kpidSave) throws IOException {
             g.writeStartObject();
+            if (kpidSave) {
+                g.writeNumberField("kpid", kpid);
+                g.writeNumberField("dt", dt);
+            }
             g.writeNumberField("scheduled", ltsScheduled / 1000 / 60); //minutes is good enough
             g.writeArrayFieldStart("tested");
             for (ETestResult tr : tested) {
@@ -1197,6 +1261,7 @@ the KP's level is too low compared to the actual level, then its test result cou
         void load(JsonParser p) throws IOException {
             JsonToken t = p.nextToken();
             if (t == JsonToken.START_OBJECT) {
+                long ltsTestLast = 0;
                 while (true) {
                     t = p.nextToken();
                     if (t == JsonToken.FIELD_NAME) {
@@ -1215,7 +1280,14 @@ the KP's level is too low compared to the actual level, then its test result cou
                                     }
                                     ETestResult tr = new ETestResult();
                                     tr.load(p);
-                                    tested.add(tr);
+                                    if (tr.lts > 0) {
+                                        if (tr.lts != ltsTestLast) {
+                                            tested.add(tr);
+                                            ltsTestLast = tr.lts;
+                                        }
+                                    } else { // <=0
+                                        //this ETestResult will be discarded.
+                                    }
                                     addToUsed(tr);
                                 }
                             } else {
@@ -1242,26 +1314,72 @@ the KP's level is too low compared to the actual level, then its test result cou
             this.kpid = kp.id;
         }
 
+        //the caller should be aware this might not exist.
+        private long get_t0() {
+            return tested.get(0).lts;
+        }
+
     }
 
-    class Fetcher implements Runnable {
+    /**
+     * why this class? since I want to present why the ETest is used to do the
+     * test. it is for the EKP, and all of its relevant information can be
+     * presented.
+     *
+     * I want to check whether the mechanism based on the Memory retention curve
+     * is good?
+     *
+     *
+     */
+    class ETestForEKP {
+
+        final ETest test;
+        final EKPscheduled kps;
+
+        ETestForEKP(ETest test, EKPscheduled kps) {
+            if (test.contains(kps.kp)) {
+            } else {
+                throw new IllegalStateException("ETest#" + test.id + " does not have EKP#" + kps.kp.id + " " + kps.kpid);
+            }
+            this.test = test;
+            this.kps = kps;
+        }
+    }
+
+    class Fetcher implements Runnable//, Function<ETest, Boolean> 
+    {
 
         int idx, n;
         ELevel limitCurrent, limit;
-        ConcurrentLinkedQueue<CompletableFuture<ETest[]>> request = new ConcurrentLinkedQueue<>();
+        ConcurrentLinkedQueue<CompletableFuture<ETestForEKP[]>> request = new ConcurrentLinkedQueue<>();
         AtomicBoolean running = new AtomicBoolean();
         private ArrayList<ETest> testsT = new ArrayList<>();
-        private HashSet<ETest> results = new HashSet<>();
+        //ArrayList<ETest> results = new ArrayList<>();
+//        private HashSet<ETest> results = new HashSet<>();
+//        private HashMap<ETest, ETestForEKP> results = new HashMap<>();
+        /* why not use ETest? but its id. since I want to avoid loading ETest at all.
+        when everything is right, there is no point to load ETest or EKP.
+        
+        Be noted loading EKP seems unavoidable since we need ETest's from EKP.
+        
+         */
+//        private HashMap<Integer, ETestForEKP> results = new HashMap<>();
+        private ArrayList<ETestForEKP> results = new ArrayList<>(); //TODO: of length n, use array?
+        ELevelSystem sys;
 
-        ;//ArrayList<ETest> results = new ArrayList<>();
-
-        CompletableFuture<ETest[]> fetch(int n, ELevel limit) {
-            CompletableFuture<ETest[]> cf = new CompletableFuture<>();
+        CompletableFuture<ETestForEKP[]> fetch(int n, ELevel limit) {
+            CompletableFuture<ETestForEKP[]> cf = new CompletableFuture<>();
+            if (n < 3) {
+                n = 3;
+            }
             this.n = n;
             this.limit = limit;
             if (running.compareAndSet(false, true)) {
+                if (sys == null) {
+                    sys = target.sys;
+                }
                 idx = 0;
-                results.clear();
+//                results.clear();
                 App.getExecutor().submit(this);
             }
             request.add(cf);
@@ -1289,6 +1407,7 @@ the KP's level is too low compared to the actual level, then its test result cou
             }
             return cf;
         }
+        EKPscheduled kps;
 
         @Override
         public void run() {
@@ -1302,45 +1421,71 @@ the KP's level is too low compared to the actual level, then its test result cou
                     System.out.println("#of KP scheduled:" + size + " testsUsed:" + testsUsed.size());
                 }
                 if (idx < scheduled.length) { //.size()
-                    EKPscheduled kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
+                    kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
+                    long ltsnow = System.currentTimeMillis();
+                    if (kps.ltsScheduled > ltsnow) {
+                        /* TODO: all EKP's who are waiting for review are all reviewed.
+                        now it is the time for new material.
+                         */
+                        idx = scheduled.length;
+                    } else {
 //                    System.out.println(idx + "-th/" + size + " KP:" + kps.kpid);
-                    if (false) { //before test results arrived, we should serve the same test all the time.
-                        kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
-                        shouldSortScheduled = true;
-                    }
-                    testsT.clear();
-                    return kps.filterTests(limit, testsT);
-                } else {
-                    //usually, should not get here.
-                    return CompletableFuture.completedFuture(false);
-                }
-            }).thenAccept((Boolean tf) -> {
-                if (tf) {
-//                    System.out.println(idx + "-th KP gives ETests:" + testsT.size());
-//                ETest testT = null;
-//            ETestResult tr = new ETestResult(); //temp
-                    int i0 = testsT.size() - 1;
-                    if (i0 < 0) {
-                        System.out.println("no test for limit " + limit.levelString());
-                    }
-                    for (int i = i0; i >= 0; i--) {
-                        ETest test = testsT.get(i);
-//                tr.testid = test.id;
-                        if (results.contains(test) //what does this mean? already in the results!
-                                || testsUsed.get(test.id) != null) { //is just tested?
-                            testsT.remove(test);
-                        } else {
-//                        testT = test;
-                            break;
+                        if (false) { //before test results arrived, we should serve the same test all the time.
+                            kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
+                            shouldSortScheduled = true;
                         }
+//                    testsT.clear();
+                        return kps.getTests(); //kps.filterTests(limit, testsT);
                     }
-//            if (testT == null) {
-//                testT = tests2.get(i0);
-//            }
-//                return testT;//testT.id;
+                } else {
+                }
+                //usually, should not get here.
+                return CompletableFuture.completedFuture(null);//false);
+            }).thenAccept((ETest[] tests) -> { //Boolean tf) -> {
+                if (tests == null) {
+                    /* generally speaking, this should not happen.
+                    this can only be caused by idx >= scheduled.length.
+                     */
+//                    try {
+//                        throw new Exception("this should not happen");
+//                    } catch (Throwable t) {
+//                        t.printStackTrace();
+//                    }
+                    fetchMore();
+                } else {
                     boolean done = false;
-                    if (testsT.size() > 0) {
-                        results.addAll(testsT);
+                    if (kps.kp.deleted != 0) {
+                        scheduler.kpsRelevant.remove(kps.kpid);
+                    } else if (tests.length > 0) {
+                        Arrays.sort(tests, cETestByHighestLevel);
+                        for (int i = tests.length - 1; i >= 0; i--) {
+                            ETest test = tests[i];
+                            int testid = test.id;
+//                            if (testid == 20) {
+//                                testid = 20;
+//                            }
+                            if (test.contains(kps.kp)) {
+                            } else {
+                                continue;
+                            }
+                            ELevel ltest = getELevel4(testid);
+                            if (sys.c.compare(ltest, limit) <= 0) {
+                                for (; i >= 0; i--) {
+                                    test = tests[i]; //with lower highest ELevel, so all usable
+                                    if (test.fnAudio == null) { //TODO: should be configurable by caller.
+                                        continue;
+                                    }
+                                    testid = test.id;
+                                    if (alreadyIn(testid) //results.containsKey(testid) //what does this mean? already in the results!
+                                            || testsUsed.get(testid) != null) { //is just tested?
+                                    } else {
+                                        ETestForEKP te = new ETestForEKP(test, kps);
+                                        results.add(te); //results.put(testid, te);
+                                        break; //I take only one of them for the current EKP.
+                                    }
+                                }
+                            }
+                        }
                         if (results.size() >= n) {
                             onSucceeded();
                             done = true;
@@ -1349,30 +1494,34 @@ the KP's level is too low compared to the actual level, then its test result cou
                     if (done) {
                     } else {
                         idx++;
-                        boolean doneReal = false;
-                        if (idx >= scheduled.length) {
-                            ELevel l = limit.sys.nextLevel(limit);
-                            if (l == null) {
-                                doneReal = true;
-                            } else {
-                                limit = l;
-                            }
-                            idx = 0;
-                        }
-                        if (doneReal) {
-                            if (results.isEmpty()) {
-                                onFailed(new Exception("no more test"));
-                            } else {
-                                onSucceeded();
-                            }
-                        } else {
-                            testsT.clear();
-                            App.getExecutor().submit(this);
-                        }
+                        fetchMore();
                     }
-                } else {
-                    onSucceeded();
                 }
+////                    System.out.println(idx + "-th KP gives ETests:" + testsT.size());
+////                ETest testT = null;
+////            ETestResult tr = new ETestResult(); //temp
+//                int i0 = testsT.size() - 1;
+//                if (i0 < 0) {
+//                    System.out.println("no test for limit " + limit.levelString());
+//                }
+//                for (int i = i0; i >= 0; i--) {
+//                    ETest test = testsT.get(i);
+////                tr.testid = test.id;
+//                    if (results.contains(test) //what does this mean? already in the results!
+//                            || testsUsed.get(test.id) != null) { //is just tested?
+//                        testsT.remove(test);
+//                    } else {
+////                        testT = test;
+//                        break;
+//                    }
+//                }
+////            if (testT == null) {
+////                testT = tests2.get(i0);
+////            }
+////                return testT;//testT.id;
+//                if (testsT.size() > 0) {
+//                    results.addAll(testsT);
+//                }
             }).exceptionally(t -> {
                 if (results.isEmpty()) {
                     onFailed(t);
@@ -1383,33 +1532,131 @@ the KP's level is too low compared to the actual level, then its test result cou
             });
         }
 
+        /**
+         * at one stage, the problem is that all ETest returned are for the same
+         * EKP. this should not happen. for example, return 2 ETest, they should
+         * be for different EKPs. and if possible the 1st ETest should not cover
+         * the 2nd EKP.
+         *
+         *
+         *
+         */
         private void onSucceeded() {
-            System.out.println("succeeded:" + results.size() + " n:" + n + " limit:" + limit.levelString());
-            if (n < 1) {
-                throw new IllegalStateException();
-            }
-            running.set(false);
-            int i = results.size() - 1;
-            for (; i >= n; i--) {
-                results.remove(i);
-            }
-            ETest[] tests = results.toArray(new ETest[0]);
-            for (ETest test : tests) { //why do I need this? once I serve them, I do not serve them again immediately.
-                ETestResult tr = new ETestResult();
-                tr.testid = test.id;
-                tr.lts = -1;
-                addToUsed(tr);
-            }
-            for (CompletableFuture<ETest[]> q : request) {
-                q.complete(tests);
+            try {
+                System.out.println("succeeded:" + results.size() + " n:" + n + " limit:" + limit.levelString());
+                if (n < 1) {
+                    throw new IllegalStateException();
+                }
+                running.set(false);
+//                ETest[] 
+//                Arrays.sort(tests, cETestByHighestLevel);  //only usable when ETest is loaded.
+//                int size = results.size();
+//                if (size > n) {
+//                    size = n;
+//                }
+                ETestForEKP[] tes;
+//                HashSet<EKP> serving = new HashSet<>();
+//                tes= new ETestForEKP[size]; // results.values().toArray(new ETestForEKP[0]);
+//                Integer[] tests = results.keySet().toArray(new Integer[0]); //ETest
+//                for (int j = 0, i = tests.length - 1; j < size; i--) { //why do I need this? once I serve them, I do not serve them again immediately.
+//                    //ETest test = tests[i];
+//                    int testid = tests[i];// test.id;
+//                    ETestForEKP kpsT = results.get(testid);
+//                    if (serving.contains(kpsT.kps.kp)) {
+//                        continue;
+//                    }
+//                    tes[j++] = kpsT;
+//                    if (false) { //if I do not remove elements(ETest) from results until the ETest is done then I do not need this.
+//                        ETestResult tr = new ETestResult();
+//                        tr.testid = testid;
+//                        tr.lts = -1;
+//                        addToUsed(tr);
+//                    }
+//                }
+                tes = results.toArray(new ETestForEKP[0]);
+                for (CompletableFuture<ETestForEKP[]> q : request) {
+                    q.complete(tes);
+                }
+            } catch (Throwable t) {
+                t.printStackTrace();
             }
         }
 
         private void onFailed(Throwable t) {
             running.set(false);
-            for (CompletableFuture<ETest[]> q : request) {
+            for (CompletableFuture<ETestForEKP[]> q : request) {
                 q.completeExceptionally(t);
             }
+        }
+
+//        @Override
+//        public Boolean apply(ETest test) {
+//            int testid = test.id;
+//            if (results.containsKey(testid) //what does this mean? already in the results!
+//                    || testsUsed.get(testid) != null) { //is just tested?
+//                return false;
+//            }
+//            return true;
+//        }
+//                    if with this limit, the result is empty, we should move the limit level to its next level.
+        private void fetchMore() {
+            boolean doneReal = false;
+            if (idx >= scheduled.length) {
+                ELevel l = limit.sys.nextLevel(limit);
+                if (l == null) {
+                    doneReal = true;
+                } else {
+                    limit = l;
+                }
+                idx = 0;
+            }
+            if (doneReal) {
+                if (results.isEmpty()) {
+                    onFailed(new Exception("no more test"));
+                } else {
+                    onSucceeded();
+                }
+            } else {
+//                            testsT.clear();
+                App.getExecutor().submit(this);
+            }
+        }
+
+        //with this approach, we have to load ETest into memory
+        private ELevel getELevel4(ETest test) {
+            return test.highestLevel(sys);
+        }
+
+        /* try to avoid loading ETest and EKP
+         */
+        private ELevel getELevel4(int testid) {
+            ELevel level = sys.getELevel4(testid, kps.level);
+            if (level == null) {
+                ETest test = ETest.loadByID_m(testid);
+                test.highestLevel_cal(sys);
+                level = sys.getELevel4(testid, kps.level);
+            }
+            return level;
+        }
+
+        private void onTested(int testid) {
+//            results.remove(testid);
+            Iterator<ETestForEKP> I = results.iterator();
+            while (I.hasNext()) {
+                ETestForEKP te = I.next();
+                if (te.test.id == testid) {
+                    I.remove();
+                }
+            }
+        }
+
+        private boolean alreadyIn(int testid) {
+            for (ETestForEKP te : results) {
+                if (te.test.id == testid) {
+                    return true;
+                }
+            }
+            return false;
         }
 
     }

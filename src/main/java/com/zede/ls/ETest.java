@@ -697,6 +697,9 @@ public class ETest implements OID {
     }
 
     boolean contains(EKP kp) {
+        if (true) {
+            return kps.contains(kp);
+        }
         //the list of kps will not be long, so I do not use HashSet
         for (EKP kpt : kps) {
             if (kpt.id == kp.id) { //kpt.equals(kp)

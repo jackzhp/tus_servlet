@@ -75,7 +75,7 @@ public class EKPbundle {
             if (bO != null) {
                 b = bO;
             }
-            b.load();
+            b.load(); //TODO: let the caller to call this.
         }
         return b;
     }
@@ -213,6 +213,7 @@ public class EKPbundle {
         }
         return new File(App.dirKPs(), fn);
     }
+    AtomicBoolean loadingLoaded = new AtomicBoolean();
 
     /**
      *
@@ -220,11 +221,15 @@ public class EKPbundle {
      * @throws IOException
      */
     void load() throws FileNotFoundException, IOException {
+        if (loadingLoaded.compareAndSet(false, true)) {
+        } else {
+            return;
+        }
         File f = getFile(false);
-//        if (f.exists()) {
-//        } else {
-//            return;
-//        }
+        if (f.exists()) { //TODO: why did I disable this check previously?
+        } else {
+            return;
+        }
 //        System.out.println("is loading from " + f.getAbsolutePath());
 //TODO: java.io.FileNotFoundException:    because of concurrency.
 //    this a big problem. not just for efficiency.

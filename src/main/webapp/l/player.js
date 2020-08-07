@@ -840,7 +840,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     return new Promise((resolve, reject) => {
       try {
         var request = new XMLHttpRequest();
-        var url = webPath + "user?act=tests"; //webPath + "test"
+        var url = webPath + "user?act=tests" + "&t=" + new Date().getTime(); //webPath + "test"
         request.open('GET', url, true);
         request.responseType = 'json';
         request.onload = function () {
@@ -848,10 +848,10 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
           if (ojson.ireason) {
             reject(ojson.sreason);
           } else {
-            ojson = ojson.tests;
+            ojson = ojson.tests; //originally, an array of testid; now an array of objects.
             //self.tests = request.response.tests;
             for (var i = 0; i < ojson.length; i++) {
-              var testid = ojson[i];//.id; //TODO: at present, it is the whole object.
+              var testid = ojson[i].id;//.id; //TODO: at present, it is the whole object.
               if (true) {
                 if (self.testCurrent) {
                   if (self.testCurrent.id == testid)
@@ -867,10 +867,10 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
                       continue;
                     else break; //throw away the rest if any
                   } else {
-                    self.testNext2 = { id: testid };
+                    self.testNext2 = ojson[i];// { id: testid };
                   }
                 } else {
-                  self.testNext = { id: testid };
+                  self.testNext = ojson[i];// { id: testid };
                 }
               } else {
                 for (var j = 0; j < self.tests.length; j++) {
@@ -954,16 +954,19 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
             if (self.testNext) {
               if (self.testNext.id == otestNew.id) {
                 o = self.testNext;
+                otestNew.kp4 = o.kp4;
                 self.testNext = otestNew;
               }
             } else if (self.testNext2) {
               if (self.testNext2.id == otestNew.id) {
                 o = self.testNext2;
+                otestNew.kp4 = o.kp4;
                 self.testNext2 = otestNew;
               }
             } else if (self.testCurrent) {
               if (self.testCurrent.id == otestNew.id) {
                 o = self.testCurrent;
+                otestNew.kp4 = o.kp4;
                 self.testCurrent = otestNew;
               }
             }
@@ -1068,12 +1071,13 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     //I will have to present some info about this test.
     var e = document.querySelector('#info');
     // console.log(self.testCurrent);
-    var html = self.testCurrent.info;
+    var html = self.testCurrent.id +"("+self.testCurrent.kp4.kpid+")"+ ":" + self.testCurrent.info;
     html += '<button onclick="tester.editTest()">Edit</button>';
     e.innerHTML = html; //.fn; //.pathPlaying;// player.pathCurrent;
     //now present those knowledge points
     //we will allow the user to tell us which points is newly learned.
     self.presentKPs(false, self.testCurrent.kps);
+    self.presentTiming();
   },
   inLeftList: function (kpid) { //TODO: seems there is a function with better performance.
     var self = this;
@@ -1084,6 +1088,37 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       }
     }
     return false;
+  },
+  format_m: function (m) { //minutes since 1970
+    var d = new Date(m * 1000 * 60);
+    return d.getFullYear() + "." + d.getMonth() + "." + d.getDate() + "-" + d.getHours() + ":" + d.getMinutes();
+  },
+  presentTiming: function () {
+    var self = this;
+    var right = true;
+    var tag, eid
+    if (right) {
+      tag = "R"; eid = "kpsB";
+    } else {
+      tag = "L"; eid = "kpsA";
+    }
+    var e = document.querySelector('#' + eid);
+    // e.innerHTML = "";
+    var otime = self.testCurrent.kp4;
+    console.log(otime.scheduled);
+    var aotimes = otime.tested;
+    for (var i = 0; i < aotimes.length; i++) {
+      var o = aotimes[i];
+      console.log(o.lts + " " + o.good);
+    }
+    html = "<li>" + otime.dt + "=" + otime.scheduled + "(" + self.format_m(otime.scheduled) + ")</li>";
+    for (var i = aotimes.length - 1; i >= 0; i--) {
+      var o = aotimes[i];
+      console.log(o.lts + " " + o.good);
+      var html0 = '<li id="li' + eid + '">' + self.format_m(o.lts) + " " + o.good + '</li>';
+      html += html0;
+    }
+    e.innerHTML = html;
   },
   presentKPs: function (right, okps) {
     var self = this;
@@ -1100,8 +1135,16 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       var kp = okps[kpid];
       console.log(kpid + ":" + kp);
       if (kp.deleted) { } else {
+        var isfor = "";
+        try {
+          if (self.testCurrent.kp4.kpid == kpid) {
+            isfor = "*";
+          }
+        } catch (e) {
+          console.log(e);
+        }
         var eid = "kp" + kpid; //+ tag. I do not need tag, since I can ensure there is only 1. the case that the same KP present on both sides will not happen.
-        var html0 = '<li id="li' + eid + '"><input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + kp.desc + '</label>';
+        var html0 = '<li id="li' + eid + '"><input type="checkbox" id="' + eid + '"/><label for="' + eid + '">' + (isfor) + kpid + ":" + kp.levels[user.levelSystem] + " " + kp.desc + '</label>';
         if (right) {
           // html0 += '<button onclick="tester.addKP(' + kpid + ')">Add</button><button onclick="tester.editKP(' + kpid + ')">Edit</button>';
         } else {

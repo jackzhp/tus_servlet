@@ -58,7 +58,12 @@ public class ETestResult implements Serializable {
     void json(JsonGenerator g) throws IOException {
         g.writeStartObject();
         g.writeNumberField("testid", testid);
-        g.writeNumberField("lts", lts / (1000 * 60));
+        if (lts < 0) {
+            g.writeNumberField("lts", 0);
+            System.out.println("ETestResult lts:" + lts);
+        } else {
+            g.writeNumberField("lts", lts / (1000 * 60));
+        }
         g.writeBooleanField("good", good);
         g.writeEndObject();
     }
@@ -111,7 +116,7 @@ public class ETestResult implements Serializable {
     }
 
     /**
-     * both are minutes since 1970
+     * both are milliseconds since 1970
      *
      * @param t0
      * @param t1
@@ -120,7 +125,8 @@ public class ETestResult implements Serializable {
         this.t0 = t0 / 1000 / 60;
         this.t1 = (t1 - t0) / 1000 / 60;
         this.t = (this.lts - t0) / 1000 / 60;
-        if(this.t1==0)
-            this.t1=1;
+        if (this.t1 == 0) {
+            this.t1 = 1;
+        }
     }
 }

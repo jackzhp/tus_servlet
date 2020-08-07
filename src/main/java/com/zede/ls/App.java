@@ -428,17 +428,22 @@ public class App {
         }
 
         getExecutor().schedule(() -> {
-            System.out.println();
+            System.out.println("\n\nnow will try to get Test");
             try {
-                user.getTest(true).thenApply((ETest[] tests) -> {
-                    if (tests.length == 0) {
+                user.getTest(true).thenApply((EUser.ETestForEKP[] tes) -> {
+                    if (tes.length == 0) {
                         return null;
                     }
-                    ETest test = tests[0];
+                    ETest test = null;
+                    for (int i = 0; i < tes.length; i++) {
+                        EUser.ETestForEKP t4 = tes[i];
+                        test = t4.test;// tes[0].test;
+                        System.out.println("test id:" + test.id + " for " + t4.kps.kpid);
+                    }
                     File f = test.getFile(false);
-                    System.out.println(tests.length + " will serve#1: " + f.getAbsolutePath());
-                    if (tests.length > 1) {
-                        System.out.println("will serve#1.2: " + tests[1].id);
+                    System.out.println(tes.length + " will serve#1: " + f.getAbsolutePath());
+                    if (tes.length > 1) {
+                        System.out.println("will serve#1.2: " + tes[1].test.id);
                     }
                     return test;
                 }).thenCompose((ETest test) -> {
@@ -453,15 +458,20 @@ public class App {
                 }).thenCompose(tf -> {
                     System.out.println("\n");
                     return user.getTest(true);
-                }).thenApply((ETest[] tests) -> {
-                    if (tests.length == 0) {
+                }).thenApply((EUser.ETestForEKP[] tes) -> {
+                    if (tes.length == 0) {
                         return false;
                     }
-                    ETest test = tests[0];
+                    ETest test = null;
+                    for (int i = 0; i < tes.length; i++) {
+                        EUser.ETestForEKP t4 = tes[i];
+                        test = t4.test;// tes[0].test;
+                        System.out.println("test id:" + test.id + " for " + t4.kps.kpid);
+                    }
                     File f = test.getFile(false);
                     System.out.println("will serve#2: " + f.getAbsolutePath());
-                    if (tests.length > 1) {
-                        System.out.println("will serve#2.2: " + tests[1].id);
+                    if (tes.length > 1) {
+                        System.out.println("will serve#2.2: " + tes[1].test.id);
                     }
                     return true;
                 }).thenApply(tf -> {
@@ -542,17 +552,17 @@ public class App {
             }
             if (false) {
                 app.auditETests();
-//                return;
+                return;
             }
             if (false) {
                 app.auditEKPs();
                 return;
             }
-            if (false) {
+            if (true) {
                 app.initUser();
                 return;
             }
-            if (true) {
+            if (false) {
                 RetentionCurve rc = RetentionCurve.one;
                 app.someTests(rc);
                 return;
@@ -610,6 +620,12 @@ public class App {
         return -1;
     }
 
+    /**
+     * how to fix the relationship between ETest & ELevel
+     *
+     *
+     * @throws IOException
+     */
     private void auditETests() throws IOException {
         HashSet<ETest> tests = new HashSet<>();
         System.out.println("will call noEKP");
@@ -636,6 +652,7 @@ public class App {
         System.out.write(baos.toByteArray());
     }
 
+    //TODO: list EKPs without ELevel.
     private void auditEKPs() throws IOException {
         HashSet<EKP> halvesKP = new HashSet<>();
         HashSet<ELevel> halvesLevel = new HashSet<>();

@@ -86,7 +86,7 @@ public class RetentionCurve {
     //different user can have different curve.
     //but for now, I just use the same one.
     static RetentionCurve one = new RetentionCurve();
-    static long tfMax = 60 * 24 * 365 * 2; //in minutes, so 2 years
+    static int tfMax = 60 * 24 * 365 * 2; //in minutes, so 2 years
 //    public static ForgettingCurve getFor(EUser user) {
 //        return one;
 //    }
@@ -248,11 +248,11 @@ public class RetentionCurve {
      * @param t minutes relative to t0 of EKP.
      * @return minutes relative to tr.t0. not 1970
      */
-    long forecast(double t) {
+    int forecast(double t) {
         if (selector == null) {
             selector = new Selector();
         }
-        long ltf = (long) selector.getForecast(t);
+        int ltf = selector.getForecast(t);
 //        System.out.println(tr.tf + ":" + tr.t + "  " + tr.good + " " + tf);
         return ltf; // (tf + tr.t0);
     }
@@ -316,19 +316,19 @@ public class RetentionCurve {
         return new File(App.dirData, fn);
     }
     AtomicBoolean loading = new AtomicBoolean();
-    boolean loaded;
+//    boolean loaded;
 
     void load() {
         if (loading.compareAndSet(false, true)) {
             try {
-                if (loaded) {
-                    return;
-                }
+//                if (loaded) {
+//                    return;
+//                }
                 File f = getFile(false);
                 if (f.exists()) {
                     JsonParser p = App.getJSONparser(f);
                     parse(p);
-                    loaded = true;
+//                    loaded = true;
                     p.close();
                 } else {
                     init();
@@ -346,7 +346,7 @@ public class RetentionCurve {
             } catch (Throwable t) {
                 t.printStackTrace();
             } finally {
-                loading.set(false);
+//                loading.set(false);  no point to set it to false since we never reload it.
             }
         }
     }
@@ -1042,7 +1042,12 @@ public class RetentionCurve {
 //    }
     class Selector {
 
-        long getForecast(double t) {
+        /**
+         *
+         * @param t
+         * @return minutes relative to t0.
+         */
+        int getForecast(double t) {
             double tf = 0;
             ArrayList<Segment> al = new ArrayList<>();
             for (int i = 0; i < segments.length; i++) {
@@ -1095,7 +1100,7 @@ public class RetentionCurve {
 //                }
 //                tf = total / n;
 //            }
-            long ltf = (long) tf;
+            int ltf = (int) tf;
             return ltf;
         }
     }
