@@ -184,13 +184,7 @@ public class App {
         g.writeEndObject();
         g.flush();
         g.close();
-        ServletOutputStream sos = response.getOutputStream();
-        byte[] bytes = baos.toByteArray();// sreason.getBytes("utf8");
-        response.setContentLength(bytes.length);
-        response.setContentType("application/javascript;charset=UTF-8");
-        sos.write(bytes);
-        sos.flush();
-        sos.close();
+        serve(response, baos.toByteArray());
     }
 
     static void serve(HttpServletResponse response, File f) throws IOException {
@@ -217,11 +211,14 @@ public class App {
     }
 
     static void serve(HttpServletResponse response, ByteArrayOutputStream baos) throws IOException {
-        int size = baos.size();
-        response.setContentLength(size);
+        serve(response, baos.toByteArray());
+    }
+
+    static void serve(HttpServletResponse response, byte[] bytes) throws IOException {
+        response.setContentLength(bytes.length);
         response.setContentType("application/javascript;charset=UTF-8");
         ServletOutputStream sos = response.getOutputStream();
-        sos.write(baos.toByteArray());
+        sos.write(bytes);
         sos.flush();
         sos.close();
     }
@@ -516,7 +513,7 @@ public class App {
     public static void main(String[] args) {
         try {
             App app = new App();
-System.out.println(System.currentTimeMillis());
+            System.out.println(System.currentTimeMillis());
             if (false) {
                 String s = null;
                 int[] a = App.getInts(s);

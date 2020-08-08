@@ -242,7 +242,16 @@ public class STest extends HttpServlet {
                     String info = request.getParameter("info");
                     ETest test = getETest(request);
                     test.chgInfo(info, user);
-                    App.sendFailed(ireason, sreason, response);
+//                    App.sendFailed(ireason, sreason, response);
+//                    StringBuilder sb = new StringBuilder();
+//                    byte[] bytes = sb.append("{\"ireason\":0,\"id\":").append(test.id).append("}").toString().getBytes("utf8");
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    JsonGenerator g = App.getJSONgenerator(baos);
+                    test.json(g);
+                    g.flush();
+                    g.close();
+                    byte[] bytes = baos.toByteArray();
+                    App.serve(response, bytes);
                 } else if ("newKP".equals(action)) { //TODO: stop using this one, instead use SKP.addKP and then STest.associate.
                     //TODO: turn into async mode.
                     String desc = request.getParameter("desc");// "description of KP"; //TODO: for temp
@@ -368,10 +377,16 @@ public class STest extends HttpServlet {
         serve(response, ids, category);
     }
 
-    static ETest getETest(HttpServletRequest request) {
+    static ETest getETest(HttpServletRequest request) throws IOException {
         String id_s = request.getParameter("idtest");
         int id = Integer.parseInt(id_s);
-        ETest test = ETest.loadByID_m(id); //getByID
+        ETest test;
+        if (id == -1) {
+            test = new ETest();
+            test.newID();
+        } else {
+            test = ETest.loadByID_m(id); //getByID
+        }
         if (test == null) {
             throw new IllegalStateException("can not find the ETest#" + id_s);
         }

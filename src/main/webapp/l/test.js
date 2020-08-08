@@ -103,6 +103,15 @@ var g = {
     }
     return -1;
   },
+  newETest: function () {
+    var self = this;
+    try {
+      self.otestsA = [{ id: -1, info: 'description', akps: [] }];
+      self.presentTest(false, 0);
+    } catch (e) {
+      console.log(e);
+    }
+  },
   presentTest: function (right, idx) {
     var self = this, atests, eid, tagAB;
     if (right) {
@@ -161,7 +170,14 @@ var g = {
     self.postReq(url).then(ojson => {
       // self.presentTests(false);
       // self.updateTestInfo(testid);
-      self.getAndUpdateTestInfo(testid);
+      if (testid == -1) {
+        self.otestsA[0].id = testid = ojson.id;
+      }
+      // self.getAndUpdateTestInfo(testid);
+      self.onETest(ojson);
+      return ojson;
+    }).then(ojson => {
+      self.updateTestInfo(ojson.id);
     }).catch(e => {
       console.log(e);
       alert(e);
@@ -330,7 +346,7 @@ var g = {
   },
   addKP: function (kpid) {
     var self = this;
-    if (self.isOnly1) { } else {
+    if (self.isOnly1 || self.otestsA.length == 1) { } else {
       alert("please choose only1 in the left side");
       return;
     }

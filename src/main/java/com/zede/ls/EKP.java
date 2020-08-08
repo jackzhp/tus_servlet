@@ -579,6 +579,11 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
         //   merge then after review
         //but for now I just change directly
         this.desc = desc;
+        //if (this.isIdle())  //TODO: enable this to prevent problems caused by "not checking"
+        {
+            this.deleted = 0;
+            this.replacedBy = -1;
+        }
         //for those ETest referring to this EKP, I should notify them to change.
         return this.bundle.save_cf().thenCompose(tf -> {
             ETest[] atest = getTests();
