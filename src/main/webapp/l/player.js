@@ -410,7 +410,7 @@ var tester = {
   e_bad: null,
   // tests: [], stop using this one, use testCurrent, testNext & testNext2 instead.
   autoStartNext: true, //when a test is done, we just start the next one automatically.
-  preloadNext: true, //false, //TODO: do preload.
+  preloadNext: false, //true, //false, //TODO: do preload.
   // dataPreloaded: null,  //in promise, so not needed.
   // dataPreloaded_p: null, moved into self.testNext. No. removed!
   // pathLast: null, //the one is loading or just loaded. if paralle, then this miht be different from player.pathCurrent.
@@ -480,6 +480,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     }
   },
   //TODO: send the test result to server. player.nTimes played.
+  // the name is not good. here, we are sending bads to the server.
   submitNew: function () {
     var self = this;
     var selected = self.getKPsSelected();
@@ -492,25 +493,37 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
         alert(e);
       });
     } else {
-      self.presentTestNext_do().then(tf => {
-        return self.postReq(url);
-      }).then(ojson => {
-        user.olevels = ojson;
-        return user.updateLevelInfo();
-      }).then(tf => {
-        //TODO: I need an array of testid's. and then I load each ETest with its id.
-        //   only with this approach can I do preload.
-        // if I do not specifiy the testid, "preload" in fact becomes "reload".
-        //         since before test result is submitted, the same ETest will be returned.
-        console.log("will preload:" + self.preloadNext);
-        if (self.preloadNext) { //TODO: enable this.
-          // self.prepareNextTest();
-          return self.preloads();
-        } else return Promise.resolve(false);
-      }).catch(e => {
-        console.log(e);
-        alert(e);
-      });
+      if (self.preloadNext) {
+        self.presentTestNext_do().then(tf => {
+          return self.postReq(url);
+        }).then(ojson => {
+          user.olevels = ojson;
+          return user.updateLevelInfo();
+        }).then(tf => {
+          //TODO: I need an array of testid's. and then I load each ETest with its id.
+          //   only with this approach can I do preload.
+          // if I do not specifiy the testid, "preload" in fact becomes "reload".
+          //         since before test result is submitted, the same ETest will be returned.
+          console.log("will preload:" + self.preloadNext);
+          if (self.preloadNext) { //TODO: enable this.
+            // self.prepareNextTest();
+            return self.preloads();
+          } else return Promise.resolve(false);
+        }).catch(e => {
+          console.log(e);
+          alert(e);
+        });
+      } else { //no preload
+        self.postReq(url).then(ojson => {
+          user.olevels = ojson;
+          return user.updateLevelInfo();
+        }).then(tf => {
+          return self.presentTestNext_do();
+        }).catch(e => {
+          console.log(e);
+          alert(e);
+        });
+      }
 
     }
   },

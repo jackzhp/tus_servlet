@@ -1437,6 +1437,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                 if (sys == null) {
                     sys = target.sys;
                 }
+                results.clear();
                 idx = 0;
 //                results.clear();
                 App.getExecutor().submit(this);
