@@ -333,14 +333,19 @@ var player = {
   },
   onPlayStarted: function () {
     var self = this;
-    self.isStarted = true;
-    // play.setAttribute('disabled', 'disabled');
-    self.e_playbackControl.removeAttribute('disabled'); //the rate
-    self.e_loopstartControl.removeAttribute('disabled');
-    self.e_loopendControl.removeAttribute('disabled');
-    self.e_timeDisplay = document.querySelector('#tsCurrent'); //TODO: use id instead //tag 'p'
-    self.play.textContent = 'Suspend context'; //susresBtn
-    self.displayTime();
+    try {
+      self.isStarted = true;
+      // play.setAttribute('disabled', 'disabled');
+      self.e_playbackControl.removeAttribute('disabled'); //the rate
+      self.e_loopstartControl.removeAttribute('disabled');
+      self.e_loopendControl.removeAttribute('disabled');
+      self.e_timeDisplay = document.querySelector('#tsCurrent'); //TODO: use id instead //tag 'p'
+      self.play.textContent = 'Suspend context'; //susresBtn
+      self.displayTime();
+      tester.presentTiming(); //memory retention curve related stuff
+    } catch (e) {
+      console.log(e);
+    }
   },
   closeSource: function () {
     var self = this;
@@ -1068,16 +1073,26 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   },
   presentTestInfo: function () {
     var self = this;
-    //I will have to present some info about this test.
-    var e = document.querySelector('#info');
-    // console.log(self.testCurrent);
-    var html = self.testCurrent.id +"("+self.testCurrent.kp4.kpid+")"+ ":" + self.testCurrent.info;
-    html += '<button onclick="tester.editTest()">Edit</button>';
-    e.innerHTML = html; //.fn; //.pathPlaying;// player.pathCurrent;
-    //now present those knowledge points
-    //we will allow the user to tell us which points is newly learned.
-    self.presentKPs(false, self.testCurrent.kps);
-    self.presentTiming();
+    try {
+      //I will have to present some info about this test.
+      var e = document.querySelector('#info');
+      // console.log(self.testCurrent);
+      var s4 = "";
+      try {
+        s4 = "(" + self.testCurrent.kp4.kpid + ")";
+      } catch (ex) {
+        console.log(ex);
+      }
+      var html = self.testCurrent.id + s4 + ":" + self.testCurrent.info;
+      html += '<button onclick="tester.editTest()">Edit</button>';
+      e.innerHTML = html; //.fn; //.pathPlaying;// player.pathCurrent;
+      //now present those knowledge points
+      //we will allow the user to tell us which points is newly learned.
+      self.presentKPs(false, self.testCurrent.kps);
+      self.presentTiming();
+    } catch (ex) {
+      console.log(ex);
+    }
   },
   inLeftList: function (kpid) { //TODO: seems there is a function with better performance.
     var self = this;

@@ -229,6 +229,20 @@ instead, belong to the which which is the highest level of its EKP's.
         sys.save(20);
     }
 
+    boolean isHigherThan(ELevel limit) {
+        if (limit == null) {
+            throw new IllegalArgumentException();
+        }
+        if (idMajor > limit.idMajor) {
+            return true;
+        }
+        if (idMajor < limit.idMajor) {
+            return false;
+        }
+        return idMinor > limit.idMinor;
+
+    }
+
     static class FunctionHalfEKP implements Function<ELevel, Boolean> {
 
 //        private final ELevelSystem sys;

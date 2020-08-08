@@ -516,10 +516,29 @@ var g = {
     });
   },
   autoFixRelELevelETest: function () {
-    alert("do it at server side");
+    var self = this;
+    var url = "test?act=fixRelELevel&sys=" + self.sysChosen;
+    // Promise.resolve(self.okps).then(ojson => {
+    //   self.okpsB = ojson;
+    //   return self.presentKPs(-1, 'testsB', self.okpsB);
+    // }).catch(e => {
+    //self.searchKP_do("kp", s)  //TODO: searchKP_do is not needed, remove it.
+    self.postReq(url).then(ojson => { //self.postReq(url)
+      console.log(ojson);
+      self.onSystemChosen(self.sysChosen);
+    }).catch(e => {
+      console.log(e);
+      alert(e);
+    });
   },
   autoFixRelETestEKP: function () {
-    alert("do it at server side");
+    var self = this;
+    var url = webPath + "test?act=halfkp&t=" + new Date().getTime();
+    self.getFromServer(url).then(ojson => {
+      console.log(ojson);
+    }).catch(e => {
+      console.log(e);
+    });
   },
   //when this is called?
   onETest: function (ojson) {
@@ -733,6 +752,7 @@ var g = {
     }
     if (self.levelChosen) {
       eselect.selectedIndex = idxSelected;
+      self.onLevelChosen(self.levelChosen);
     }
   },
   getSystems: function () {

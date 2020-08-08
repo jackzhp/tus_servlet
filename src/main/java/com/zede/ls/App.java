@@ -516,7 +516,7 @@ public class App {
     public static void main(String[] args) {
         try {
             App app = new App();
-
+System.out.println(System.currentTimeMillis());
             if (false) {
                 String s = null;
                 int[] a = App.getInts(s);

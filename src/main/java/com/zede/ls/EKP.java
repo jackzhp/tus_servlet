@@ -416,7 +416,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                     kp = null;
                 } else {
                     if (kp.bundle == null) {
-                        throw new IllegalStateException("should not happen");
+                        throw new IllegalStateException("should not happen:" + id + " " + kp.desc); //this happened.
                     }
                 }
             }

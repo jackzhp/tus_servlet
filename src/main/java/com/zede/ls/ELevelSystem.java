@@ -423,10 +423,20 @@ public class ELevelSystem {
      * @param lLeast of its EKP is with this ELevel, it could be null(unknown).
      * @return
      */
-    ELevel getELevel4(int testid, ELevel lLeast) {
+    ELevel getELevel4ETest(int testid, ELevel lLeast) {
         Integer o = testid;
         for (ELevel level : levels) {
             if (level.tests.contains(o)) {
+                return level;
+            }
+        }
+        return null;
+    }
+
+    ELevel getELevel4EKP(int kpid) {
+        Integer o = kpid;
+        for (ELevel level : levels) {
+            if (level.kps.contains(o)) {
                 return level;
             }
         }

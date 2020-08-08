@@ -1048,9 +1048,9 @@ public class ETest implements OID {
 
         @Override
         public Boolean apply(ETest test) {
-            if (test.id == 1) {
-                test.id = 1;
-            }
+//            if (test.id == 1) {
+//                test.id = 1;
+//            }
             ELevel level = test.highestLevel_cal(sys); //.levelsHighest.get(sys);
             if (level != null) {
                 if (level.tests.contains(test.id)) {

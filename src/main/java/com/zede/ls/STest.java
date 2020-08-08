@@ -175,7 +175,7 @@ public class STest extends HttpServlet {
                 } else if ("halfkp".equals(action)) {
 //                    HashSet<ETest> tests = new HashSet<>();
                     HashSet<EKP> kps = new HashSet<>();
-                    ETest.EKP_half(kps);//tests, App.FixHalf_Reciprocol);
+//                    ETest.EKP_half(kps);//tests, App.FixHalf_Reciprocol);
                     //for a ELevel refers to a ETest, but the ETest does not refer to the ELevel.
                     // how should I fix the relationship?
                     //   present them in test.html, let the user choose.
@@ -288,7 +288,7 @@ public class STest extends HttpServlet {
                     String id_s = request.getParameter("testids");
                     ETest.merge(id_s).get();
                     App.sendFailed(ireason, sreason, response);
-                } else if ("searchTests".equals(action)) { //TODO: not implemented yet.
+                } else if ("searchTests".equals(action)) {
                     String s = request.getParameter("s");
                     String[] as = s.split("AND");
                     /**
@@ -306,6 +306,16 @@ public class STest extends HttpServlet {
                     HashSet<ETest> tests = new HashSet<>();
                     ETest.search(cs, tests);
                     serve(response, tests, "search");
+                } else if ("fixRelELevel".equals(action)) { //TODO: fixRelEKP is in GET
+                    HashSet<ELevel> halvesLevel = new HashSet<>();
+                    String sysName = request.getParameter("sys");
+                    ELevelSystem sys = ELevelSystem.getByName(sysName);
+//        System.out.println("\nwill fix relation between ETest & ELevel");
+//        System.out.println("will clear all ETest <- ELevel");
+                    sys.clearETest(); //then whatever is needed will be created in ETest.ELevel_half
+//        System.out.println("will fix ETest -> ELevel without <-");
+                    int fixed = ETest.ELevel_half(sys, halvesLevel);
+                    App.sendFailed(ireason, sreason, response);
                 } else {
                     throw new Exception("unknown action:" + action);
                 }

@@ -79,7 +79,7 @@ public class ETestResult implements Serializable {
                     if ("testid".equals(name)) {
                         testid = p.getValueAsInt();
                     } else if ("lts".equals(name)) {
-                        lts = p.getValueAsInt() * 1000 * 60;
+                        lts = p.getValueAsLong() * 1000 * 60;
                     } else if ("good".equals(name)) {
                         good = p.getValueAsBoolean();
                     } else {
@@ -128,5 +128,9 @@ public class ETestResult implements Serializable {
         if (this.t1 == 0) {
             this.t1 = 1;
         }
+    }
+
+    static boolean sameTime(long lts1, long lts2) {
+        return (lts1 - lts2) / 1000 / 60 == 0;
     }
 }
