@@ -497,7 +497,8 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
         self.presentTestNext_do().then(tf => {
           return self.postReq(url);
         }).then(ojson => {
-          user.olevels = ojson;
+          user.olevels = ojson.levels;
+          console.log(ojson.kpdone);
           return user.updateLevelInfo();
         }).then(tf => {
           //TODO: I need an array of testid's. and then I load each ETest with its id.
@@ -515,7 +516,8 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
         });
       } else { //no preload
         self.postReq(url).then(ojson => {
-          user.olevels = ojson;
+          user.olevels = ojson.levels;
+          console.log(ojson.kpdone);
           return user.updateLevelInfo();
         }).then(tf => {
           return self.presentTestNext_do();
@@ -1137,12 +1139,12 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     var aotimes = otime.tested;
     for (var i = 0; i < aotimes.length; i++) {
       var o = aotimes[i];
-      console.log(o.lts + " " + o.good);
+      // console.log(o.lts + " " + o.good);
     }
     html = "<li>" + otime.dt + "=" + otime.scheduled + "(" + self.format_m(otime.scheduled) + ")</li>";
     for (var i = aotimes.length - 1; i >= 0; i--) {
       var o = aotimes[i];
-      console.log(o.lts + " " + o.good);
+      // console.log(o.lts + " " + o.good);
       var html0 = '<li id="li' + eid + '">' + self.format_m(o.lts) + " " + o.good + '</li>';
       html += html0;
     }
@@ -1510,7 +1512,7 @@ var user = {
             reject(url + " returns: " + JSON.stringify(ojson));
           } else {
             console.log(ojson);
-            self.olevels = ojson;
+            self.olevels = ojson.levels;
             //                        self.tests[0] = ojson; // request.response.tests;
             resolve(true);
           }

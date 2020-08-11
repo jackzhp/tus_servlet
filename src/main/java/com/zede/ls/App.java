@@ -406,7 +406,7 @@ public class App {
             } else {
                 System.out.println("authenticated");
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                user.prepareToServeLevel(baos);
+                user.prepareToServeLevel(baos, null);
                 System.out.write(baos.toByteArray());
             }
         }

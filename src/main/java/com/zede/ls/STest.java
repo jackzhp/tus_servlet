@@ -174,7 +174,7 @@ public class STest extends HttpServlet {
 //                    serve(response, tests, action);
                 } else if ("halfkp".equals(action)) {
 //                    HashSet<ETest> tests = new HashSet<>();
-                    HashSet<EKP> kps = new HashSet<>();
+//                    HashSet<EKP> kps = new HashSet<>();
 //                    ETest.EKP_half(kps);//tests, App.FixHalf_Reciprocol);
                     //for a ELevel refers to a ETest, but the ETest does not refer to the ELevel.
                     // how should I fix the relationship?

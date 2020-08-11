@@ -180,13 +180,13 @@ public class ELevelSystem {
         return null;
     }
 
-    ELevel nextLevel(ELevel actual) {
+    ELevel nextLevel(ELevel lt) {
         boolean found = false;
         for (ELevel level : levels) {
             if (found) {
                 return level;
             }
-            if (level.equals(actual)) {
+            if (level.equals(lt)) {
                 found = true;
             }
         }

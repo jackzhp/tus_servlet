@@ -395,7 +395,7 @@ public class RetentionCurve {
 
         Segment(int idx, long s0, long s1, //double a, 
                 double b, double d) {
-            if (s0 < 0 || s0 >= s1 || d >= Ptarget) {  // || a == 0
+            if (s0 < 0 || s0 >= s1) {  // || a == 0   || d >= Ptarget
                 throw new IllegalArgumentException(s0 + ":" + s1 + " " + d + " target:" + Ptarget);
             }
             this.idx = idx;

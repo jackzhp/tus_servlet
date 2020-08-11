@@ -44,7 +44,6 @@ public class SUser extends HttpServlet {
         }
     }
 
-    // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
     /**
      * Handles the HTTP <code>GET</code> method.
      *
@@ -137,7 +136,7 @@ public class SUser extends HttpServlet {
                         App.serve(response, f);
                     } else if ("level".equals(action)) {
                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        user.prepareToServeLevel(baos);
+                        user.prepareToServeLevel(baos, null);
                         App.serve(response, baos);
                     } else {
                         ireason = -1;
@@ -205,16 +204,17 @@ public class SUser extends HttpServlet {
                         int testid = Integer.parseInt(id_s);
                         int[] bads = App.getInts(bads_s);
                         long lts = System.currentTimeMillis();
-                        user.onTested(lts, testid, bads).thenAccept(v -> {
-                            //TODO: turn this into async mode.
-                            // now we can send the response.
-                        }).exceptionally(t -> {
-                            t.printStackTrace();
-                            return null;
-                        });
+                        EUser.ETestForEKP te = user.onTested(lts, testid, bads).get();
+//                                thenAccept(v -> {
+//                            //TODO: turn this into async mode.
+//                            // now we can send the response.
+//                        }).exceptionally(t -> {
+//                            t.printStackTrace();
+//                            return null;
+//                        });
 //                        App.sendFailed(ireason, sreason, response);
                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        user.prepareToServeLevel(baos);
+                        user.prepareToServeLevel(baos, te);
                         App.serve(response, baos);
                     } else if ("deauthenticate".equals(action)) { //copied from STest
 //                String username = request.getParameter("username");
@@ -248,6 +248,6 @@ public class SUser extends HttpServlet {
     @Override
     public String getServletInfo() {
         return "Short description";
-    }// </editor-fold>
+    }
 
 }

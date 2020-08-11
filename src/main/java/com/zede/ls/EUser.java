@@ -56,7 +56,8 @@ between the actual and the target, there might be a huge gap.
     the actual level is auto detected with tests. the target level is what the user can choose.
      */
 //    @Persistent
-    ELevel actual, target; //like grade 5
+    private ELevel lPassed, lLearning;
+    ELevel target; //like grade 5
 //    @Persistent
 //    ELevel actual;
     HashMap<ELevel, ELevelTested> levelTested = new HashMap<>();
@@ -76,7 +77,7 @@ between the actual and the target, there might be a huge gap.
     static float LevelThreshold = 0.9f; // 0.75f;
 
     /*
-the KP's level is too low compared to the actual level, then its test result could be ommitted, unless
+    TODO: the KP's level is too low compared to the actual level, then its test result could be ommitted, unless
     the test result is not good.
     
     its keyset is the EKP's which the user is learning.
@@ -146,7 +147,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                         if (total * LevelThreshold >= lt.good) {//  good/(good+bad) < t
                             //do not have enough good, so the user's level is lower than this
                         } else { //the current level is the actual level.
-                            actual = level;
+                            lPassed = level;
                             set = true;
                             break;
                         }
@@ -162,7 +163,7 @@ the KP's level is too low compared to the actual level, then its test result cou
                     int total = lt.good + lt.bad;
                     if (total * LevelThreshold >= lt.good) {//  good/(good+bad) < t
                         //do not have enough good, so the user's level is lower than this
-                        actual = level; // lO != null ? lO : level;
+                        lPassed = level; // lO != null ? lO : level;
                         set = true;
                         break;
                     } else { //the current level is the actual level.
@@ -173,7 +174,7 @@ the KP's level is too low compared to the actual level, then its test result cou
             if (set) {
 //                System.out.println("actual level:" + actual.levelString());
             } else {
-                actual = target.sys.getLevel_m(1, 1);// a[0];
+                lPassed = target.sys.getLevel_m(1, 1);// a[0];
             }
         } catch (Throwable t) {
             t.printStackTrace();
@@ -238,11 +239,13 @@ the KP's level is too low compared to the actual level, then its test result cou
         return null;
     }
 
-    public CompletableFuture<Void> onTested(long lts, int testid, int[] bads) {
+    public CompletableFuture<ETestForEKP> onTested(long lts, int testid, int[] bads) {
+        ETestForEKP te = null;
 //                ETest test = ETest.loadByID_m(testid);      
         if (fetcher != null) {
-            fetcher.onTested(testid);
+            te = fetcher.onTested(testid);
         }
+        ETestForEKP tef = te;
         return ETest.getByID_cf(testid).thenApply((ETest test) -> { //Compose
             return test.getKPs(); //test.getKPs_cf();
         }).thenCompose((EKP[] kps) -> {
@@ -264,8 +267,8 @@ the KP's level is too low compared to the actual level, then its test result cou
                 cfs[i] = kpst != null ? kpst.updateSchedule() : CompletableFuture.completedFuture(true);
             }
             return CompletableFuture.allOf(cfs);
-//        }).thenApply((Void tf) -> {
-//            return true;
+        }).thenApply((Void tf) -> {
+            return tef; //true;
 //        }).thenAccept(v -> {
 //            Collections.sort(scheduled); //as long as shouldSortScheduled is set, we do not have to do this now
         });
@@ -282,11 +285,11 @@ the KP's level is too low compared to the actual level, then its test result cou
      */
     private boolean shouldKeepTestResult(EKP kp) {
 //        return true; //TODO: for temp, all should be kept.   
-        if (actual == null) {
+        if (lPassed == null) {
             return true;
         }
         ELevel lt = kp.getLevel(target.sys);
-        return lt.idMajor + 1 >= actual.idMajor;
+        return lt.idMajor + 1 >= lPassed.idMajor;
     }
 
     /*
@@ -301,7 +304,7 @@ the KP's level is too low compared to the actual level, then its test result cou
         if (target != null) {
             if (level.sys != target.sys) {
                 levelTested.clear(); //different level system,so clear the old one.
-                actual = null;
+                lPassed = null;
             }
         }
         target = level;
@@ -347,11 +350,11 @@ the KP's level is too low compared to the actual level, then its test result cou
         //now we choose a test from ETests covering kps
         //at present, I do not try to find the minimum covering set of ETest. I serve the user one by one.
         ELevel limit;
-        if (actual != null) {
+        if (lPassed != null) {
             if (reviewOnly) {
-                limit = actual;
+                limit = lPassed;
             } else {
-                limit = actual.sys.nextLevel(actual);
+                limit = lPassed.sys.nextLevel(lPassed);
             }
         } else {
             limit = target;
@@ -526,7 +529,9 @@ the KP's level is too low compared to the actual level, then its test result cou
                     } else if ("levelt".equals(name)) {
                         target = ELevel.parseSimple(p);
                     } else if ("levela".equals(name)) {
-                        actual = ELevel.parseSimple(p);
+                        lPassed = ELevel.parseSimple(p);
+                    } else if ("levelL".equals(name)) {
+                        lLearning = ELevel.parseSimple(p);
                     } else if ("levelTested".equals(name)) {
                         parseLevelTested(p);
                     } else {
@@ -555,6 +560,9 @@ the KP's level is too low compared to the actual level, then its test result cou
             }
             fc = RetentionCurve.one; //now I am using the same one for all users.
             fc.load();
+            if (fc.segments == null) {
+                throw new IllegalStateException("this should not happen");
+            }
         } else {
             throw new IllegalStateException("expecting start object, but " + t);
         }
@@ -624,9 +632,13 @@ the KP's level is too low compared to the actual level, then its test result cou
                         g.writeFieldName("levelt");
                         target.jsonSimple(g);
                     }
-                    if (actual != null) {
+                    if (lPassed != null) {
                         g.writeFieldName("levela");
-                        actual.jsonSimple(g);
+                        lPassed.jsonSimple(g);
+                    }
+                    if (lLearning != null) {
+                        g.writeFieldName("levelL");
+                        lLearning.jsonSimple(g);
                     }
                     g.writeFieldName("levelTested");
                     jsonLevelTested(g);
@@ -767,21 +779,33 @@ the KP's level is too low compared to the actual level, then its test result cou
     }
 
     //the user is request level info.
-    void prepareToServeLevel(ByteArrayOutputStream baos) throws IOException {
+    void prepareToServeLevel(ByteArrayOutputStream baos, ETestForEKP te) throws IOException {
         EUser user = this;
         JsonGenerator g = App.getJSONgenerator(baos);
         g.writeStartObject();
+        g.writeObjectFieldStart("levels");
         g.writeFieldName("target");
         user.target.jsonSimple(g);
 //        g.writeEndObject();
         g.writeFieldName("actual");
-        if (user.actual != null) {
-            user.actual.jsonSimple(g);
+        if (user.lPassed != null) {
+            user.lPassed.jsonSimple(g);
+        } else {
+            g.writeNull();
+        }
+        g.writeFieldName("learning");
+        if (user.lLearning != null) {
+            user.lLearning.jsonSimple(g);
         } else {
             g.writeNull();
         }
         g.writeFieldName("tested");
         jsonLevelTested(g);
+        g.writeEndObject(); //end of levels
+        if (te != null) {
+            g.writeFieldName("kpdone");
+            te.kps.json(g, true);
+        }
         g.writeEndObject();
         g.flush();
         g.close();
@@ -1423,21 +1447,29 @@ the KP's level is too low compared to the actual level, then its test result cou
         
          */
 //        private HashMap<Integer, ETestForEKP> results = new HashMap<>();
-        private ArrayList<ETestForEKP> results = new ArrayList<>(); //TODO: of length n, use array?
+//        private ArrayList<ETestForEKP> results = new ArrayList<>(); //TODO: of length n, use array?
+        private HashMap<Integer, ETestForEKP> results = new HashMap<>(); //use EKP.id
         ELevelSystem sys;
+        long ltsStart;
 
         CompletableFuture<ETestForEKP[]> fetch(int n, ELevel limit) {
             CompletableFuture<ETestForEKP[]> cf = new CompletableFuture<>();
-            if (n < 3) {
-                n = 3;
+            if (n < 1) {
+                n = 1; //3 let's do it one by one.
             }
             this.n = n;
             this.limit = limit;
-            if (running.compareAndSet(false, true)) {
+            if (running.compareAndSet(false, true)) { //seems stuck inside, so I need a check based on timer.
+                ltsStart = System.currentTimeMillis();
+                App.getExecutor().schedule(() -> {
+                    if (ltsStart + 1000 < System.currentTimeMillis()) {
+                        running.set(false);
+                    }
+                }, 2, TimeUnit.SECONDS);
                 if (sys == null) {
                     sys = target.sys;
                 }
-                results.clear();
+//                results.clear();
                 idx = 0;
 //                results.clear();
                 App.getExecutor().submit(this);
@@ -1465,117 +1497,118 @@ the KP's level is too low compared to the actual level, then its test result cou
 
         @Override
         public void run() {
-            checkSchedule().thenCompose(tf -> {
-                int size = scheduled.length; //.size();
-                if (idx == 0) {
-                    if (shouldSortScheduled) {
-                        //sort by scheduled timestamp
-                        Arrays.sort(scheduled, cTime); // Collections.sort(scheduled);//Arrays.sort(scheduled);
-                    }
-                    System.out.println("#of KP scheduled:" + size + " testsUsed:" + testsUsed.size());
-                }
-                boolean good = false;
-                for (; idx < scheduled.length; idx++) {
-                    kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
-                    long ltsnow = System.currentTimeMillis();
-                    if (kps.ltsScheduled > ltsnow) {
-                        /* TODO: all EKP's that are waiting for review are all reviewed.
-                        now it is the time for new material.
-                         */
-//                        idx = scheduled.length;
-                        continue;
-                    } else {
-                        ELevel lkp = sys.getELevel4EKP(kps.kpid);
-                        if (lkp == null) {
-                            //TODO: remove it from scheduled
-//                            EUser.this.results.remove(kps.kpid);
-                            continue;
+            try {
+                checkSchedule().thenCompose(tf -> {
+                    int size = scheduled.length; //.size();
+                    if (idx == 0) {
+                        if (shouldSortScheduled) {
+                            //sort by scheduled timestamp
+                            Arrays.sort(scheduled, cTime); // Collections.sort(scheduled);//Arrays.sort(scheduled);
                         }
-                        if (skipHigherEKP) { //enable this(skip higher level stuff), unless for test, I should not skip them(should not enable this).
-                            if (lkp.isHigherThan(limit)) {  //if not for test, then I should keep them.
-                                //TODO: remove this
-                                nHigherSkipped++;
+                        System.out.println("#of KP scheduled:" + size + " testsUsed:" + testsUsed.size());
+                    }
+                    boolean good = false;
+                    for (; idx < scheduled.length; idx++) {
+                        kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
+                        long ltsnow = System.currentTimeMillis();
+                        if (kps.ltsScheduled > ltsnow) {
+                            /* TODO: all EKP's that are waiting for review are all reviewed.
+                        now it is the time for new material.
+                             */
+//                        idx = scheduled.length;
+                            continue;
+                        } else {
+                            ELevel lkp = sys.getELevel4EKP(kps.kpid);
+                            if (lkp == null) {
+                                //TODO: remove it from scheduled
+//                            EUser.this.results.remove(kps.kpid);
                                 continue;
                             }
-                        }
+                            if (skipHigherEKP) { //enable this(skip higher level stuff), unless for test, I should not skip them(should not enable this).
+                                if (lkp.isHigherThan(limit)) {  //if not for test, then I should keep them.
+                                    //TODO: remove this
+                                    nHigherSkipped++;
+                                    continue;
+                                }
+                            }
 //                    System.out.println(idx + "-th/" + size + " KP:" + kps.kpid);
-                        if (false) { //before test results arrived, we should serve the same test all the time.
-                            kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
-                            shouldSortScheduled = true;
-                        }
+                            if (false) { //before test results arrived, we should serve the same test all the time.
+                                kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
+                                shouldSortScheduled = true;
+                            }
 //                    testsT.clear();
-                        good = true;
-                        break;
+                            good = true;
+                            break;
+                        }
                     }
-                }
-                if (good) {
-                    return kps.getTests(); //kps.filterTests(limit, testsT);
-                } else { //usually, should not get here.
-                    return CompletableFuture.completedFuture(null);//false);
-                }
-            }).thenAccept((ETest[] tests) -> { //Boolean tf) -> {
-                if (tests == null) {
-                    /* generally speaking, this should not happen.
+                    if (good) {
+                        return kps.getTests(); //kps.filterTests(limit, testsT);
+                    } else { //usually, should not get here.
+                        return CompletableFuture.completedFuture(null);//false);
+                    }
+                }).thenAccept((ETest[] tests) -> { //Boolean tf) -> {
+                    if (tests == null) {
+                        /* generally speaking, this should not happen.
                     this can only be caused by idx >= scheduled.length.
-                     */
+                         */
 //                    try {
 //                        throw new Exception("this should not happen");
 //                    } catch (Throwable t) {
 //                        t.printStackTrace();
 //                    }
-                    fetchMore();
-                } else {
-                    boolean done = false;
-                    if (kps.kp.deleted != 0) {
-                        try {
-                            if (kps.kp.replacedBy != -1) {
-                                replace(kps.kp, EKP.getByID_m(kps.kp.replacedBy, true));
+                        fetchMore();
+                    } else {
+                        boolean done = false;
+                        if (kps.kp.deleted != 0) {
+                            try {
+                                if (kps.kp.replacedBy != -1) {
+                                    replace(kps.kp, EKP.getByID_m(kps.kp.replacedBy, true));
+                                }
+                            } catch (Throwable t) {
+                                t.printStackTrace();
                             }
-                        } catch (Throwable t) {
-                            t.printStackTrace();
-                        }
-                        scheduler.kpsRelevant.remove(kps.kpid);
-                    } else if (tests.length > 0) {
-                        Arrays.sort(tests, cETestByHighestLevel);
-                        for (int i = tests.length - 1; i >= 0; i--) {
-                            ETest test = tests[i];
-                            int testid = test.id;
+                            scheduler.kpsRelevant.remove(kps.kpid);
+                        } else if (tests.length > 0) {
+                            Arrays.sort(tests, cETestByHighestLevel);
+                            for (int i = tests.length - 1; i >= 0; i--) {
+                                ETest test = tests[i];
+                                int testid = test.id;
 //                            if (testid == 20) {
 //                                testid = 20;
 //                            }
-                            if (test.contains(kps.kp)) {
-                            } else {
-                                continue;
-                            }
-                            ELevel ltest = getELevel4(testid);
-                            if (sys.c.compare(ltest, limit) <= 0) {
-                                for (; i >= 0; i--) {
-                                    test = tests[i]; //with lower highest ELevel, so all usable
-                                    if (test.fnAudio == null) { //TODO: should be configurable by caller.
-                                        continue;
-                                    }
-                                    testid = test.id;
-                                    if (alreadyIn(testid) //results.containsKey(testid) //what does this mean? already in the results!
-                                            || testsUsed.get(testid) != null) { //is just tested?
-                                    } else {
-                                        ETestForEKP te = new ETestForEKP(test, kps);
-                                        results.add(te); //results.put(testid, te);
-                                        break; //I take only one of them for the current EKP.
+                                if (test.contains(kps.kp)) {
+                                } else {
+                                    continue;
+                                }
+                                ELevel ltest = getELevel4(testid);
+                                if (sys.c.compare(ltest, limit) <= 0) {
+                                    for (; i >= 0; i--) {
+                                        test = tests[i]; //with lower highest ELevel, so all usable
+                                        if (test.fnAudio == null) { //TODO: should be configurable by caller.
+                                            continue;
+                                        }
+                                        testid = test.id;
+                                        if (alreadyIn(testid) //results.containsKey(testid) //what does this mean? already in the results!
+                                                || testsUsed.get(testid) != null) { //is just tested?
+                                        } else {
+                                            ETestForEKP te = new ETestForEKP(test, kps);
+                                            results.put(kps.kpid, te); //results.add(te); //results.put(testid, te);
+                                            break; //I take only one of them for the current EKP.
+                                        }
                                     }
                                 }
                             }
+                            if (results.size() >= n) {
+                                onSucceeded();
+                                done = true;
+                            }
                         }
-                        if (results.size() >= n) {
-                            onSucceeded();
-                            done = true;
+                        if (done) {
+                        } else {
+                            idx++;
+                            fetchMore();
                         }
                     }
-                    if (done) {
-                    } else {
-                        idx++;
-                        fetchMore();
-                    }
-                }
 ////                    System.out.println(idx + "-th KP gives ETests:" + testsT.size());
 ////                ETest testT = null;
 ////            ETestResult tr = new ETestResult(); //temp
@@ -1601,14 +1634,18 @@ the KP's level is too low compared to the actual level, then its test result cou
 //                if (testsT.size() > 0) {
 //                    results.addAll(testsT);
 //                }
-            }).exceptionally(t -> {
-                if (results.isEmpty()) {
-                    onFailed(t);
-                } else {
-                    onSucceeded();
-                }
-                return null;
-            });
+                }).exceptionally(t -> {
+                    t.printStackTrace();
+                    if (results.isEmpty()) {
+                        onFailed(t);
+                    } else {
+                        onSucceeded();
+                    }
+                    return null;
+                });
+            } catch (Throwable t) {
+                onFailed(t);
+            }
         }
 
         /**
@@ -1652,7 +1689,21 @@ the KP's level is too low compared to the actual level, then its test result cou
 //                        addToUsed(tr);
 //                    }
 //                }
-                tes = results.toArray(new ETestForEKP[0]);
+                if (false) { //return all
+                    tes = results.values().toArray(new ETestForEKP[0]);
+                } else { //return only 1, the highest 1.
+                    tes = new ETestForEKP[1];
+                    ELevel lh = null;
+                    Integer[] akpid = results.keySet().toArray(new Integer[0]);
+                    for (int kpid : akpid) {
+                        ETestForEKP te = results.get(kpid);
+                        ELevel lt = te.test.highestLevel(sys);
+                        if (lh == null || lt.isHigherThan(lh)) {
+                            lh = lt;
+                            tes[0] = te;
+                        }
+                    }
+                }
                 for (CompletableFuture<ETestForEKP[]> q : request) {
                     q.complete(tes);
                 }
@@ -1725,19 +1776,28 @@ the KP's level is too low compared to the actual level, then its test result cou
             return level;
         }
 
-        private void onTested(int testid) {
+        private ETestForEKP onTested(int testid) {
 //            results.remove(testid);
-            Iterator<ETestForEKP> I = results.iterator();
-            while (I.hasNext()) {
-                ETestForEKP te = I.next();
+            ETestForEKP te0 = null;
+//            Iterator<ETestForEKP> I = results.iterator();
+//            while (I.hasNext()) {
+//                ETestForEKP te = I.next();
+            Integer[] akpid = results.keySet().toArray(new Integer[0]);
+            for (Integer kpid : akpid) {
+                ETestForEKP te = results.get(kpid);
                 if (te.test.id == testid) {
-                    I.remove();
+                    results.remove(kpid);//I.remove();
+                    te0 = te;
+//                    return te;  //should be only 1, but incase more than 1, so I do not return right away
                 }
             }
+            return te0;
         }
 
         private boolean alreadyIn(int testid) {
-            for (ETestForEKP te : results) {
+            Integer[] akpid = results.keySet().toArray(new Integer[0]);
+            for (int kpid : akpid) {
+                ETestForEKP te = results.get(kpid);
                 if (te.test.id == testid) {
                     return true;
                 }
