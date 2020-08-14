@@ -350,19 +350,26 @@ between the actual and the target, there might be a huge gap.
         //now we choose a test from ETests covering kps
         //at present, I do not try to find the minimum covering set of ETest. I serve the user one by one.
         ELevel limit;
-        if (lPassed != null) {
+        if (this.lLearning != null) {
+            if (reviewOnly) {
+                limit = lLearning;
+            } else {
+                limit = lLearning.sys.nextLevel(lLearning);
+            }
+        } else if (lPassed != null) {
             if (reviewOnly) {
                 limit = lPassed;
             } else {
                 limit = lPassed.sys.nextLevel(lPassed);
             }
+            lLearning = lPassed;
         } else {
             limit = target;
         }
         if (fetcher == null) {
             fetcher = new Fetcher();
         }
-        return fetcher.fetch(2, limit); //if with this limit, the result is empty, we should move the limit level to its next level.
+        return fetcher.fetch(2, limit, reviewOnly); //if with this limit, the result is empty, we should move the limit level to its next level.
     }
 
     Comparator<ETest> cETestByHighestLevel = new Comparator<ETest>() {
@@ -978,10 +985,11 @@ between the actual and the target, there might be a huge gap.
         when must=true, the level's EKP should be scheduled.
         when must ==false, and kpsRelevant is not empty, we are done.
          */
-        private boolean must;
+//        private boolean must;
         private ELevel level;
         AtomicBoolean running = new AtomicBoolean();
         ConcurrentLinkedQueue<CompletableFuture<Boolean>> request = new ConcurrentLinkedQueue<>();
+
         /*
         those EKP of low level, and mastered should be removed(not to be rescheduled unncecessarily).
         
@@ -989,7 +997,7 @@ between the actual and the target, there might be a huge gap.
         why do I need both of them?
          */
 //        private final HashSet<EKPscheduled> kpsRelevant = new HashSet<>();
-        private final HashMap<Integer, EKPscheduled> kpsRelevant = new HashMap<>(); //indexed by EKP.id
+//        private final HashMap<Integer, EKPscheduled> results = new HashMap<>(); //indexed by EKP.id
 
         Scheduler(Collection<EKPscheduled> values) {
 //            kpsRelevant.addAll(values);
@@ -1003,9 +1011,9 @@ between the actual and the target, there might be a huge gap.
                         continue;
                     }
                 }
-                kpsRelevant.put(kps.kpid, kps);// .add(kps);
+                results.put(kps.kpid, kps);// .add(kps);
             }
-            System.out.println("scheduler inited with " + kpsRelevant.size());
+            System.out.println("scheduler inited with " + results.size());
             if (false) { //I have the scheduled time point for each EKP saved, so I do not have to redo it at this time.
                 App.getExecutor().submit(() -> {
                     for (EKPscheduled kps : values) {
@@ -1022,7 +1030,7 @@ between the actual and the target, there might be a huge gap.
                     throw new IllegalArgumentException();
                 }
                 this.level = level;
-                this.must = must;
+//                this.must = must;
                 request.add(cf);
                 /* TODO: running is not reset, then scheduler will not be executed anymore.
             reset it after 10 minutes.
@@ -1054,8 +1062,8 @@ between the actual and the target, there might be a huge gap.
                     throw new IllegalStateException("this should not happen");
                 }
                 schedule().thenApply(tf -> {
-                    System.out.println(level.levelString() + " is scheduled:" + kpsRelevant.size());
-                    if (kpsRelevant.isEmpty()) {
+                    System.out.println(level.levelString() + " is scheduled:" + results.size());
+                    if (results.isEmpty()) {
                         if (level.sys == null) {
                             throw new IllegalStateException("this should not happen");
                         }
@@ -1097,7 +1105,7 @@ between the actual and the target, there might be a huge gap.
             for (int i = 0; i < cfs.length; i++) {
                 Integer kpid = akpid[i];
 //                kpst.kpid = kpid;
-                if (kpsRelevant.containsKey(kpid)) { //kpst
+                if (results.containsKey(kpid)) { //kpst
                     cfs[i] = CompletableFuture.completedFuture(true);
                     continue;
                 }
@@ -1106,7 +1114,7 @@ between the actual and the target, there might be a huge gap.
                         return CompletableFuture.completedFuture(true);
                     }
                     EKPscheduled kps = getEKPscheduled(kp); //new EKP for the user to learn
-                    kpsRelevant.put(kpid, kps);//.add(kps);
+                    results.put(kpid, kps);//.add(kps);
                     return kps.updateSchedule();
                 }).exceptionally(t -> {
                     if (t instanceof FileNotFoundException) {
@@ -1120,7 +1128,7 @@ between the actual and the target, there might be a huge gap.
 //                Arrays.sort(akps, cTime);
 //                kpsRelevant.clear();
 //                kpsRelevant.addAll(Arrays.asList(akps));
-                int size = kpsRelevant.size(); //akps.length;
+                int size = results.size(); //akps.length;
                 System.out.println(level.levelString() + " #ofKP scheduled:" + size); //java.lang.NullPointerException
                 return true;
             });
@@ -1132,7 +1140,7 @@ between the actual and the target, there might be a huge gap.
 
         private void onSucceeded() {
             try {
-                scheduled = kpsRelevant.values().toArray(new EKPscheduled[0]);
+                scheduled = results.values().toArray(new EKPscheduled[0]);
                 System.out.println("eventually # scheduled:" + scheduled.length);
                 //TODO: do we have to sort them now?
                 shouldSortScheduled = true;
@@ -1165,7 +1173,7 @@ between the actual and the target, there might be a huge gap.
         }
 
     }
-    static Comparator<EKPscheduled> cTime = new Comparator<EKPscheduled>() {
+    static Comparator<EKPscheduled> c_ltsScheduled = new Comparator<EKPscheduled>() {
         @Override
         public int compare(EKPscheduled o1, EKPscheduled o2) {
             long dt = o1.ltsScheduled - o2.ltsScheduled;
@@ -1207,8 +1215,8 @@ between the actual and the target, there might be a huge gap.
         /* this should be updated as more data is collected for the user.
     at present, I update this upon the user logged in. No. do it when new data is collected.
          */
-        int dt;
-        long ltsScheduled;
+        int dt; //since t1
+        long lts_t1, ltsScheduled;
         /* this EKP are tested with many different ETest
         are they sorted? yes, since they are added sequentially over time.
          */
@@ -1243,15 +1251,16 @@ between the actual and the target, there might be a huge gap.
 //                ltsScheduled = fc.scheduleWith(tested); //ForgettingCurve.getFor(EUser.this)
                     ETestResult tr = tested.get(tested.size() - 1);
                     long lts0 = get_t0();
-                    tr.setT0T1(lts0, ltsnow); //ltsScheduled
-                    long ltsTmp = lts0 + tr.t * 1000 * 60;
-                    if (ETestResult.sameTime(ltsTmp, ltsnow)) {
-                    } else {
-                        throw new IllegalStateException(ltsTmp + ":" + ltsnow);
-                    }
+                    tr.setT0T1(lts0, lts_t1); //ltsScheduled. originally ltsScheduled is right. ltsnow is not right.
                     fc.stimulate(tr);
-                    dt = fc.forecast(tr.t);
-                    ltsScheduled = lts0 + (tr.t + dt) * 1000 * 60; //not right.
+                    long lts_t1_new = lts0 + tr.t * 1000 * 60;
+                    if (ETestResult.sameTime(lts_t1_new, ltsnow)) { //the distance between them is less than 1 minute?
+                    } else {
+                        throw new IllegalStateException(lts_t1_new + ":" + ltsnow);
+                    }
+                    lts_t1 = lts_t1_new; //from tr.t
+                    dt = fc.forecast(tr.t); //should be tr.t
+                    ltsScheduled = lts_t1 + dt * 1000 * 60; // lts0 + (tr.t + dt) * 1000 * 60; 
 //                System.out.println("dt:" + (ltsScheduled - System.currentTimeMillis()));
                 }
                 shouldSortScheduled = true;
@@ -1299,8 +1308,9 @@ between the actual and the target, there might be a huge gap.
             g.writeStartObject();
             if (kpidSave) {
                 g.writeNumberField("kpid", kpid);
-                g.writeNumberField("dt", dt);
+//                g.writeNumberField("dt", dt); //lts_t1+ dt = ltsScheduled
             }
+            g.writeNumberField("t1", lts_t1 / 1000 / 60); //minutes is good enough
             g.writeNumberField("scheduled", ltsScheduled / 1000 / 60); //minutes is good enough
             g.writeArrayFieldStart("tested");
             for (ETestResult tr : tested) {
@@ -1321,6 +1331,10 @@ between the actual and the target, there might be a huge gap.
                         t = p.nextToken();
                         if ("scheduled".equals(name)) {
                             ltsScheduled = p.getValueAsLong() * 1000 * 60;
+                            dt = (int) (ltsScheduled - lts_t1);
+                        } else if ("t1".equals(name)) {
+                            lts_t1 = p.getValueAsLong() * 1000 * 60;
+                            dt = (int) (ltsScheduled - lts_t1);
                         } else if ("tested".equals(name)) {
                             //TODO: better to use object? No!
 //                            t = p.nextToken();
@@ -1451,8 +1465,10 @@ between the actual and the target, there might be a huge gap.
         private HashMap<Integer, ETestForEKP> results = new HashMap<>(); //use EKP.id
         ELevelSystem sys;
         long ltsStart;
+        boolean reviewOnly;
 
-        CompletableFuture<ETestForEKP[]> fetch(int n, ELevel limit) {
+        CompletableFuture<ETestForEKP[]> fetch(int n, ELevel limit, boolean reviewOnly) {
+            this.reviewOnly = reviewOnly;
             CompletableFuture<ETestForEKP[]> cf = new CompletableFuture<>();
             if (n < 1) {
                 n = 1; //3 let's do it one by one.
@@ -1503,44 +1519,46 @@ between the actual and the target, there might be a huge gap.
                     if (idx == 0) {
                         if (shouldSortScheduled) {
                             //sort by scheduled timestamp
-                            Arrays.sort(scheduled, cTime); // Collections.sort(scheduled);//Arrays.sort(scheduled);
+                            Arrays.sort(scheduled, c_ltsScheduled); // Collections.sort(scheduled);//Arrays.sort(scheduled);
                         }
                         System.out.println("#of KP scheduled:" + size + " testsUsed:" + testsUsed.size());
                     }
                     boolean good = false;
                     for (; idx < scheduled.length; idx++) {
                         kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
-                        long ltsnow = System.currentTimeMillis();
-                        if (kps.ltsScheduled > ltsnow) {
-                            /* TODO: all EKP's that are waiting for review are all reviewed.
-                        now it is the time for new material.
-                             */
-//                        idx = scheduled.length;
-                            continue;
+                        if (reviewOnly) {
                         } else {
-                            ELevel lkp = sys.getELevel4EKP(kps.kpid);
-                            if (lkp == null) {
-                                //TODO: remove it from scheduled
-//                            EUser.this.results.remove(kps.kpid);
+                            long ltsnow = System.currentTimeMillis();
+                            if (kps.ltsScheduled > ltsnow) {
+                                /* TODO: all EKP's that are waiting for review are all reviewed.
+                        now it is the time for new material.
+                                 */
+//                        idx = scheduled.length;
                                 continue;
                             }
-                            if (skipHigherEKP) { //enable this(skip higher level stuff), unless for test, I should not skip them(should not enable this).
-                                if (lkp.isHigherThan(limit)) {  //if not for test, then I should keep them.
-                                    //TODO: remove this
-                                    nHigherSkipped++;
-                                    continue;
-                                }
-                            }
-//                    System.out.println(idx + "-th/" + size + " KP:" + kps.kpid);
-                            if (false) { //before test results arrived, we should serve the same test all the time.
-                                kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
-                                shouldSortScheduled = true;
-                            }
-//                    testsT.clear();
-                            good = true;
-                            break;
                         }
-                    }
+                        ELevel lkp = sys.getELevel4EKP(kps.kpid);
+                        if (lkp == null) {
+                            //TODO: remove it from scheduled
+//                            EUser.this.results.remove(kps.kpid);
+                            continue;
+                        }
+                        if (skipHigherEKP) { //enable this(skip higher level stuff), unless for test, I should not skip them(should not enable this).
+                            if (lkp.isHigherThan(limit)) {  //if not for test, then I should keep them.
+                                //TODO: remove this
+                                nHigherSkipped++;
+                                continue;
+                            }
+                        }
+//                    System.out.println(idx + "-th/" + size + " KP:" + kps.kpid);
+                        if (false) { //before test results arrived, we should serve the same test all the time.
+                            kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
+                            shouldSortScheduled = true;
+                        }
+//                    testsT.clear();
+                        good = true;
+                        break;
+                    } //end of for loop
                     if (good) {
                         return kps.getTests(); //kps.filterTests(limit, testsT);
                     } else { //usually, should not get here.
@@ -1567,7 +1585,8 @@ between the actual and the target, there might be a huge gap.
                             } catch (Throwable t) {
                                 t.printStackTrace();
                             }
-                            scheduler.kpsRelevant.remove(kps.kpid);
+//                            scheduler.
+                            results.remove(kps.kpid);
                         } else if (tests.length > 0) {
                             Arrays.sort(tests, cETestByHighestLevel);
                             for (int i = tests.length - 1; i >= 0; i--) {
@@ -1732,16 +1751,19 @@ between the actual and the target, there might be a huge gap.
         private void fetchMore() {
             boolean doneReal = false;
             if (idx >= scheduled.length) {
-                ELevel l = limit.sys.nextLevel(limit);
-                if (l == null) {
-                    if (nHigherSkipped > 0) {
-                        nHigherSkipped = 0;
-                        skipHigherEKP = false;
-                    } else {
-                        doneReal = true;
-                    }
+                if (reviewOnly) {
                 } else {
-                    limit = l;
+                    ELevel l = limit.sys.nextLevel(limit);
+                    if (l == null) {
+                        if (nHigherSkipped > 0) {
+                            nHigherSkipped = 0;
+                            skipHigherEKP = false;
+                        } else {
+                            doneReal = true;
+                        }
+                    } else {
+                        limit = l;
+                    }
                 }
                 idx = 0;
             }

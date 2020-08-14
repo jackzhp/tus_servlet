@@ -213,9 +213,18 @@ public class RetentionCurve {
      * each Segment is a cell. we use tr.t1 & [s0,s1] to find out which Segment
      * should be simulated.
      *
+     * in this method, tr.t1 is unknown, isn't it???? tr.t should be set before
+     * this method is called.
+     *
      * @param tr
      */
     void stimulate(ETestResult tr) {
+        if (tr.t1 == 0) {
+            throw new IllegalStateException("t1 is 0");
+        }
+        if (tr.t == 0) {
+            return;
+        }
 //        double tf = 0;
 //        boolean overSegment = true; // from tr.t1 to t, there is no segment can process it.
 //        boolean[] stimulated = new boolean[segments.length];
@@ -224,7 +233,7 @@ public class RetentionCurve {
 //                continue;
 //            }
             Segment s = segments[i];
-            if (s.s0 <= tr.t1 && tr.t1 <= s.s1) { //at least one matches.
+            if (s.s0 <= tr.t1 && tr.t1 <= s.s1) { //at least one matches. 
                 if (s.stimulate(tr)) {
                     for (int j = i + 1; j < segments.length; j++) {
                         Segment s2 = segments[j];

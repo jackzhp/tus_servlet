@@ -563,7 +563,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       try {
         var request = new XMLHttpRequest();
         var url = webPath + urlSuffix;
-        request.open('POST', url, true); //&reviewOnly=false when false, can be omitted.
+        request.open('POST', url, true);
         request.responseType = 'json';
         request.onload = function () {
           var ojson = request.response;
@@ -789,7 +789,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     //   try {
     //     var request = new XMLHttpRequest();
     //     var url = webPath + "test?act=test&testid=" + self.testCurrent.id;
-    //     request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
+    //     request.open('GET', url, true); 
     //     request.responseType = 'json';
     //     request.onload = function () {
     //       var ojson = request.response;
@@ -829,7 +829,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       try {
         var request = new XMLHttpRequest();
         var url = webPath + "test?act=test&testid=" + testid;
-        request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
+        request.open('GET', url, true);
         request.responseType = 'json';
         request.onload = function () {
           var ojson = request.response;
@@ -860,7 +860,11 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     return new Promise((resolve, reject) => {
       try {
         var request = new XMLHttpRequest();
-        var url = webPath + "user?act=tests" + "&t=" + new Date().getTime(); //webPath + "test"
+        var e = document.querySelector('#reviewOnly');
+        var url = webPath + "user?act=tests&t=" + new Date().getTime(); //webPath + "test"
+        if (e.checked) {//&reviewOnly=false when false, can be omitted.
+          url += "&reviewOnly=true";
+        }
         request.open('GET', url, true);
         request.responseType = 'json';
         request.onload = function () {
@@ -1026,7 +1030,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       try {
         var request = new XMLHttpRequest();
         var url = webPath + "user?act=test";
-        request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
+        request.open('GET', url, true);
         request.responseType = 'json';
         request.onload = function () {
           var otestNew = request.response;
@@ -1123,6 +1127,18 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     var d = new Date(m * 1000 * 60);
     return d.getFullYear() + "." + d.getMonth() + "." + d.getDate() + "-" + d.getHours() + ":" + d.getMinutes();
   },
+  getDT: function (dt) { //in minutes
+    var s = dt % 60;
+    dt = Math.floor(dt/60); //hours
+    if (dt > 0) {
+      s = (dt % 24) + ":" + s;
+      dt = Math.floor(dt/24); //days
+      if (dt > 0) {
+        s = dt + "d " + s;
+      }
+    }
+    return s;
+  },
   presentTiming: function () {
     var self = this;
     var right = true;
@@ -1141,7 +1157,9 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       var o = aotimes[i];
       // console.log(o.lts + " " + o.good);
     }
-    html = "<li>" + otime.dt + "=" + otime.scheduled + "(" + self.format_m(otime.scheduled) + ")</li>";
+    otime.dt = otime.scheduled - otime.t1;
+    var dt_s = self.getDT(otime.dt);
+    html = "<li>" + self.format_m(otime.t1) + "+" + dt_s + "=" + otime.scheduled + "(" + self.format_m(otime.scheduled) + ")</li>";
     for (var i = aotimes.length - 1; i >= 0; i--) {
       var o = aotimes[i];
       // console.log(o.lts + " " + o.good);
@@ -1378,7 +1396,7 @@ var user = {
       try {
         var request = new XMLHttpRequest();
         var url = webPath + "user?act=nonce&username=" + self.name;
-        request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
+        request.open('GET', url, true);
         request.responseType = 'json';
         request.onload = function () {
           var ojson = request.response;
@@ -1451,7 +1469,7 @@ var user = {
       try {
         var request = new XMLHttpRequest();
         var url = webPath + "user?act=authenticate&pk=" + pk + "&sig=" + (pass + self.nonce);
-        request.open('POST', url, true); //&reviewOnly=false when false, can be omitted.
+        request.open('POST', url, true);
         request.responseType = 'json';
         request.onload = function () {
           var ojson = request.response;
@@ -1504,7 +1522,7 @@ var user = {
       try {
         var request = new XMLHttpRequest();
         var url = webPath + "user?act=level&t=" + new Date().getTime();
-        request.open('GET', url, true); //&reviewOnly=false when false, can be omitted.
+        request.open('GET', url, true);
         request.responseType = 'json';
         request.onload = function () {
           var ojson = request.response;

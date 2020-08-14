@@ -54,29 +54,6 @@ if this is not -1, then this variable should replace this.id.
 //    boolean isDeleted, //the intention to be deleted, but not deleted only because other objects still referring to this EKP.
 //            isIdle;//=true;  when an EKP is deleted, or merged with another one, it becomes idle.
     long lts; //the last time stamp this EKP is modified.
-
-    /* the ones load from ETest should set this to true.
-    any modification should be make to the object with this==false.
-     */
-    final boolean isRedundant() {
-        return (deleted & 256) != 0;
-    }
-
-    final void setRedundant() {
-        deleted |= 256;
-    }
-
-    final boolean isIdle() {
-        return (deleted & 512) != 0;
-    }
-
-    final void setIdle() {
-        deleted |= 512;
-    }
-
-    final void setDeleted() {
-        deleted |= 128;
-    }
     /*
     TODO: this should be searchable with full text.
     kodo has this capability: 
@@ -105,7 +82,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
     so we allow other objects to refer to this EKP only after this EKP has been saved.
      */
     boolean toBeApplied;
-
+    HashSet<EKP> prerequisite; //acyclic
     EKPbundle bundle;
 
     static int[] idsIdle; //TODO: save them, and load them.
@@ -114,6 +91,29 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
 //    static LinkedHashMap<Integer,WeakReference<EKP>
 //            LinkedHashMap(int initialCapacity, float loadFactor, boolean accessOrder)    
     private final static ConcurrentHashMap<Integer, WeakReference<EKP>> cached = new ConcurrentHashMap<>();
+
+    /* the ones load from ETest should set this to true.
+    any modification should be make to the object with this==false.
+     */
+    final boolean isRedundant() {
+        return (deleted & 256) != 0;
+    }
+
+    final void setRedundant() {
+        deleted |= 256;
+    }
+
+    final boolean isIdle() {
+        return (deleted & 512) != 0;
+    }
+
+    final void setIdle() {
+        deleted |= 512;
+    }
+
+    final void setDeleted() {
+        deleted |= 128;
+    }
 
     public EKP(EKPbundle b) {
         this.bundle = b;
@@ -967,45 +967,6 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
         save(10);
     }
 
-    static class Merger<T> {
-
-        final EKP kp;
-
-        Function<EKP, T[]> f1;
-        Function<T, CompletableFuture<Boolean>> f2;
-
-        Merger(EKP kp) {
-            this.kp = kp;
-        }
-    }
-
-    static class MergerETest extends Merger<ETest> {
-
-        MergerETest(EKP kp0) {
-            super(kp0);
-            f1 = (kpt) -> kp.mergeForETest(kpt);
-            f2 = (test) -> test.save_cf();
-        }
-    }
-
-    static class MergerELevel extends Merger<ELevelSystem> {
-
-        MergerELevel(EKP kp0) {
-            super(kp0);
-            f1 = (kpt) -> kp.mergeForELevel(kpt);
-            f2 = (sys) -> sys.save_cf();
-        }
-    }
-
-    static class MergerEUser extends Merger<EUser> {
-
-        MergerEUser(EKP kp0) {
-            super(kp0);
-            f1 = (kpt) -> kp.mergeForEUser(kpt);
-            f2 = (sys) -> sys.save_cf();
-        }
-    }
-
     /*
      * for EKP(i) -> T, we will use EKP(this) -> T.
      * 
@@ -1197,6 +1158,47 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             }
         } else {
             throw new IllegalStateException("expecting start object, but " + t);
+        }
+    }
+    
+    
+
+    static class Merger<T> {
+
+        final EKP kp;
+
+        Function<EKP, T[]> f1;
+        Function<T, CompletableFuture<Boolean>> f2;
+
+        Merger(EKP kp) {
+            this.kp = kp;
+        }
+    }
+
+    static class MergerETest extends Merger<ETest> {
+
+        MergerETest(EKP kp0) {
+            super(kp0);
+            f1 = (kpt) -> kp.mergeForETest(kpt);
+            f2 = (test) -> test.save_cf();
+        }
+    }
+
+    static class MergerELevel extends Merger<ELevelSystem> {
+
+        MergerELevel(EKP kp0) {
+            super(kp0);
+            f1 = (kpt) -> kp.mergeForELevel(kpt);
+            f2 = (sys) -> sys.save_cf();
+        }
+    }
+
+    static class MergerEUser extends Merger<EUser> {
+
+        MergerEUser(EKP kp0) {
+            super(kp0);
+            f1 = (kpt) -> kp.mergeForEUser(kpt);
+            f2 = (sys) -> sys.save_cf();
         }
     }
 

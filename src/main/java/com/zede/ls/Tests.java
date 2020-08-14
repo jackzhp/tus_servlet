@@ -22,7 +22,6 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  *
- * @author yogi
  */
 @Deprecated //use STest instead
 public class Tests extends HttpServlet {
