@@ -156,6 +156,12 @@ public class ELevelSystem {
         }
     }
 
+    /**
+     *
+     * @param major
+     * @param minor
+     * @return might be null
+     */
     ELevel previousLevel(int major, int minor) {
         boolean found = false;
         for (int i = levels.size() - 1; i >= 0; i--) {

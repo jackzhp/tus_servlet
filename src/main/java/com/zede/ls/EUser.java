@@ -60,7 +60,8 @@ between the actual and the target, there might be a huge gap.
     ELevel target; //like grade 5
 //    @Persistent
 //    ELevel actual;
-    HashMap<ELevel, ELevelTested> levelTested = new HashMap<>();
+    HashMap<ELevel, ELevelTested> levelTested = new HashMap<>(); //only 1 is not good. moving average is also too complicated
+//    ArrayList<Trial> trials = new ArrayList<>(); //during loading, this might be longer than 1. but once loaded,
 
     /* why do I need this? 
     for example I should try to avoid returning a test which is just used within 1 minute.
@@ -252,6 +253,7 @@ between the actual and the target, there might be a huge gap.
             CompletableFuture[] cfs = new CompletableFuture[kps.length];
             for (int i = 0; i < kps.length; i++) {
                 EKP kp = kps[i];
+                fetcher.onTestedEKP(kp);
                 boolean good = true; //false;// = bads.contains(kp) == false;
                 for (int bpidBad : bads) {
                     if (kp.id == bpidBad) {
@@ -336,6 +338,10 @@ between the actual and the target, there might be a huge gap.
 
     Fetcher fetcher;
 
+    int getReviews() {
+        return fetcher.toBreviewed();
+    }
+
     /**
      * the user wants a test. return the test id.
      *
@@ -384,6 +390,7 @@ between the actual and the target, there might be a huge gap.
 
     private void jsonLevelTested(JsonGenerator g) throws IOException {
         ELevelSystem sys = target.sys;
+//        HashMap<ELevel, ELevelTested> levelTested=trials.get(trials.size()-1).levelTested;
         Set<Map.Entry<ELevel, ELevelTested>> s = levelTested.entrySet();
         g.writeStartObject();
         g.writeStringField("sys", sys.name);
@@ -422,14 +429,14 @@ between the actual and the target, there might be a huge gap.
                         ELevel level = ELevel.get_m(sysName, name);
                         ELevelTested lt = new ELevelTested(level);
                         lt.parse(p);
-                        levelTested.put(level, lt);
+//                        levelTested.put(level, lt);
                     }
                     continue;
                 } else if (t == JsonToken.END_OBJECT) {
                     break;
                 }
             }
-            if (shouldDiscard) {
+            if (shouldDiscard) { //what does it mean? when level system is changed, wo throw away the tested info.
                 levelTested.clear();
             }
         } else {
@@ -660,8 +667,11 @@ between the actual and the target, there might be a huge gap.
                     Set<Integer> s = results.keySet();
                     g.writeStartObject(); //results
                     for (Integer kpid : s) {
-                        g.writeFieldName(kpid.toString());
-                        results.get(kpid).json(g, false);
+                        EKPscheduled kps = results.get(kpid);
+                        if (kps.shouldBeSaved()) {
+                            g.writeFieldName(kpid.toString());
+                            kps.json(g, false);
+                        }
                     }
                     g.writeEndObject(); //results
                     g.writeEndObject();
@@ -918,6 +928,18 @@ between the actual and the target, there might be a huge gap.
         return kps;
     }
 
+    class Trial implements Comparable<Trial> {
+
+        long ltsDay;
+        HashMap<ELevel, ELevelTested> levelTested = new HashMap<>(); //only 1 is not good. moving average is also too complicated
+
+        @Override
+        public int compareTo(Trial o) {
+            long dt = ltsDay - o.ltsDay;
+            return dt < 0 ? -1 : dt > 0 ? 1 : 0;
+        }
+    }
+
     class ELevelTested {
 
         ELevel level;
@@ -979,7 +1001,12 @@ between the actual and the target, there might be a huge gap.
         why do I need this class?
         when user's level is not determined, we need to test the user.
         
-        //TODO: should shoulde be triggered only when a test results is saved.
+        //TODO: should be triggered only when a test results is saved.
+        
+downward test levels.        
+        
+        
+        
          */
  /* why did I need this? nonempty final result. No. 
         when must=true, the level's EKP should be scheduled.
@@ -998,7 +1025,6 @@ between the actual and the target, there might be a huge gap.
          */
 //        private final HashSet<EKPscheduled> kpsRelevant = new HashSet<>();
 //        private final HashMap<Integer, EKPscheduled> results = new HashMap<>(); //indexed by EKP.id
-
         Scheduler(Collection<EKPscheduled> values) {
 //            kpsRelevant.addAll(values);
             for (EKPscheduled kps : values) {
@@ -1215,8 +1241,8 @@ between the actual and the target, there might be a huge gap.
         /* this should be updated as more data is collected for the user.
     at present, I update this upon the user logged in. No. do it when new data is collected.
          */
-        int dt; //since t1
-        long lts_t1, ltsScheduled;
+        int dt; //minutes since t1
+        long lts_t1, ltsScheduled; //in milliseconds.
         /* this EKP are tested with many different ETest
         are they sorted? yes, since they are added sequentially over time.
          */
@@ -1256,16 +1282,21 @@ between the actual and the target, there might be a huge gap.
                     long lts_t1_new = lts0 + tr.t * 1000 * 60;
                     if (ETestResult.sameTime(lts_t1_new, ltsnow)) { //the distance between them is less than 1 minute?
                     } else {
-                        throw new IllegalStateException(lts_t1_new + ":" + ltsnow);
+                        try {
+                            throw new IllegalStateException(kpid + ":" + lts_t1_new + ":" + ltsnow); //this happened.
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                        }
                     }
-                    lts_t1 = lts_t1_new; //from tr.t
-                    dt = fc.forecast(tr.t); //should be tr.t
+                    lts_t1 = ltsnow; // lts_t1_new; //from tr.t
+                    dt = fc.forecast((lts_t1 - lts0) / 1000 / 60); //  should be tr.t
                     ltsScheduled = lts_t1 + dt * 1000 * 60; // lts0 + (tr.t + dt) * 1000 * 60; 
-//                System.out.println("dt:" + (ltsScheduled - System.currentTimeMillis()));
+                    System.out.println("dt:" + dt); //(ltsScheduled - System.currentTimeMillis())
                 }
                 shouldSortScheduled = true;
                 cf.complete(true);
             } catch (Throwable t) {
+                System.out.println("kpid:" + kpid);
                 t.printStackTrace();
                 cf.completeExceptionally(t);
             }
@@ -1331,10 +1362,10 @@ between the actual and the target, there might be a huge gap.
                         t = p.nextToken();
                         if ("scheduled".equals(name)) {
                             ltsScheduled = p.getValueAsLong() * 1000 * 60;
-                            dt = (int) (ltsScheduled - lts_t1);
+                            dt = (int) (ltsScheduled - lts_t1) / 1000 / 60;
                         } else if ("t1".equals(name)) {
                             lts_t1 = p.getValueAsLong() * 1000 * 60;
-                            dt = (int) (ltsScheduled - lts_t1);
+                            dt = (int) (ltsScheduled - lts_t1) / 1000 / 60;
                         } else if ("tested".equals(name)) {
                             //TODO: better to use object? No!
 //                            t = p.nextToken();
@@ -1416,6 +1447,19 @@ between the actual and the target, there might be a huge gap.
             return null;
         }
 
+        private boolean shouldBeSaved() {
+            /* TODO: 
+            if the passed level is not known, we just return true.
+            
+            if the passed level is known, and its level is far lower than the passed level,
+            and all results are good, then this EKP is fully mastered,
+            so we donot need it to be saved.
+            
+            for temp: I just return true.
+             */
+            return true;
+        }
+
     }
 
     /**
@@ -1446,7 +1490,11 @@ between the actual and the target, there might be a huge gap.
     class Fetcher implements Runnable//, Function<ETest, Boolean> 
     {
 
-        int idx, n;
+        /* n is fixed to 1. why do I have n? previously I want to implement preload, so n is greater than 1.
+        now preload is disabled.
+         */
+        int n;
+        int idx;
         ELevel limitCurrent, limit;
         ConcurrentLinkedQueue<CompletableFuture<ETestForEKP[]>> request = new ConcurrentLinkedQueue<>();
         AtomicBoolean running = new AtomicBoolean();
@@ -1466,14 +1514,19 @@ between the actual and the target, there might be a huge gap.
         ELevelSystem sys;
         long ltsStart;
         boolean reviewOnly;
+        HashSet<Integer> review = new HashSet<>(); //int[] reviews; //Integer[] reviews; //HashSet<Integer> review = new HashSet<>();
+
+        int toBreviewed() {
+            return review.size();
+        }
 
         CompletableFuture<ETestForEKP[]> fetch(int n, ELevel limit, boolean reviewOnly) {
             this.reviewOnly = reviewOnly;
             CompletableFuture<ETestForEKP[]> cf = new CompletableFuture<>();
-            if (n < 1) {
-                n = 1; //3 let's do it one by one.
-            }
-            this.n = n;
+//            if (n < 1) {
+//                n = 1; //3 let's do it one by one.
+//            }
+            this.n = 1; // n;
             this.limit = limit;
             if (running.compareAndSet(false, true)) { //seems stuck inside, so I need a check based on timer.
                 ltsStart = System.currentTimeMillis();
@@ -1487,11 +1540,33 @@ between the actual and the target, there might be a huge gap.
                 }
 //                results.clear();
                 idx = 0;
-//                results.clear();
+                prepareReview();
                 App.getExecutor().submit(this);
             }
             request.add(cf);
             return cf;
+        }
+
+        void prepareReview() {
+            if (reviewOnly) {
+                if (review.isEmpty()) {
+                    ELevel l = lLearning;
+                    if (l == null) {
+                        l = lPassed;
+                        if (l == null) {
+                            l = target;
+                        }
+                    }
+                    for (; l != null; l = sys.previousLevel(l.idMajor, l.idMinor)) {
+                        review.addAll(l.kps);
+                    }
+//                reviews = new int[review.size()]; //review.toArray(new Integer[0]);
+//                Integer[] a = review.toArray(new Integer[0]);
+//                for (int i = 0; i < reviews.length; i++) {
+//                    reviews[i] = a[i];
+//                }
+                }
+            }
         }
 
         CompletableFuture<Void> checkSchedule() {
@@ -1511,23 +1586,72 @@ between the actual and the target, there might be a huge gap.
         }
         EKPscheduled kps;
 
+        EKPscheduled getEKPscheduledByID(int kpid) {
+            try {
+                EKPscheduled kps = EUser.this.results.get(kpid);
+                if (kps != null) { //kpst
+                    return kps;
+                }
+                EKP kp = EKP.getByID_m(kpid);
+                if (kp.deleted != 0) {
+                    return null;
+                }
+                kps = getEKPscheduled(kp); //new EKP for the user to learn
+                return kps;
+            } catch (Throwable t) {
+                throw new IllegalStateException(t);
+            }
+        }
+
+        EKPscheduled getEKPscheduledToReview() {
+            if (review.isEmpty()) {
+                return null;
+            }
+            kpidReview = review.iterator().next();
+            return getEKPscheduledByID(kpidReview);
+        }
+        Integer kpidReview;
+
+        void EKPwasDeleted() {
+            if (reviewOnly) {
+                review.remove(kpidReview); //kps.kpid
+            }
+            try {
+                if (kps.kp.replacedBy != -1) {
+                    replace(kps.kp, EKP.getByID_m(kps.kp.replacedBy, true));
+                }
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+//                            scheduler.
+            results.remove(kps.kpid);
+        }
+
+        /**
+         * get an EKP, then ..... when reviewOnly, get EKP from review;
+         * otherwise, ....
+         *
+         */
         @Override
         public void run() {
             try {
-                checkSchedule().thenCompose(tf -> {
-                    int size = scheduled.length; //.size();
-                    if (idx == 0) {
-                        if (shouldSortScheduled) {
-                            //sort by scheduled timestamp
-                            Arrays.sort(scheduled, c_ltsScheduled); // Collections.sort(scheduled);//Arrays.sort(scheduled);
+                CompletableFuture<Boolean> cf_kps;
+                if (reviewOnly) {
+                    kps = getEKPscheduledToReview();
+                    cf_kps = CompletableFuture.completedFuture(kps != null);
+                } else {
+                    cf_kps = checkSchedule().thenApply(tf -> {
+                        int size = scheduled.length; //.size();
+                        if (idx == 0) {
+                            if (shouldSortScheduled) {
+                                //sort by scheduled timestamp
+                                Arrays.sort(scheduled, c_ltsScheduled); // Collections.sort(scheduled);//Arrays.sort(scheduled);
+                            }
+                            System.out.println("#of KP scheduled:" + size + " testsUsed:" + testsUsed.size());
                         }
-                        System.out.println("#of KP scheduled:" + size + " testsUsed:" + testsUsed.size());
-                    }
-                    boolean good = false;
-                    for (; idx < scheduled.length; idx++) {
-                        kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
-                        if (reviewOnly) {
-                        } else {
+                        boolean good = false;
+                        for (; idx < scheduled.length; idx++) {
+                            kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
                             long ltsnow = System.currentTimeMillis();
                             if (kps.ltsScheduled > ltsnow) {
                                 /* TODO: all EKP's that are waiting for review are all reviewed.
@@ -1536,29 +1660,32 @@ between the actual and the target, there might be a huge gap.
 //                        idx = scheduled.length;
                                 continue;
                             }
-                        }
-                        ELevel lkp = sys.getELevel4EKP(kps.kpid);
-                        if (lkp == null) {
-                            //TODO: remove it from scheduled
+                            ELevel lkp = sys.getELevel4EKP(kps.kpid);
+                            if (lkp == null) {
+                                //TODO: remove it from scheduled
 //                            EUser.this.results.remove(kps.kpid);
-                            continue;
-                        }
-                        if (skipHigherEKP) { //enable this(skip higher level stuff), unless for test, I should not skip them(should not enable this).
-                            if (lkp.isHigherThan(limit)) {  //if not for test, then I should keep them.
-                                //TODO: remove this
-                                nHigherSkipped++;
                                 continue;
                             }
-                        }
+                            if (skipHigherEKP) { //enable this(skip higher level stuff), unless for test, I should not skip them(should not enable this).
+                                if (lkp.isHigherThan(limit)) {  //if not for test, then I should keep them.
+                                    //TODO: remove this
+                                    nHigherSkipped++;
+                                    continue;
+                                }
+                            }
 //                    System.out.println(idx + "-th/" + size + " KP:" + kps.kpid);
-                        if (false) { //before test results arrived, we should serve the same test all the time.
-                            kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
-                            shouldSortScheduled = true;
-                        }
+                            if (false) { //before test results arrived, we should serve the same test all the time.
+                                kps.ltsScheduled = System.currentTimeMillis() + 1000 * 60 * 5; //at least 5 minutes later.
+                                shouldSortScheduled = true;
+                            }
 //                    testsT.clear();
-                        good = true;
-                        break;
-                    } //end of for loop
+                            good = true;
+                            break;
+                        } //end of for loop
+                        return good;
+                    });
+                }
+                cf_kps.thenCompose(good -> {
                     if (good) {
                         return kps.getTests(); //kps.filterTests(limit, testsT);
                     } else { //usually, should not get here.
@@ -1578,15 +1705,7 @@ between the actual and the target, there might be a huge gap.
                     } else {
                         boolean done = false;
                         if (kps.kp.deleted != 0) {
-                            try {
-                                if (kps.kp.replacedBy != -1) {
-                                    replace(kps.kp, EKP.getByID_m(kps.kp.replacedBy, true));
-                                }
-                            } catch (Throwable t) {
-                                t.printStackTrace();
-                            }
-//                            scheduler.
-                            results.remove(kps.kpid);
+                            EKPwasDeleted();
                         } else if (tests.length > 0) {
                             Arrays.sort(tests, cETestByHighestLevel);
                             for (int i = tests.length - 1; i >= 0; i--) {
@@ -1750,9 +1869,11 @@ between the actual and the target, there might be a huge gap.
 //                    if with this limit, the result is empty, we should move the limit level to its next level.
         private void fetchMore() {
             boolean doneReal = false;
-            if (idx >= scheduled.length) {
-                if (reviewOnly) {
-                } else {
+            if (reviewOnly) {
+                review.remove(kpidReview);
+                doneReal = review.isEmpty();
+            } else {
+                if (idx >= scheduled.length) {
                     ELevel l = limit.sys.nextLevel(limit);
                     if (l == null) {
                         if (nHigherSkipped > 0) {
@@ -1798,6 +1919,12 @@ between the actual and the target, there might be a huge gap.
             return level;
         }
 
+        private void onTestedEKP(EKP kp) {
+            if (reviewOnly) {
+                review.remove(kp.id);
+            }
+        }
+
         private ETestForEKP onTested(int testid) {
 //            results.remove(testid);
             ETestForEKP te0 = null;
@@ -1809,6 +1936,9 @@ between the actual and the target, there might be a huge gap.
                 ETestForEKP te = results.get(kpid);
                 if (te.test.id == testid) {
                     results.remove(kpid);//I.remove();
+                    if (reviewOnly) {
+                        review.remove(te.kps.kpid);
+                    }
                     te0 = te;
 //                    return te;  //should be only 1, but incase more than 1, so I do not return right away
                 }

@@ -341,8 +341,9 @@ var player = {
       self.e_loopendControl.removeAttribute('disabled');
       self.e_timeDisplay = document.querySelector('#tsCurrent'); //TODO: use id instead //tag 'p'
       self.play.textContent = 'Suspend context'; //susresBtn
-      self.displayTime();
-      tester.presentTiming(); //memory retention curve related stuff
+      tester.presentTestInfo();
+      // self.displayTime();
+      // tester.presentTiming(); //memory retention curve related stuff
     } catch (e) {
       console.log(e);
     }
@@ -872,6 +873,10 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
           if (ojson.ireason) {
             reject(ojson.sreason);
           } else {
+            if (e.checked) {
+              e = document.querySelector('#reviews');
+              e.innerHTML = ojson.reviews;
+            }
             ojson = ojson.tests; //originally, an array of testid; now an array of objects.
             //self.tests = request.response.tests;
             for (var i = 0; i < ojson.length; i++) {
@@ -1129,10 +1134,10 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   },
   getDT: function (dt) { //in minutes
     var s = dt % 60;
-    dt = Math.floor(dt/60); //hours
+    dt = Math.floor(dt / 60); //hours
     if (dt > 0) {
       s = (dt % 24) + ":" + s;
-      dt = Math.floor(dt/24); //days
+      dt = Math.floor(dt / 24); //days
       if (dt > 0) {
         s = dt + "d " + s;
       }
@@ -1507,8 +1512,16 @@ var user = {
         e.innerHTML = self.actualMajor + "." + self.actualMinor;
       } else {
         e.innerHTML = "";
-        alert("your current actual level is unknown to us, we will auto find out as you do some tests");
+        // alert("your current actual level is unknown to us, we will auto find out as you do some tests");
       }
+      e = document.querySelector("#levelL");
+      if (ojson.learning) {
+        e.innerHTML = ojson.learning.major + "." + ojson.learning.minor;
+      } else {
+        e.innerHTML = "";
+        // alert("your current actual level is unknown to us, we will auto find out as you do some tests");
+      }
+
       if (ojson.tested) {
         //the test statistics
       }

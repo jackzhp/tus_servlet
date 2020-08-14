@@ -255,7 +255,7 @@ public class RetentionCurve {
     /**
      *
      * @param t minutes relative to t0 of EKP.
-     * @return minutes relative to tr.t0. not 1970
+     * @return minutes relative to t, not tr.t0. not 1970
      */
     int forecast(double t) {
         if (selector == null) {
@@ -1053,8 +1053,8 @@ public class RetentionCurve {
 
         /**
          *
-         * @param t
-         * @return minutes relative to t0.
+         * @param t relative to t0
+         * @return minutes relative to t, not t0.
          */
         int getForecast(double t) {
             double tf = 0;
@@ -1072,7 +1072,14 @@ public class RetentionCurve {
 //                } catch (Throwable e) {
 //                    e.printStackTrace();
 //                }
-                return tfMax;
+                if (t > tfMax) {
+//                    try {
+                        throw new IllegalStateException(t + ":" + tfMax);
+//                    } catch (Throwable t2) {
+//                        t2.printStackTrace();
+//                    }
+                }
+                return tfMax - (int) t;
             } else //if (n == 1) 
             {
                 double dt = Double.POSITIVE_INFINITY; //choose the minimum one.
@@ -1082,7 +1089,7 @@ public class RetentionCurve {
                     while (true) {
                         dT = s.tf(Ptarget, t);
                         tfT = t + dT;
-                        if (tfT > tfMax) {
+                        if (tfT > tfMax || dT < 0) {
                             s.findParameters(0, tfMax, t);
                         } else {
                             break;
@@ -1093,7 +1100,7 @@ public class RetentionCurve {
                     }
                     System.out.println(s.idx + "/" + n + " " + t + " + " + dT + " -> " + dt);
                 }
-                tf = t + dt;
+                return (int) dt; //tf = t + dt;
             }
 //            else {
 //                /*TODO:  select one, select criteria: which one is the stablest?
@@ -1109,8 +1116,8 @@ public class RetentionCurve {
 //                }
 //                tf = total / n;
 //            }
-            int ltf = (int) tf;
-            return ltf;
+//            int ltf = (int) tf;
+//            return ltf;
         }
     }
 
