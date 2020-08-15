@@ -223,7 +223,7 @@ between the actual and the target, there might be a huge gap.
 //            }
 //            results.get(kpid);
 //            ArrayList<ETestResult> tested = results.get(kpid);
-            EKPscheduled kps = getEKPscheduled(kp);
+            EKPscheduled kps = EUser.this.getEKPscheduled_m(kp);
             tr = kps.justTested(testid, lts);
             if (tr != null) {
             } else {
@@ -319,23 +319,18 @@ between the actual and the target, there might be a huge gap.
 //    void updateSchedule0() {
 //        updateSchedule(target, true);
 //    }
-    /**
-     *
-     *
-     *
-     * @param level
-     * @param must always true? seems no point to be false. must be nonempty for
-     * the final results.
-     * @return
-     */
-    CompletableFuture<Boolean> updateSchedule(ELevel level, boolean must) {
-        if (scheduler == null) {
-            scheduler = new Scheduler(results.values());
-        }
-        CompletableFuture<Boolean> cf = scheduler.set(level, must);
-        return cf;
-    }
-
+//    /**
+//     *
+//     *
+//     *
+//     * @param level
+//     * @param must always true? seems no point to be false. must be nonempty for
+//     * the final results.
+//     * @return
+//     */
+//    CompletableFuture<Boolean> updateSchedule(ELevel level, boolean must) {
+//        return cf;
+//    }
     Fetcher fetcher;
 
     int getReviews() {
@@ -527,7 +522,7 @@ between the actual and the target, there might be a huge gap.
                             if (t == JsonToken.FIELD_NAME) {
                                 name = p.getCurrentName();
                                 int kpid = Integer.parseInt(name);
-                                EKPscheduled kps = getEKPscheduled(kpid); //load & parse json file.
+                                EKPscheduled kps = getEKPscheduled_m(kpid); //load & parse json file.
                                 kps.load(p);
                                 if (kps.kpid != kpid) {
                                     throw new IllegalStateException("kpid " + kps.kpid + " unexpected " + kpid);
@@ -909,6 +904,14 @@ between the actual and the target, there might be a huge gap.
     }
 
     private EKPscheduled getEKPscheduled(EKP kp) {
+        return getEKPscheduled(kp.id);
+    }
+
+    private EKPscheduled getEKPscheduled(int kpid) {
+        return results.get(kpid);
+    }
+
+    private EKPscheduled getEKPscheduled_m(EKP kp) {
         EKPscheduled kps = results.get(kp.id);
         if (kps == null) {
             kps = new EKPscheduled();
@@ -918,7 +921,7 @@ between the actual and the target, there might be a huge gap.
         return kps;
     }
 
-    private EKPscheduled getEKPscheduled(int kpid) {
+    private EKPscheduled getEKPscheduled_m(int kpid) {
         EKPscheduled kps = results.get(kpid);
         if (kps == null) {
             kps = new EKPscheduled();
@@ -1087,30 +1090,30 @@ downward test levels.
                 } else {
                     throw new IllegalStateException("this should not happen");
                 }
-                schedule().thenApply(tf -> {
-                    System.out.println(level.levelString() + " is scheduled:" + results.size());
-                    if (results.isEmpty()) {
-                        if (level.sys == null) {
-                            throw new IllegalStateException("this should not happen");
-                        }
-                        level = level.sys.previousLevel(level.idMajor, level.idMinor);
-                        if (level != null) {
-                            if (level.sys == null) {
-                                throw new IllegalStateException("this should not happen");
-                            }
-                            App.getExecutor().submit(this);
-                        } else {
-                            onSucceeded();
-                            System.out.println("no more level");
-                        }
-                    } else {
-                        onSucceeded();
-                    }
-                    return true;
-                }).exceptionally(t -> {
-                    onFailed(t);
-                    return true;
-                });
+//                schedule().thenApply(tf -> {
+//                    System.out.println(level.levelString() + " is scheduled:" + results.size());
+//                    if (results.isEmpty()) {
+//                        if (level.sys == null) {
+//                            throw new IllegalStateException("this should not happen");
+//                        }
+//                        level = level.sys.previousLevel(level.idMajor, level.idMinor);
+//                        if (level != null) {
+//                            if (level.sys == null) {
+//                                throw new IllegalStateException("this should not happen");
+//                            }
+//                            App.getExecutor().submit(this);
+//                        } else {
+//                            onSucceeded();
+//                            System.out.println("no more level");
+//                        }
+//                    } else {
+//                        onSucceeded();
+//                    }
+//                    return true;
+//                }).exceptionally(t -> {
+//                    onFailed(t);
+//                    return true;
+//                });
 //                } finally {
 //                    running.set(false);
             } catch (Throwable t) {
@@ -1122,48 +1125,47 @@ downward test levels.
         }
 
 //ELevel level
-        CompletableFuture<Boolean> schedule() {
-            System.out.println("schedule level:" + level.levelString());
-            Integer[] akpid = level.kps.toArray(new Integer[0]);
-//            EKPscheduled kpst = new EKPscheduled();
-            @SuppressWarnings("unchecked")
-            CompletableFuture<Boolean>[] cfs = new CompletableFuture[akpid.length];
-            for (int i = 0; i < cfs.length; i++) {
-                Integer kpid = akpid[i];
-//                kpst.kpid = kpid;
-                if (results.containsKey(kpid)) { //kpst
-                    cfs[i] = CompletableFuture.completedFuture(true);
-                    continue;
-                }
-                cfs[i] = EKP.getByID_cf(kpid).thenCompose((EKP kp) -> {
-                    if (kp.deleted != 0) {
-                        return CompletableFuture.completedFuture(true);
-                    }
-                    EKPscheduled kps = getEKPscheduled(kp); //new EKP for the user to learn
-                    results.put(kpid, kps);//.add(kps);
-                    return kps.updateSchedule();
-                }).exceptionally(t -> {
-                    if (t instanceof FileNotFoundException) {
-                        level.kps.remove(kpid);
-                    }
-                    return true;
-                });
-            }
-            return CompletableFuture.allOf(cfs).thenApply((Void v) -> {
-//                EKPscheduled[] akps = kpsRelevant.toArray(new EKPscheduled[0]);
-//                Arrays.sort(akps, cTime);
-//                kpsRelevant.clear();
-//                kpsRelevant.addAll(Arrays.asList(akps));
-                int size = results.size(); //akps.length;
-                System.out.println(level.levelString() + " #ofKP scheduled:" + size); //java.lang.NullPointerException
-                return true;
-            });
-//                .exceptionally((Throwable t) -> {
-//            t.printStackTrace();
-//            return null;
-//        });
-        }
-
+//        CompletableFuture<Boolean> schedule() {
+//            System.out.println("schedule level:" + level.levelString());
+//            Integer[] akpid = level.kps.toArray(new Integer[0]);
+////            EKPscheduled kpst = new EKPscheduled();
+//            @SuppressWarnings("unchecked")
+//            CompletableFuture<Boolean>[] cfs = new CompletableFuture[akpid.length];
+//            for (int i = 0; i < cfs.length; i++) {
+//                Integer kpid = akpid[i];
+////                kpst.kpid = kpid;
+//                if (results.containsKey(kpid)) { //kpst
+//                    cfs[i] = CompletableFuture.completedFuture(true);
+//                    continue;
+//                }
+//                cfs[i] = EKP.getByID_cf(kpid).thenCompose((EKP kp) -> {
+//                    if (kp.deleted != 0) {
+//                        return CompletableFuture.completedFuture(true);
+//                    }
+//                    EKPscheduled kps = getEKPscheduled_m(kp); //new EKP for the user to learn
+//                    results.put(kpid, kps);//.add(kps);
+//                    return kps.updateSchedule();
+//                }).exceptionally(t -> {
+//                    if (t instanceof FileNotFoundException) {
+//                        level.kps.remove(kpid);
+//                    }
+//                    return true;
+//                });
+//            }
+//            return CompletableFuture.allOf(cfs).thenApply((Void v) -> {
+////                EKPscheduled[] akps = kpsRelevant.toArray(new EKPscheduled[0]);
+////                Arrays.sort(akps, cTime);
+////                kpsRelevant.clear();
+////                kpsRelevant.addAll(Arrays.asList(akps));
+//                int size = results.size(); //akps.length;
+//                System.out.println(level.levelString() + " #ofKP scheduled:" + size); //java.lang.NullPointerException
+//                return true;
+//            });
+////                .exceptionally((Throwable t) -> {
+////            t.printStackTrace();
+////            return null;
+////        });
+//        }
         private void onSucceeded() {
             try {
                 scheduled = results.values().toArray(new EKPscheduled[0]);
@@ -1313,28 +1315,27 @@ downward test levels.
          * @param tests2
          * @return
          */
-        private CompletableFuture<Boolean> filterTests(ELevel limit, ArrayList<ETest> tests2) {
-            ELevelSystem sys = limit.sys;
-            return getTests().thenApply((ETest[] tests) -> {
-//                System.out.println("#ofETests:" + tests.length);
-                Arrays.sort(tests, cETestByHighestLevel);
-                for (int i = tests.length - 1; i >= 0; i--) {
-                    ETest test = tests[i];
-                    if (sys.c.compare(test.highestLevel(sys), limit) <= 0) {
-                        for (; i >= 0; i--) {
-                            test = tests[i];
-                            tests2.add(test);
-                        }
-                    }
-                }
-//                System.out.println("after filtered with level" + sys.name + "-" + limit.levelString() + ":" + tests.length);
-//                if (tests2.isEmpty()) {
-//                    tests2.add(tests[0]); //TODO: java.lang.ArrayIndexOutOfBoundsException: 0
+//        private CompletableFuture<Boolean> filterTests(ELevel limit, ArrayList<ETest> tests2) {
+//            ELevelSystem sys = limit.sys;
+//            return getTests().thenApply((ETest[] tests) -> {
+////                System.out.println("#ofETests:" + tests.length);
+//                Arrays.sort(tests, cETestByHighestLevel);
+//                for (int i = tests.length - 1; i >= 0; i--) {
+//                    ETest test = tests[i];
+//                    if (sys.c.compare(test.highestLevel(sys), limit) <= 0) {
+//                        for (; i >= 0; i--) {
+//                            test = tests[i];
+//                            tests2.add(test);
+//                        }
+//                    }
 //                }
-                return true;
-            });
-        }
-
+////                System.out.println("after filtered with level" + sys.name + "-" + limit.levelString() + ":" + tests.length);
+////                if (tests2.isEmpty()) {
+////                    tests2.add(tests[0]); //TODO: java.lang.ArrayIndexOutOfBoundsException: 0
+////                }
+//                return true;
+//            });
+//        }
         void json(JsonGenerator g, boolean kpidSave) throws IOException {
             g.writeStartObject();
             if (kpidSave) {
@@ -1389,6 +1390,7 @@ downward test levels.
                                     }
                                     if (added) {
                                     } else {
+                                        /* TODO: since the time stamp granularity is minute, so there are many "same" timestamp, but tested with different ETest.this is OK, or I had better to keep them */
                                         System.out.println("EKP test data discarded " + kpid + ":" + tr.lts);
                                     }
                                     addToUsed(tr);
@@ -1496,9 +1498,9 @@ downward test levels.
         int n;
         int idx;
         ELevel limitCurrent, limit;
-        ConcurrentLinkedQueue<CompletableFuture<ETestForEKP[]>> request = new ConcurrentLinkedQueue<>();
+        private final ConcurrentLinkedQueue<CompletableFuture<ETestForEKP[]>> request = new ConcurrentLinkedQueue<>();
         AtomicBoolean running = new AtomicBoolean();
-        private ArrayList<ETest> testsT = new ArrayList<>();
+//        private ArrayList<ETest> testsT = new ArrayList<>();
         //ArrayList<ETest> results = new ArrayList<>();
 //        private HashSet<ETest> results = new HashSet<>();
 //        private HashMap<ETest, ETestForEKP> results = new HashMap<>();
@@ -1510,80 +1512,84 @@ downward test levels.
          */
 //        private HashMap<Integer, ETestForEKP> results = new HashMap<>();
 //        private ArrayList<ETestForEKP> results = new ArrayList<>(); //TODO: of length n, use array?
-        private HashMap<Integer, ETestForEKP> results = new HashMap<>(); //use EKP.id
+        private final HashMap<Integer, ETestForEKP> serving = new HashMap<>(); //use EKP.id
         ELevelSystem sys;
         long ltsStart;
-        boolean reviewOnly;
-        HashSet<Integer> review = new HashSet<>(); //int[] reviews; //Integer[] reviews; //HashSet<Integer> review = new HashSet<>();
+//        boolean reviewOnly;
+        /*
+        whenever I do not want the scheduled one to be disturbed directly,
+        I should use this set.
+         */
+        private final HashSet<Integer> toBeServed = new HashSet<>(); //int[] reviews; //Integer[] reviews; //HashSet<Integer> review = new HashSet<>();
 
         int toBreviewed() {
-            return review.size();
+            int size = toBeServed.size();
+            if (size == 0) {
+                //the scheduled ones, we don't tell.
+                size = -1;
+            } else {
+                //either the user is doing review, or learning some thing new, we tell.
+            }
+            return size;
         }
 
-        CompletableFuture<ETestForEKP[]> fetch(int n, ELevel limit, boolean reviewOnly) {
-            this.reviewOnly = reviewOnly;
+        CompletableFuture<ETestForEKP[]> fetch(int n, ELevel limit, boolean startToReview) {
+//            this.reviewOnly = reviewOnly;
             CompletableFuture<ETestForEKP[]> cf = new CompletableFuture<>();
 //            if (n < 1) {
 //                n = 1; //3 let's do it one by one.
 //            }
             this.n = 1; // n;
             this.limit = limit;
-            if (running.compareAndSet(false, true)) { //seems stuck inside, so I need a check based on timer.
-                ltsStart = System.currentTimeMillis();
-                App.getExecutor().schedule(() -> {
-                    if (ltsStart + 1000 < System.currentTimeMillis()) {
-                        running.set(false);
+            App.getExecutor().submit(() -> {
+                if (running.compareAndSet(false, true)) { //seems stuck inside, so I need a check based on timer.
+                    ltsStart = System.currentTimeMillis();
+                    App.getExecutor().schedule(() -> {
+                        if (ltsStart + 1000 < System.currentTimeMillis()) {
+                            running.set(false);
+                        }
+                    }, 2, TimeUnit.SECONDS);
+                    if (sys == null) {
+                        sys = target.sys;
                     }
-                }, 2, TimeUnit.SECONDS);
-                if (sys == null) {
-                    sys = target.sys;
-                }
 //                results.clear();
-                idx = 0;
-                prepareReview();
-                App.getExecutor().submit(this);
-            }
+                    if (startToReview) {
+                        prepareReview();
+                    }
+                    doneScheduled = false;
+                    idx = 0;
+                    scheduled = results.values().toArray(new EKPscheduled[0]); //TODO: I feel that this is expensive.
+                    //sort by scheduled timestamp
+                    Arrays.sort(scheduled, c_ltsScheduled); // Collections.sort(scheduled);//Arrays.sort(scheduled);
+                    System.out.println("#of KP scheduled:" + scheduled.length + " testsUsed:" + testsUsed.size());
+                    App.getExecutor().submit(this);
+                }
+            });
             request.add(cf);
             return cf;
         }
 
         void prepareReview() {
-            if (reviewOnly) {
-                if (review.isEmpty()) {
-                    ELevel l = lLearning;
+            //if (toBeServed.isEmpty()) 
+            {
+                ELevel l = lLearning;
+                if (l == null) {
+                    l = lPassed;
                     if (l == null) {
-                        l = lPassed;
-                        if (l == null) {
-                            l = target;
-                        }
+                        l = target;
                     }
-                    for (; l != null; l = sys.previousLevel(l.idMajor, l.idMinor)) {
-                        review.addAll(l.kps);
-                    }
+                }
+                for (; l != null; l = sys.previousLevel(l.idMajor, l.idMinor)) {
+                    toBeServed.addAll(l.kps);
+                }
 //                reviews = new int[review.size()]; //review.toArray(new Integer[0]);
 //                Integer[] a = review.toArray(new Integer[0]);
 //                for (int i = 0; i < reviews.length; i++) {
 //                    reviews[i] = a[i];
 //                }
-                }
             }
         }
 
-        CompletableFuture<Void> checkSchedule() {
-            CompletableFuture<Void> cf = new CompletableFuture<>();
-            if (idx == 0 && limitCurrent != limit) {
-                updateSchedule(limit, true).thenAccept(tf -> {
-                    limitCurrent = limit;
-                    cf.complete(null);
-                }).exceptionally(t -> {
-                    cf.completeExceptionally(t);
-                    return null;
-                });
-            } else {
-                cf.complete(null);
-            }
-            return cf;
-        }
         EKPscheduled kps;
 
         EKPscheduled getEKPscheduledByID(int kpid) {
@@ -1596,7 +1602,7 @@ downward test levels.
                 if (kp.deleted != 0) {
                     return null;
                 }
-                kps = getEKPscheduled(kp); //new EKP for the user to learn
+                kps = getEKPscheduled_m(kp); //new EKP for the user to learn
                 return kps;
             } catch (Throwable t) {
                 throw new IllegalStateException(t);
@@ -1604,18 +1610,16 @@ downward test levels.
         }
 
         EKPscheduled getEKPscheduledToReview() {
-            if (review.isEmpty()) {
+            if (toBeServed.isEmpty()) {
                 return null;
             }
-            kpidReview = review.iterator().next();
+            kpidReview = toBeServed.iterator().next();
             return getEKPscheduledByID(kpidReview);
         }
         Integer kpidReview;
 
         void EKPwasDeleted() {
-            if (reviewOnly) {
-                review.remove(kpidReview); //kps.kpid
-            }
+            toBeServed.remove(kpidReview); //kps.kpid
             try {
                 if (kps.kp.replacedBy != -1) {
                     replace(kps.kp, EKP.getByID_m(kps.kp.replacedBy, true));
@@ -1624,7 +1628,7 @@ downward test levels.
                 t.printStackTrace();
             }
 //                            scheduler.
-            results.remove(kps.kpid);
+            serving.remove(kps.kpid);
         }
 
         /**
@@ -1636,19 +1640,26 @@ downward test levels.
         public void run() {
             try {
                 CompletableFuture<Boolean> cf_kps;
-                if (reviewOnly) {
+                if (doneScheduled) {
                     kps = getEKPscheduledToReview();
                     cf_kps = CompletableFuture.completedFuture(kps != null);
                 } else {
-                    cf_kps = checkSchedule().thenApply(tf -> {
-                        int size = scheduled.length; //.size();
-                        if (idx == 0) {
-                            if (shouldSortScheduled) {
-                                //sort by scheduled timestamp
-                                Arrays.sort(scheduled, c_ltsScheduled); // Collections.sort(scheduled);//Arrays.sort(scheduled);
-                            }
-                            System.out.println("#of KP scheduled:" + size + " testsUsed:" + testsUsed.size());
+                    CompletableFuture<Boolean> cf = new CompletableFuture<>();
+//                    if (idx == 0 && limitCurrent != limit) {
+////                        if (scheduler == null) {
+////                            scheduler = new Scheduler(EUser.this.results.values());
+////                        }
+//                        level = limit;
+//                        cf = schedule(); // scheduler.set(limit, true);
+//                    } else {
+//                        cf.complete(false);
+//                    }
+                    cf.complete(false);
+                    cf_kps = cf.thenApply(tf -> {
+                        if (tf) {
+                            limitCurrent = limit;
                         }
+                        int size = scheduled.length; //.size();
                         boolean good = false;
                         for (; idx < scheduled.length; idx++) {
                             kps = scheduled[idx];//.get(idx);//[0];//.removeFirst();//.get(0);
@@ -1692,7 +1703,7 @@ downward test levels.
                         return CompletableFuture.completedFuture(null);//false);
                     }
                 }).thenAccept((ETest[] tests) -> { //Boolean tf) -> {
-                    if (tests == null) {
+                    if (tests == null) { //what does this mean?
                         /* generally speaking, this should not happen.
                     this can only be caused by idx >= scheduled.length.
                          */
@@ -1730,13 +1741,13 @@ downward test levels.
                                                 || testsUsed.get(testid) != null) { //is just tested?
                                         } else {
                                             ETestForEKP te = new ETestForEKP(test, kps);
-                                            results.put(kps.kpid, te); //results.add(te); //results.put(testid, te);
+                                            serving.put(kps.kpid, te); //results.add(te); //results.put(testid, te);
                                             break; //I take only one of them for the current EKP.
                                         }
                                     }
                                 }
                             }
-                            if (results.size() >= n) {
+                            if (serving.size() >= n) {
                                 onSucceeded();
                                 done = true;
                             }
@@ -1774,7 +1785,7 @@ downward test levels.
 //                }
                 }).exceptionally(t -> {
                     t.printStackTrace();
-                    if (results.isEmpty()) {
+                    if (serving.isEmpty()) {
                         onFailed(t);
                     } else {
                         onSucceeded();
@@ -1797,7 +1808,7 @@ downward test levels.
          */
         private void onSucceeded() {
             try {
-                System.out.println("succeeded:" + results.size() + " n:" + n + " limit:" + limit.levelString());
+                System.out.println("succeeded:" + serving.size() + " n:" + n + " limit:" + limit.levelString());
                 if (n < 1) {
                     throw new IllegalStateException();
                 }
@@ -1828,13 +1839,13 @@ downward test levels.
 //                    }
 //                }
                 if (false) { //return all
-                    tes = results.values().toArray(new ETestForEKP[0]);
+                    tes = serving.values().toArray(new ETestForEKP[0]);
                 } else { //return only 1, the highest 1.
                     tes = new ETestForEKP[1];
                     ELevel lh = null;
-                    Integer[] akpid = results.keySet().toArray(new Integer[0]);
+                    Integer[] akpid = serving.keySet().toArray(new Integer[0]);
                     for (int kpid : akpid) {
-                        ETestForEKP te = results.get(kpid);
+                        ETestForEKP te = serving.get(kpid);
                         ELevel lt = te.test.highestLevel(sys);
                         if (lh == null || lt.isHigherThan(lh)) {
                             lh = lt;
@@ -1869,27 +1880,48 @@ downward test levels.
 //                    if with this limit, the result is empty, we should move the limit level to its next level.
         private void fetchMore() {
             boolean doneReal = false;
-            if (reviewOnly) {
-                review.remove(kpidReview);
-                doneReal = review.isEmpty();
+            if (doneScheduled) {
+                toBeServed.remove(kpidReview);
+                if (toBeServed.isEmpty()) {
+                    //now learn a new level
+                    while (true) {
+                        ELevel l = limit.sys.nextLevel(limit);
+                        if (l == null) {
+                            doneReal = true;
+                            break;
+                        } else {
+                            limit = l;
+                            toBeServed.addAll(l.kps);
+                            if (toBeServed.isEmpty()) {
+                                continue; //generally speaking, no loop is needed.
+                            }
+                            break;
+                        }
+                    } //end of loop: add a new level to learn
+                } else {
+                    //we serve toBeServed first
+                }
             } else {
                 if (idx >= scheduled.length) {
-                    ELevel l = limit.sys.nextLevel(limit);
-                    if (l == null) {
+                    idx = 0;
+                    if (skipHigherEKP) {
+                        skipHigherEKP = false;
                         if (nHigherSkipped > 0) {
                             nHigherSkipped = 0;
-                            skipHigherEKP = false;
                         } else {
-                            doneReal = true;
+                            //the list of scheduled is done
+                            doneScheduled = true;
                         }
                     } else {
-                        limit = l;
+                        doneScheduled = true;
                     }
+                } else {
+                    //we should go through the list of scheduled
+                    // in order to break the pass, set idx to the end of the list
                 }
-                idx = 0;
             }
             if (doneReal) {
-                if (results.isEmpty()) {
+                if (serving.isEmpty()) {
                     onFailed(new Exception("no more test"));
                 } else {
                     onSucceeded();
@@ -1899,7 +1931,58 @@ downward test levels.
                 App.getExecutor().submit(this);
             }
         }
-        boolean skipHigherEKP = true;
+        ELevel level;
+//                                level = level.sys.previousLevel(level.idMajor, level.idMinor);
+
+        CompletableFuture<Boolean> schedule() {
+            System.out.println("schedule level:" + level.levelString());
+            Integer[] akpid = level.kps.toArray(new Integer[0]);
+//            EKPscheduled kpst = new EKPscheduled();
+            @SuppressWarnings("unchecked")
+            CompletableFuture<Boolean>[] cfs = new CompletableFuture[akpid.length];
+            for (int i = 0; i < cfs.length; i++) {
+                Integer kpid = akpid[i];
+//                kpst.kpid = kpid;
+                if (serving.containsKey(kpid)) { //kpst
+                    cfs[i] = CompletableFuture.completedFuture(true);
+                    continue;
+                }
+                cfs[i] = EKP.getByID_cf(kpid).thenCompose((EKP kp) -> {
+                    if (kp.deleted != 0) {
+                        return CompletableFuture.completedFuture(true);
+                    }
+                    EKPscheduled kps = getEKPscheduled_m(kp); //new EKP for the user to learn
+                    EUser.this.results.put(kpid, kps);//.add(kps);
+                    return kps.updateSchedule();
+                }).exceptionally(t -> {
+                    if (t instanceof FileNotFoundException) {
+                        level.kps.remove(kpid);
+                    }
+                    return true;
+                });
+            }
+            return CompletableFuture.allOf(cfs).thenApply((Void v) -> {
+//                EKPscheduled[] akps = kpsRelevant.toArray(new EKPscheduled[0]);
+//                Arrays.sort(akps, cTime);
+//                kpsRelevant.clear();
+//                kpsRelevant.addAll(Arrays.asList(akps));
+                int size = serving.size(); //akps.length;
+                System.out.println(level.levelString() + " #ofKP scheduled:" + size); //java.lang.NullPointerException
+                return true;
+            });
+//                .exceptionally((Throwable t) -> {
+//            t.printStackTrace();
+//            return null;
+//        });
+        }
+
+        /* when we go through the scheduled list, at first we skip those EKP's whose level is higher than the highest.
+        when that is done, then we serve those skipped.
+        when that is done, then we start to learn something new.
+        when we start to learn something new, if ever reviewOnly was set before,
+        then we will pick randomly from the set of toBeReviewed and NewLearning.
+         */
+        boolean skipHigherEKP = true, doneScheduled;
         int nHigherSkipped;
 
         //with this approach, we have to load ETest into memory
@@ -1920,9 +2003,7 @@ downward test levels.
         }
 
         private void onTestedEKP(EKP kp) {
-            if (reviewOnly) {
-                review.remove(kp.id);
-            }
+            toBeServed.remove(kp.id);
         }
 
         private ETestForEKP onTested(int testid) {
@@ -1931,14 +2012,12 @@ downward test levels.
 //            Iterator<ETestForEKP> I = results.iterator();
 //            while (I.hasNext()) {
 //                ETestForEKP te = I.next();
-            Integer[] akpid = results.keySet().toArray(new Integer[0]);
+            Integer[] akpid = serving.keySet().toArray(new Integer[0]);
             for (Integer kpid : akpid) {
-                ETestForEKP te = results.get(kpid);
+                ETestForEKP te = serving.get(kpid);
                 if (te.test.id == testid) {
-                    results.remove(kpid);//I.remove();
-                    if (reviewOnly) {
-                        review.remove(te.kps.kpid);
-                    }
+                    serving.remove(kpid);//I.remove();
+                    toBeServed.remove(te.kps.kpid);
                     te0 = te;
 //                    return te;  //should be only 1, but incase more than 1, so I do not return right away
                 }
@@ -1947,9 +2026,9 @@ downward test levels.
         }
 
         private boolean alreadyIn(int testid) {
-            Integer[] akpid = results.keySet().toArray(new Integer[0]);
+            Integer[] akpid = serving.keySet().toArray(new Integer[0]);
             for (int kpid : akpid) {
-                ETestForEKP te = results.get(kpid);
+                ETestForEKP te = serving.get(kpid);
                 if (te.test.id == testid) {
                     return true;
                 }
