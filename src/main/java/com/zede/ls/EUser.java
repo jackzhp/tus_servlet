@@ -1273,9 +1273,9 @@ downward test levels.
                 if (tested.isEmpty()) {
                     ltsScheduled = ltsnow;
                 } else {
-                    if (kpid == 0 || kpid == 97) {
-                        System.out.println(kpid + " # of tested:" + tested.size());
-                    }
+//                    if (kpid == 0 || kpid == 97) {
+//                        System.out.println(kpid + " # of tested:" + tested.size());
+//                    }
 //                ltsScheduled = fc.scheduleWith(tested); //ForgettingCurve.getFor(EUser.this)
                     ETestResult tr = tested.get(tested.size() - 1);
                     long lts0 = get_t0();
@@ -1292,7 +1292,9 @@ downward test levels.
                     }
                     lts_t1 = ltsnow; // lts_t1_new; //from tr.t
                     dt = fc.forecast((lts_t1 - lts0) / 1000 / 60); //  should be tr.t
-                    ltsScheduled = lts_t1 + dt * 1000 * 60; // lts0 + (tr.t + dt) * 1000 * 60; 
+//                    ltsScheduled = lts_t1 + dt * 1000 * 60; //overflow in the second part, so the 2nd part becomes negative.  lts0 + (tr.t + dt) * 1000 * 60; 
+                    ltsScheduled = dt;
+                    ltsScheduled = lts_t1 + ltsScheduled * 1000 * 60; //overflow in the second part, so the 2nd part becomes negative.  lts0 + (tr.t + dt) * 1000 * 60; 
                     System.out.println("dt:" + dt); //(ltsScheduled - System.currentTimeMillis())
                 }
                 shouldSortScheduled = true;
@@ -1590,6 +1592,7 @@ downward test levels.
             }
         }
 
+        private Integer kpidChecking;
         EKPscheduled kps;
 
         EKPscheduled getEKPscheduledByID(int kpid) {
@@ -1610,16 +1613,22 @@ downward test levels.
         }
 
         EKPscheduled getEKPscheduledToReview() {
-            if (toBeServed.isEmpty()) {
-                return null;
+            while (true) {
+                if (toBeServed.isEmpty()) {
+                    return null;
+                }
+                kpidChecking = toBeServed.iterator().next();
+                System.out.println(serving.size() + ":" + toBeServed.size() + " checking EKP:" + kpidChecking);
+                kps = getEKPscheduledByID(kpidChecking);
+                if (kps != null) {
+                    return kps;
+                }
+                toBeServed.remove(kpidChecking);
             }
-            kpidReview = toBeServed.iterator().next();
-            return getEKPscheduledByID(kpidReview);
         }
-        Integer kpidReview;
 
         void EKPwasDeleted() {
-            toBeServed.remove(kpidReview); //kps.kpid
+            toBeServed.remove(kpidChecking); //kps.kpid
             try {
                 if (kps.kp.replacedBy != -1) {
                     replace(kps.kp, EKP.getByID_m(kps.kp.replacedBy, true));
@@ -1847,11 +1856,12 @@ downward test levels.
                     for (int kpid : akpid) {
                         ETestForEKP te = serving.get(kpid);
                         ELevel lt = te.test.highestLevel(sys);
-                        if (lh == null || lt.isHigherThan(lh)) {
+                        if (lh == null || lt.isHigherThan(lh)) { //when serving has more than 1, pick 1 of them.
                             lh = lt;
                             tes[0] = te;
                         }
                     }
+                    System.out.println("serving " + tes[0].test.id + "(" + tes[0].kps.kpid + ")");
                 }
                 for (CompletableFuture<ETestForEKP[]> q : request) {
                     q.complete(tes);
@@ -1881,26 +1891,22 @@ downward test levels.
         private void fetchMore() {
             boolean doneReal = false;
             if (doneScheduled) {
-                toBeServed.remove(kpidReview);
-                if (toBeServed.isEmpty()) {
+                toBeServed.remove(kpidChecking);
+                while (toBeServed.isEmpty()) { //generally speaking, no loop is needed.
                     //now learn a new level
-                    while (true) {
-                        ELevel l = limit.sys.nextLevel(limit);
-                        if (l == null) {
-                            doneReal = true;
-                            break;
-                        } else {
-                            limit = l;
-                            toBeServed.addAll(l.kps);
-                            if (toBeServed.isEmpty()) {
-                                continue; //generally speaking, no loop is needed.
-                            }
-                            break;
+                    ELevel l = limit.sys.nextLevel(limit);
+                    if (l == null) {
+                        doneReal = true;
+                        break;
+                    } else {
+                        if (l.isHigherThan(lLearning)) {
+                            lLearning = l;
                         }
-                    } //end of loop: add a new level to learn
-                } else {
-                    //we serve toBeServed first
-                }
+                        limit = l;
+                        System.out.println("add level:" + l.levelString() + ":" + l.kps.size());
+                        toBeServed.addAll(l.kps);
+                    }
+                } //end of loop: add a new level to learn
             } else {
                 if (idx >= scheduled.length) {
                     idx = 0;
@@ -2003,7 +2009,10 @@ downward test levels.
         }
 
         private void onTestedEKP(EKP kp) {
-            toBeServed.remove(kp.id);
+            Integer okpid = kp.id;
+            boolean tf1 = toBeServed.remove(okpid);
+            boolean tf2 = serving.remove(okpid) != null;
+            System.out.println("EKP " + kp.id + " removed:" + tf1 + ":" + tf2);
         }
 
         private ETestForEKP onTested(int testid) {
@@ -2013,11 +2022,13 @@ downward test levels.
 //            while (I.hasNext()) {
 //                ETestForEKP te = I.next();
             Integer[] akpid = serving.keySet().toArray(new Integer[0]);
-            for (Integer kpid : akpid) {
-                ETestForEKP te = serving.get(kpid);
+            boolean tf1, tf2;
+            for (Integer okpid : akpid) {
+                ETestForEKP te = serving.get(okpid);
                 if (te.test.id == testid) {
-                    serving.remove(kpid);//I.remove();
-                    toBeServed.remove(te.kps.kpid);
+                    tf1 = toBeServed.remove(okpid);
+                    tf2 = serving.remove(okpid) != null;
+                    System.out.println(doneScheduled + " ETest  " + testid + " removed, for EKP " + okpid + " :" + tf1 + ":" + tf2);
                     te0 = te;
 //                    return te;  //should be only 1, but incase more than 1, so I do not return right away
                 }

@@ -432,6 +432,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     };
     self.e_bad = document.querySelector('#result_bad');
     self.e_bad.onclick = function () {
+      self.testInfoPresented = false;
       self.presentTestInfo();
     };
   },
@@ -861,10 +862,11 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     return new Promise((resolve, reject) => {
       try {
         var request = new XMLHttpRequest();
-        var e = document.querySelector('#reviewOnly');
+        var e = document.querySelector('#startReview');
         var url = webPath + "user?act=tests&t=" + new Date().getTime(); //webPath + "test"
-        if (e.checked) {//&reviewOnly=false when false, can be omitted.
-          url += "&reviewOnly=true";
+        if (e.checked) {
+          url += "&startReview=true";
+          e.checked = false;
         }
         request.open('GET', url, true);
         request.responseType = 'json';
@@ -873,9 +875,10 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
           if (ojson.ireason) {
             reject(ojson.sreason);
           } else {
-            if (e.checked) {
-              e = document.querySelector('#reviews');
-              e.innerHTML = ojson.reviews;
+            //if (e.checked) 
+            {
+              e = document.querySelector('#todo');
+              e.innerHTML = ojson.todo;
             }
             ojson = ojson.tests; //originally, an array of testid; now an array of objects.
             //self.tests = request.response.tests;
@@ -1086,6 +1089,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   updateTestInfo: function () {
     var self = this;
     return self.updateTest(self.testCurrent.id).then(tf => {
+      self.testInfoPresented = false;
       self.presentTestInfo();
     });
   },
@@ -1095,8 +1099,12 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     e = document.querySelector('#kpsA');
     e.innerHTML = "";
   },
+  testInfoPresented: false,
   presentTestInfo: function () {
     var self = this;
+    if (self.testInfoPresented)
+      return;
+    self.testInfoPresented = true;
     try {
       //I will have to present some info about this test.
       var e = document.querySelector('#info');
@@ -1376,6 +1384,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       console.log("current:" + self.testCurrent.id);
       return player.closeSource();
     }).then(tf => {
+      self.testInfoPresented = false;
       self.presentTestInfo(); //self.clearTestInfo();
       return player.decodeDataAndPlay(self.testCurrent.dataAudio);
     }).catch(ex => {

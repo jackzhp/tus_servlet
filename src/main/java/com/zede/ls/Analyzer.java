@@ -34,7 +34,8 @@ public class Analyzer {
     String grade = "1.1";
     ELevel level; //the default level
     ELevel levelt; //the using level.
-    String url = "https://www.thejapanesepage.com/japanese-grammar-100-part-ii/";
+    String url = "https://www.thejapanesepage.com/japanese-grammar-100-part-iii/";
+    String fnFile="iii.html";
     File dirDst = new File("/Users/yogi/jack/japanese");
 
     public static void main(String[] args) {
@@ -173,7 +174,7 @@ public class Analyzer {
         ELevelSystem sys = user.target.sys;
         level = ELevel.get_m(sys, grade);
 
-        fdownloading = new File(dirDst, "ii.html");
+        fdownloading = new File(dirDst, fnFile);
         System.out.println("location:" + fdownloading.getAbsolutePath());
         if (fdownloading.exists()) {
         } else {

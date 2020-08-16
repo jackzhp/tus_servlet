@@ -94,8 +94,8 @@ public class SUser extends HttpServlet {
                     sreason = "not authenticated";
                 } else {
                     if ("tests".equals(action)) {
-                        boolean reviewOnly = "true".equals(request.getParameter("reviewOnly"));
-                        EUser.ETestForEKP[] tests = user.getTest(reviewOnly).get(); //TODO: async is complicated, so for temp.
+                        boolean startReview = "true".equals(request.getParameter("startReview"));
+                        EUser.ETestForEKP[] tests = user.getTest(startReview).get(); //TODO: async is complicated, so for temp.
 //                    ETest test = tests[0];
 //                    File f = test.getFile(false);
 //                    App.serve(response, f);
@@ -104,9 +104,9 @@ public class SUser extends HttpServlet {
                         g.writeStartObject();
 //                    g.writeNumberField("ireason", 5);
 //generator.writeStringField("brand", "Mercedes");
-                        if (reviewOnly) {
-                            g.writeNumberField("reviews", user.getReviews());
-                        }
+//                        if (reviewOnly) {
+                        g.writeNumberField("todo", user.getReviews());
+//                        }
                         g.writeArrayFieldStart("tests");
                         if (false) {
 //        for (String fn : afn) {

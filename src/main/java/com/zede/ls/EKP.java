@@ -416,7 +416,11 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                     kp = null;
                 } else {
                     if (kp.bundle == null) {
-                        throw new IllegalStateException("should not happen:" + id + " " + kp.desc); //this happened.
+                        try {
+                            throw new IllegalStateException("should not happen:" + id + " " + kp.desc); //TODO: this happened.
+                        } catch (Throwable t) {
+                            t.printStackTrace();
+                        }
                     }
                 }
             }
@@ -1160,8 +1164,6 @@ its reciprocol:(a ELevel does refer to some EKP, but those EKP does not refer to
             throw new IllegalStateException("expecting start object, but " + t);
         }
     }
-    
-    
 
     static class Merger<T> {
 
