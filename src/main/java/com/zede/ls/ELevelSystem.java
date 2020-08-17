@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -447,6 +448,16 @@ public class ELevelSystem {
             }
         }
         return null;
+    }
+
+    ELevel highest() {
+        return levels.get(levels.size() - 1);
+    }
+
+    ELevel random() {
+        Random r = new Random();
+        int idx = r.nextInt(levels.size());
+        return levels.get(idx);
     }
 
 }

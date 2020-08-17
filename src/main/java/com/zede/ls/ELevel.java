@@ -231,7 +231,7 @@ instead, belong to the which which is the highest level of its EKP's.
 
     boolean isHigherThan(ELevel limit) {
         if (limit == null) {
-            throw new IllegalArgumentException();
+            throw new NullPointerException();
         }
         if (idMajor > limit.idMajor) {
             return true;

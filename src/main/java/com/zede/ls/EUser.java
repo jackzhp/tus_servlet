@@ -128,7 +128,7 @@ between the actual and the target, there might be a huge gap.
     private void updateActualLevel() {
         try {
             Set<ELevel> s = levelTested.keySet();
-            ArrayList<ELevel> al = target.sys.levels;
+            ArrayList<ELevel> al = sys().levels;
 //            new ArrayList<>();
 //            for (ELevel level : s) {
 //                if (level.sys == target.sys) {
@@ -136,9 +136,9 @@ between the actual and the target, there might be a huge gap.
 //                }
 //            }
             ELevel[] a = al.toArray(new ELevel[0]);
-            Arrays.sort(a, target.sys.c);
+            Arrays.sort(a, sys().c);
             boolean set = false;
-            if (false) {
+            if (false) { //why did I disable this?
                 for (int i = a.length - 1; i > 0; i--) {
                     ELevel level = a[i];
                     ELevelTested lt = levelTested.get(level);
@@ -175,11 +175,35 @@ between the actual and the target, there might be a huge gap.
             if (set) {
 //                System.out.println("actual level:" + actual.levelString());
             } else {
-                lPassed = target.sys.getLevel_m(1, 1);// a[0];
+                lPassed = sys().getLevel_m(1, 1);// a[0];
             }
         } catch (Throwable t) {
             t.printStackTrace();
         }
+    }
+
+    private boolean badBefore(ELevel lc) {
+        Set<ELevel> s = levelTested.keySet();
+        ArrayList<ELevel> al = sys().levels;
+        ELevel[] a = al.toArray(new ELevel[0]);
+        Arrays.sort(a, sys().c);
+        for (int i = 0; i < a.length; i++) {
+            ELevel level = a[i];
+            if (level.isHigherThan(lc)) {
+                return false;
+            }
+            ELevelTested lt = levelTested.get(level);
+            if (lt != null) {
+                if (lt.bad > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    ELevelSystem sys() {
+        return target.sys;
     }
 
     /**
@@ -341,36 +365,20 @@ between the actual and the target, there might be a huge gap.
      * the user wants a test. return the test id.
      *
      *
-     * @param reviewOnly when this is true, a test should not include any new
+     * @param startReview when this is true, a test should not include any new
      * EKP's. usually, the user is encouraged not to set it. then review can be
      * done through new learning.
      *
      * @return
      */
-    CompletableFuture<ETestForEKP[]> getTest(boolean reviewOnly) {
+    CompletableFuture<ETestForEKP[]> getTest(boolean startReview) {
         //now we choose a test from ETests covering kps
         //at present, I do not try to find the minimum covering set of ETest. I serve the user one by one.
-        ELevel limit;
-        if (this.lLearning != null) {
-            if (reviewOnly) {
-                limit = lLearning;
-            } else {
-                limit = lLearning.sys.nextLevel(lLearning);
-            }
-        } else if (lPassed != null) {
-            if (reviewOnly) {
-                limit = lPassed;
-            } else {
-                limit = lPassed.sys.nextLevel(lPassed);
-            }
-            lLearning = lPassed;
-        } else {
-            limit = target;
-        }
         if (fetcher == null) {
             fetcher = new Fetcher();
         }
-        return fetcher.fetch(2, limit, reviewOnly); //if with this limit, the result is empty, we should move the limit level to its next level.
+        return fetcher.fetch(2, //limit, 
+                startReview); //if with this limit, the result is empty, we should move the limit level to its next level.
     }
 
     Comparator<ETest> cETestByHighestLevel = new Comparator<ETest>() {
@@ -403,10 +411,7 @@ between the actual and the target, there might be a huge gap.
     }
 
     private void parseLevelTested(JsonParser p) throws IOException {
-        String sysName = null, sysNameT = null;
-        if (target != null) {
-            sysNameT = target.sys.name;
-        }
+        String sysName = null, sysNameT = sys().name;
         JsonToken t = p.currentToken();
         if (t == JsonToken.START_OBJECT) {
             boolean shouldDiscard = false;
@@ -540,7 +545,8 @@ between the actual and the target, there might be a huge gap.
                     } else if ("levela".equals(name)) {
                         lPassed = ELevel.parseSimple(p);
                     } else if ("levelL".equals(name)) {
-                        lLearning = ELevel.parseSimple(p);
+//                        lLearning = 
+                                ELevel.parseSimple(p); //do not recover it from history.
                     } else if ("levelTested".equals(name)) {
                         parseLevelTested(p);
                     } else {
@@ -1499,7 +1505,9 @@ downward test levels.
          */
         int n;
         int idx;
-        ELevel limitCurrent, limit;
+        ELevel //limitCurrent, 
+                limit; //set to lPassed and updated when advanced.
+        ELevel level; //the current serving level.
         private final ConcurrentLinkedQueue<CompletableFuture<ETestForEKP[]>> request = new ConcurrentLinkedQueue<>();
         AtomicBoolean running = new AtomicBoolean();
 //        private ArrayList<ETest> testsT = new ArrayList<>();
@@ -1524,6 +1532,24 @@ downward test levels.
          */
         private final HashSet<Integer> toBeServed = new HashSet<>(); //int[] reviews; //Integer[] reviews; //HashSet<Integer> review = new HashSet<>();
 
+        Fetcher() {
+////            this.limit = limit != null ? limit : sys().highest();
+////        ELevel limit;
+//            if (lLearning != null) {
+//                limit = lLearning;
+//            } else if (lPassed != null) {
+////                if (startToReview) {
+//                limit = lPassed;
+////                } else {
+////                    limit = lPassed.sys.nextLevel(lPassed);
+////                }
+////            lLearning = lPassed; //update it only when we fetch EKPs from a level.
+//            } else {
+//                limit = target;
+//            }
+            limit = lPassed;
+        }
+
         int toBreviewed() {
             int size = toBeServed.size();
             if (size == 0) {
@@ -1535,14 +1561,14 @@ downward test levels.
             return size;
         }
 
-        CompletableFuture<ETestForEKP[]> fetch(int n, ELevel limit, boolean startToReview) {
+        CompletableFuture<ETestForEKP[]> fetch(int n, //ELevel limit, 
+                boolean startToReview) {
 //            this.reviewOnly = reviewOnly;
             CompletableFuture<ETestForEKP[]> cf = new CompletableFuture<>();
 //            if (n < 1) {
 //                n = 1; //3 let's do it one by one.
 //            }
             this.n = 1; // n;
-            this.limit = limit;
             App.getExecutor().submit(() -> {
                 if (running.compareAndSet(false, true)) { //seems stuck inside, so I need a check based on timer.
                     ltsStart = System.currentTimeMillis();
@@ -1558,7 +1584,7 @@ downward test levels.
                     if (startToReview) {
                         prepareReview();
                     }
-                    doneScheduled = false;
+                    doneScheduled = limit == null;
                     idx = 0;
                     scheduled = results.values().toArray(new EKPscheduled[0]); //TODO: I feel that this is expensive.
                     //sort by scheduled timestamp
@@ -1665,9 +1691,9 @@ downward test levels.
 //                    }
                     cf.complete(false);
                     cf_kps = cf.thenApply(tf -> {
-                        if (tf) {
-                            limitCurrent = limit;
-                        }
+//                        if (tf) {
+//                            limitCurrent = limit;
+//                        }
                         int size = scheduled.length; //.size();
                         boolean good = false;
                         for (; idx < scheduled.length; idx++) {
@@ -1686,7 +1712,7 @@ downward test levels.
 //                            EUser.this.results.remove(kps.kpid);
                                 continue;
                             }
-                            if (skipHigherEKP) { //enable this(skip higher level stuff), unless for test, I should not skip them(should not enable this).
+                            if (skipHigherEKP && limit != null) { //enable this(skip higher level stuff), unless for test, I should not skip them(should not enable this).
                                 if (lkp.isHigherThan(limit)) {  //if not for test, then I should keep them.
                                     //TODO: remove this
                                     nHigherSkipped++;
@@ -1739,9 +1765,12 @@ downward test levels.
                                     continue;
                                 }
                                 ELevel ltest = getELevel4(testid);
-                                if (sys.c.compare(ltest, limit) <= 0) {
+                                if (ltest == null) {
+                                    continue;
+                                }
+                                if (limit == null || sys.c.compare(ltest, limit) <= 0) {
                                     for (; i >= 0; i--) {
-                                        test = tests[i]; //with lower highest ELevel, so all usable
+                                        test = tests[i]; //its highest ELevel is lower than limit, so all usable
                                         if (test.fnAudio == null) { //TODO: should be configurable by caller.
                                             continue;
                                         }
@@ -1817,7 +1846,7 @@ downward test levels.
          */
         private void onSucceeded() {
             try {
-                System.out.println("succeeded:" + serving.size() + " n:" + n + " limit:" + limit.levelString());
+                System.out.println("succeeded:" + serving.size() + " n:" + n + " limit:" + limit != null ? limit.levelString() : "");
                 if (n < 1) {
                     throw new IllegalStateException();
                 }
@@ -1894,15 +1923,41 @@ downward test levels.
                 toBeServed.remove(kpidChecking);
                 while (toBeServed.isEmpty()) { //generally speaking, no loop is needed.
                     //now learn a new level
-                    ELevel l = limit.sys.nextLevel(limit);
+                    ELevel l;
+                    if (lPassed != null) {
+                        if (limit == null) {
+                            limit = lPassed;
+                        }
+                        l = sys.nextLevel(limit);
+                    } else {
+                        if (level != null) {
+                            //check test results, to decide move up or down.
+                            if (badBefore(level)) {
+                                l = sys.previousLevel(level.idMajor, level.idMinor);
+                            } else {
+                                l = sys.nextLevel(level);
+                                if (l == null) {
+                                    l = sys.previousLevel(level.idMajor, level.idMinor);
+                                }
+                            }
+                            if (l == null) {
+                                l = sys.random();
+                            }
+                        } else {
+                            l = sys.random();
+                        }
+                    }
                     if (l == null) {
                         doneReal = true;
                         break;
                     } else {
-                        if (l.isHigherThan(lLearning)) {
-                            lLearning = l;
+                        if (lPassed != null) {
+                            if (lLearning == null || l.isHigherThan(lLearning)) {
+                                lLearning = l;
+                                limit = l;
+                            }
                         }
-                        limit = l;
+                        level = l;
                         System.out.println("add level:" + l.levelString() + ":" + l.kps.size());
                         toBeServed.addAll(l.kps);
                     }
@@ -1937,50 +1992,48 @@ downward test levels.
                 App.getExecutor().submit(this);
             }
         }
-        ELevel level;
-//                                level = level.sys.previousLevel(level.idMajor, level.idMinor);
 
-        CompletableFuture<Boolean> schedule() {
-            System.out.println("schedule level:" + level.levelString());
-            Integer[] akpid = level.kps.toArray(new Integer[0]);
-//            EKPscheduled kpst = new EKPscheduled();
-            @SuppressWarnings("unchecked")
-            CompletableFuture<Boolean>[] cfs = new CompletableFuture[akpid.length];
-            for (int i = 0; i < cfs.length; i++) {
-                Integer kpid = akpid[i];
-//                kpst.kpid = kpid;
-                if (serving.containsKey(kpid)) { //kpst
-                    cfs[i] = CompletableFuture.completedFuture(true);
-                    continue;
-                }
-                cfs[i] = EKP.getByID_cf(kpid).thenCompose((EKP kp) -> {
-                    if (kp.deleted != 0) {
-                        return CompletableFuture.completedFuture(true);
-                    }
-                    EKPscheduled kps = getEKPscheduled_m(kp); //new EKP for the user to learn
-                    EUser.this.results.put(kpid, kps);//.add(kps);
-                    return kps.updateSchedule();
-                }).exceptionally(t -> {
-                    if (t instanceof FileNotFoundException) {
-                        level.kps.remove(kpid);
-                    }
-                    return true;
-                });
-            }
-            return CompletableFuture.allOf(cfs).thenApply((Void v) -> {
-//                EKPscheduled[] akps = kpsRelevant.toArray(new EKPscheduled[0]);
-//                Arrays.sort(akps, cTime);
-//                kpsRelevant.clear();
-//                kpsRelevant.addAll(Arrays.asList(akps));
-                int size = serving.size(); //akps.length;
-                System.out.println(level.levelString() + " #ofKP scheduled:" + size); //java.lang.NullPointerException
-                return true;
-            });
-//                .exceptionally((Throwable t) -> {
-//            t.printStackTrace();
-//            return null;
-//        });
-        }
+//        CompletableFuture<Boolean> schedule() {
+//            System.out.println("schedule level:" + level.levelString());
+//            Integer[] akpid = level.kps.toArray(new Integer[0]);
+////            EKPscheduled kpst = new EKPscheduled();
+//            @SuppressWarnings("unchecked")
+//            CompletableFuture<Boolean>[] cfs = new CompletableFuture[akpid.length];
+//            for (int i = 0; i < cfs.length; i++) {
+//                Integer kpid = akpid[i];
+////                kpst.kpid = kpid;
+//                if (serving.containsKey(kpid)) { //kpst
+//                    cfs[i] = CompletableFuture.completedFuture(true);
+//                    continue;
+//                }
+//                cfs[i] = EKP.getByID_cf(kpid).thenCompose((EKP kp) -> {
+//                    if (kp.deleted != 0) {
+//                        return CompletableFuture.completedFuture(true);
+//                    }
+//                    EKPscheduled kps = getEKPscheduled_m(kp); //new EKP for the user to learn
+//                    EUser.this.results.put(kpid, kps);//.add(kps);
+//                    return kps.updateSchedule();
+//                }).exceptionally(t -> {
+//                    if (t instanceof FileNotFoundException) {
+//                        level.kps.remove(kpid);
+//                    }
+//                    return true;
+//                });
+//            }
+//            return CompletableFuture.allOf(cfs).thenApply((Void v) -> {
+////                EKPscheduled[] akps = kpsRelevant.toArray(new EKPscheduled[0]);
+////                Arrays.sort(akps, cTime);
+////                kpsRelevant.clear();
+////                kpsRelevant.addAll(Arrays.asList(akps));
+//                int size = serving.size(); //akps.length;
+//                System.out.println(level.levelString() + " #ofKP scheduled:" + size); //java.lang.NullPointerException
+//                return true;
+//            });
+////                .exceptionally((Throwable t) -> {
+////            t.printStackTrace();
+////            return null;
+////        });
+//        }
 
         /* when we go through the scheduled list, at first we skip those EKP's whose level is higher than the highest.
         when that is done, then we serve those skipped.

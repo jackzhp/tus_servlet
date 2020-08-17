@@ -421,6 +421,7 @@ The TextIndexMain class is a driver to demonstrate a simple text indexing applic
                         } catch (Throwable t) {
                             t.printStackTrace();
                         }
+                        kp = null;
                     }
                 }
             }
