@@ -105,7 +105,7 @@ public class SUser extends HttpServlet {
 //                    g.writeNumberField("ireason", 5);
 //generator.writeStringField("brand", "Mercedes");
 //                        if (reviewOnly) {
-                        g.writeNumberField("todo", user.getReviews());
+                        g.writeNumberField("todo", user.getTODOs());
 //                        }
                         g.writeArrayFieldStart("tests");
                         if (false) {

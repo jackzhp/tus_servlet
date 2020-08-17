@@ -357,8 +357,8 @@ between the actual and the target, there might be a huge gap.
 //    }
     Fetcher fetcher;
 
-    int getReviews() {
-        return fetcher.toBreviewed();
+    int getTODOs() {
+        return fetcher.todo();
     }
 
     /**
@@ -1550,7 +1550,7 @@ downward test levels.
             limit = lPassed;
         }
 
-        int toBreviewed() {
+        private int todo() {
             int size = toBeServed.size();
             if (size == 0) {
                 //the scheduled ones, we don't tell.
