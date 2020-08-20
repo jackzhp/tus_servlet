@@ -14,6 +14,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -341,7 +343,12 @@ public class ETest implements OID {
     }
 
     void chgInfo(String info, EUser user) {
-        this.info = info;
+        chgInfo(info, info, "en", user);
+    }
+
+    void chgInfo(String info0, String info, String lang, EUser user) {
+        this.info0 = info;
+        this.infos.put(lang, info); //        this.info = info;
         this.deleted = 0;
         this.idReplacedBy = -1;
         save(20);
@@ -470,6 +477,28 @@ public class ETest implements OID {
         return cf;
     }
 
+    void parseInfos(JsonParser p) throws IOException {
+        JsonToken t = p.currentToken(); //.nextToken();
+        if (t == JsonToken.START_OBJECT) {
+            while (true) {
+                t = p.nextToken();
+                if (t == JsonToken.FIELD_NAME) {
+                    t = p.nextToken();
+                    String lang = p.getValueAsString();
+                    t = p.nextToken();
+                    String info = p.getValueAsString();
+                    infos.put(lang, info);
+                } else if (t == JsonToken.END_OBJECT) {
+                    break;
+                } else {
+                    throw new IllegalStateException("expecting end object, but " + t);
+                }
+            }
+        } else {
+            throw new IllegalStateException("expecting start object, but " + t);
+        }
+    }
+
     void load(File f) throws IOException {
 //        System.out.println("load ETest from " + f.getAbsolutePath());
 //        if (id == 0) {
@@ -504,6 +533,8 @@ public class ETest implements OID {
                         this.deleted = p.getValueAsInt();// p.getValueAsBoolean();
                     } else if ("idReplaced".equals(name)) {
                         this.idReplacedBy = p.getValueAsInt();// p.getValueAsBoolean();
+                    } else if ("infos".equals(name)) {
+                        parseInfos(p);
                     } else {
                         String value = p.getValueAsString();
                         if ("fnAudio".equals(name)) {
@@ -511,7 +542,8 @@ public class ETest implements OID {
                         } else if ("fsha".equals(name)) {
                             this.fsha = value;
                         } else if ("info".equals(name)) {
-                            this.info = value;
+                            this.info0 = value;
+                            this.infos.put("en", value); //TODO: for temp
                         } else if ("source".equals(name)) {
                             this.source = value;
                         } else {
@@ -749,11 +781,31 @@ public class ETest implements OID {
      *
      */
     void delete() {
-        //no EKP should not refer to this
+        ETest test = this;
+        this.fnAudio = null;
+        test.info0 = null;
+        test.infos.clear();
+        test.infos = null;
+//        test.info = null;
         //all ELevel should not refer to this
-
-        //at last step.
-        //this.isDeleted = true;
+        ELevelSystem[] asys = ELevelSystem.syss.values().toArray(new ELevelSystem[0]);
+        for (ELevelSystem sys : asys) {
+            ELevel level = this.highestLevel(sys);
+            level.removeTest(this.id); //we remove them first, later add them back
+        }
+        for (ELevelSystem sys : asys) {
+            ELevel level = this.highestLevel(sys);
+            level.addTest(this.id); //now add them back.
+        }
+        //no EKP should not refer to this
+        EKP[] akp = test.kps.toArray(new EKP[0]);
+        for (EKP kp : akp) {
+            kp.remove(test);
+        }
+        test.kps.clear();
+        levelsHighest.clear();
+        test.deleted = 1; //at last step. isDeleted = true;
+        test.save(29);
     }
 
     static CompletableFuture<Boolean> merge(String testids) throws IOException {
@@ -854,12 +906,12 @@ public class ETest implements OID {
                 throw new IllegalStateException(this.fnAudio + ":" + test.fnAudio);
             }
         }
-        if (this.info.equals(test.info)) {
+        if (this.info0.equals(test.info0)) {
         } else { //TODO: keep the longer one.  I do not need this. I have chosen the target for the merge.
-            int len1 = this.info.length();
-            int len2 = test.info.length();
+            int len1 = this.info0.length();
+            int len2 = test.info0.length();
             if (len2 > len1) {
-                this.info = test.info;
+                this.info0 = test.info0;
             }
         }
         test.idReplacedBy = this.id;
@@ -959,7 +1011,13 @@ public class ETest implements OID {
         g.writeNumberField("idReplaced", this.idReplacedBy); //g.writeBooleanField("deleted", isDeleted);
         g.writeStringField("fnAudio", fnAudio);
         g.writeStringField("fsha", fsha);
-        g.writeStringField("info", info); //the key word of the record.
+        g.writeStringField("info", info0); //the key word of the record.
+        g.writeObjectFieldStart("info");
+        Set<Map.Entry<String, String>> s = infos.entrySet();
+        for (Map.Entry<String, String> me : s) {
+            g.writeStringField(me.getKey(), me.getValue());
+        }
+        g.writeEndObject();
         g.writeStringField("source", source); //the key word of the record.
 //        g.writeNumberField("ireason", 5);
 //generator.writeStringField("brand", "Mercedes");
@@ -985,7 +1043,8 @@ public class ETest implements OID {
             String[] as = fn.split("\\.");
             int id = Integer.parseInt(as[0]);
             ETest test = loadByID_m(id);
-            if (cs.apply(test.info)) {
+            if (cs.apply(test.info0)) {
+                //TODO: search test.infos
                 tests.add(test);
             }
         }

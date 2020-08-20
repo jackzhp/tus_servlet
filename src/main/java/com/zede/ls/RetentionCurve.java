@@ -471,25 +471,30 @@ public class RetentionCurve {
          * @param s
          */
         void transmitFrom(Segment s, ETestResult tr) {
-            if (s0 <= tr.t && tr.t < s1 && tr.good) {
-            } else { // if (tr.t < s0 || tr.t >= s1 || tr.good == false)
-                throw new IllegalStateException();
-            }
-            //TODO: this.dtE  should >  s.dtE
-            double dtO = tf(Ptarget, tr.t); //=== tr.t + this.dtE
-            double tfO = tr.t + dtO;
-            double dtT = s.dtE;
-            if (dtO < dtT) {
-                double tfTarget = tr.t + dtT;
-                if (tfTarget < tfMax) {
-                    double tfLearned = tfTarget; //if learning rate is 100%. or we can deem Pdelta as the learning rate.
-                    tfLearned = tfO + (tfTarget - tfO) / 2; //50%
-                    findParameters(1, tfLearned, tr.t);
-                    if (true) { //test
-                        double dt = tf(Ptarget, tr.t);
-                        System.out.println("\ttransmitted in, old:" + dtO + " targeted: " + dtT + " achieved:" + dt);
+            try {
+                if (s0 <= tr.t && tr.t < s1 && tr.good) {
+                } else { // if (tr.t < s0 || tr.t >= s1 || tr.good == false)
+                    //this happened. 
+                    throw new IllegalStateException(s0 + " " + tr.t + " " + s1 + " " + tr.good);
+                }
+                //TODO: this.dtE  should >  s.dtE
+                double dtO = tf(Ptarget, tr.t); //=== tr.t + this.dtE
+                double tfO = tr.t + dtO;
+                double dtT = s.dtE;
+                if (dtO < dtT) {
+                    double tfTarget = tr.t + dtT;
+                    if (tfTarget < tfMax) {
+                        double tfLearned = tfTarget; //if learning rate is 100%. or we can deem Pdelta as the learning rate.
+                        tfLearned = tfO + (tfTarget - tfO) / 2; //50%
+                        findParameters(1, tfLearned, tr.t);
+                        if (true) { //test
+                            double dt = tf(Ptarget, tr.t);
+                            System.out.println("\ttransmitted in, old:" + dtO + " targeted: " + dtT + " achieved:" + dt);
+                        }
                     }
                 }
+            } catch (Throwable t) {
+                t.printStackTrace();
             }
         }
 
@@ -1074,7 +1079,7 @@ public class RetentionCurve {
 //                }
                 if (t > tfMax) {
 //                    try {
-                        throw new IllegalStateException(t + ":" + tfMax);
+                    throw new IllegalStateException(t + ":" + tfMax);
 //                    } catch (Throwable t2) {
 //                        t2.printStackTrace();
 //                    }

@@ -325,7 +325,7 @@ public class App {
             EUser user = null;// user1;// EUser.getByID(1);// user1;
             ETest test = new ETest();
             test.fnAudio = "40-orewasu-pamanto.mp3";
-            test.info = "「俺はスーパマン」と言いました。";
+            test.info0 = "「俺はスーパマン」と言いました。";
             ELevel level = null;
             HashSet<EKPbundle> bs = new HashSet<>();
             int i = 0;

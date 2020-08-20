@@ -297,6 +297,12 @@ public class STest extends HttpServlet {
                     String id_s = request.getParameter("testids");
                     ETest.merge(id_s).get();
                     App.sendFailed(ireason, sreason, response);
+                } else if ("deleteTest".equals(action)) {
+                    String id_s = request.getParameter("testid");
+                    int id = Integer.parseInt(id_s);
+                    ETest test=ETest.loadByID_m(id);
+                    test.delete();
+                    App.sendFailed(ireason, sreason, response);
                 } else if ("searchTests".equals(action)) {
                     String s = request.getParameter("s");
                     String[] as = s.split("AND");

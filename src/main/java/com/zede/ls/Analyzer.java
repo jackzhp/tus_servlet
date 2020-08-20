@@ -35,7 +35,7 @@ public class Analyzer {
     ELevel level; //the default level
     ELevel levelt; //the using level.
     String url = "https://www.thejapanesepage.com/japanese-grammar-100-part-iii/";
-    String fnFile="iii.html";
+    String fnFile = "iii.html";
     File dirDst = new File("/Users/yogi/jack/japanese");
 
     public static void main(String[] args) {
@@ -107,55 +107,66 @@ public class Analyzer {
                     } else {
                         download(srcurl, fdst);
                     }
-                    if (fdst.exists()) {
-                        ETest test;
-                        String fsha = App.sha256_s(fdst);
-                        test = ETest.getByFileAudio(fsha);
-                        if (test == null) {
-                            test = new ETest();
-                            test.newID();
-                            test.fnAudio = fn;
-                            levelt = getLevelID(test.fnAudio);
-                            if (levelt == null) {
-                                levelt = level;
-                            }
-                            test.fsha = fsha;
-                            int iloc = fn.lastIndexOf(".mp3");
-                            test.info = fn.substring(0, iloc);
-                            ETest ot = test;
-                            kps.clear();
-                            searchEKP(test.info, kps);
-                            CompletableFuture<EKP> p;
-                            if (kps.size() > 0) {
-                                EKP[] a = kps.toArray(new EKP[0]);
-                                if (a.length > 1) {
-                                    System.out.println("\tfound " + a.length + " for " + test.info);
-                                }
-                                p = CompletableFuture.completedFuture(a[0]);
-                            } else {
-                                p = test.newKP_cf(test.info, levelt, user);
-                            }
-                            return p.thenCompose((kp) -> {
-                                System.out.println(" EKP saved, now will save ETest");
-                                return ot.save_cf();
-                            }).thenApply((tf) -> {
-                                System.out.println(" test " + fn + " saved");
-                                levelt.tests.add(ot.id); //do this after ETest has been saved.
-                                return true;
-                            });
+                    return createETest(fdst);
+                }
+            }
+            throw new Exception(srcurl);
+        } catch (Throwable t) {
+            CompletableFuture<Boolean> cf = new CompletableFuture<Boolean>();
+            cf.completeExceptionally(t);
+            return cf;
+        }
+    }
+
+    CompletableFuture<Boolean> createETest(File fdst) {
+        try {
+            String fn = fdst.getName();
+            if (fdst.exists()) {
+                ETest test;
+                String fsha = App.sha256_s(fdst);
+                test = ETest.getByFileAudio(fsha);
+                if (test == null) {
+                    test = new ETest();
+                    test.newID();
+                    test.fnAudio = fn;
+                    levelt = getLevelID(test.fnAudio);
+                    if (levelt == null) {
+                        levelt = level;
+                    }
+                    test.fsha = fsha;
+                    int iloc = fn.lastIndexOf(".mp3");
+                    test.info0 = fn.substring(0, iloc);
+                    ETest ot = test;
+                    kps.clear();
+                    searchEKP(test.info0, kps);
+                    CompletableFuture<EKP> p;
+                    if (kps.size() > 0) {
+                        EKP[] a = kps.toArray(new EKP[0]);
+                        if (a.length > 1) {
+                            System.out.println("\tfound " + a.length + " for " + test.info0);
+                        }
+                        p = CompletableFuture.completedFuture(a[0]);
+                    } else {
+                        p = test.newKP_cf(test.info0, levelt, user);
+                    }
+                    return p.thenCompose((kp) -> {
+                        System.out.println(" EKP saved, now will save ETest");
+                        return ot.save_cf();
+                    }).thenApply((tf) -> {
+                        System.out.println(" test " + fn + " saved");
+                        levelt.tests.add(ot.id); //do this after ETest has been saved.
+                        return true;
+                    });
 //                                    .exceptionally(t -> {
 //                                t.printStackTrace();
 //                                return true;
 //                            });
-                        } else {
-                            return CompletableFuture.completedFuture(true);
-                        }
-                    } else {
-                        throw new Exception("file does not exist:" + fn);
-                    }
+                } else {
+                    return CompletableFuture.completedFuture(true);
                 }
+            } else {
+                throw new Exception("file does not exist:" + fn);
             }
-            throw new Exception(srcurl);
         } catch (Throwable t) {
             CompletableFuture<Boolean> cf = new CompletableFuture<Boolean>();
             cf.completeExceptionally(t);
@@ -239,7 +250,7 @@ public class Analyzer {
             //TODO: download with curl.
             String cmd = "curl " + url + " -o " + foutput.getAbsolutePath();
             System.out.println(cmd);
-            Runtime.getRuntime().exec(cmd);
+            Runtime.getRuntime().exec(cmd); //return immediately or return after the command is done.
         }
 
     }
@@ -306,7 +317,7 @@ public class Analyzer {
             ELevel levelt = getLevelID(test.fnAudio);
             if (levelt != null) {
                 for (EKP kp : test.kps) {
-                    if (kp.desc.equals(test.info)) {
+                    if (kp.desc.equals(test.info0)) {
 //                        if (kp.id == 898) {
 //                            System.out.println("test:" + id+" "+test.kps.size());
 //                        }

@@ -22,7 +22,10 @@ public class ERuleSystem {
     
 その鞄は、高い筈です。
     高い筈 better to be one thing.
-    it is not good to say the subject is その鞄は、高い.
+    it is not good to say the subject is その鞄は、高い. 
+    It is better to translate into "that the bag with high price is certain".
+    so indeed subject is "その鞄は、高い"
+    
     
     
     */    
