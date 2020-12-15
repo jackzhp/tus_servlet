@@ -302,10 +302,11 @@ var player = {
     self.nTimes = 0;
     // self.startPlay();
   },
-  decodeDataAndPlay: function (audioData) { //do not pass the test object into the player.
+  decodeDataAndPlay: function (audioData, caller) { //do not pass the test object into the player.
     //as a player, we don't need to know the test object.
     //what we need to know is the audio data.
     var self = this;
+    self.caller = caller;
     self.dataReady = false;
     if (false) {
       self.decodeData(audioData, function () {
@@ -406,13 +407,15 @@ var player = {
       // self.e_loopendControl.removeAttribute('disabled');
       self.e_timeDisplay = document.querySelector('#tsCurrent'); //TODO: use id instead //tag 'p'
       self.play.textContent = 'Suspend context'; //susresBtn
-      tester.onAudioStarted();
+      if (self.caller)
+        self.caller.onAudioStarted();
       // self.displayTime();
     } catch (e) {
       console.log(e);
     }
   },
   closeSource: function () {
+    //at present, it does not close right away, but just won't replay.
     var self = this;
     var p;
     if (self.isStarted) { //the meaning of it? source can not be started twice.
@@ -703,7 +706,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       return player.closeSource();
     }).then(tf => {
       self.clearTestInfo();
-      return player.decodeDataAndPlay(self.testCurrent.dataAudio);
+      return player.decodeDataAndPlay(self.testCurrent.dataAudio, tester);
       // }).then(tf => {
     }).catch(ex => {
       var msg = "";
@@ -1451,7 +1454,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     }).then(tf => {
       self.testInfoPresented = false;
       self.presentTestInfo(); //self.clearTestInfo();
-      return player.decodeDataAndPlay(self.testCurrent.dataAudio);
+      return player.decodeDataAndPlay(self.testCurrent.dataAudio, tester);
     }).catch(ex => {
       console.log("exception 1274");
       console.log(ex);
@@ -1463,6 +1466,61 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     // tester.presentTiming(); //memory retention curve related stuff
   },
 
+};
+var musicPlayer = {
+  play: function () {
+    var self = this;
+    var e = document.querySelector('#urlMusic');
+    var url = e.value;
+    console.log("url:" + url);
+    if (url) {
+      this.getDataAudio(url).then(dataAudio => {
+        //I should stop playing otherwise, 2 channels will be played at the same time.
+        //TODO: and at present, it does not stopy right away, but just not to repeat it.
+        return player.closeSource();
+      }).then(tf => {
+        return player.decodeDataAndPlay(self.dataAudio, null);
+      }).catch(e => {
+        console.log("1474", e);
+      });
+    } else alert("input input an url");
+  },
+  getDataAudio: function (url) { //path
+    var self = this;
+    // self.pathLast = path;
+    console.log("audio path:" + url);
+    return new Promise((resolve, reject) => {
+      try {
+        // isStarted = false;  //TODO: ensure this is right in player
+        //can it be reused? or a new one is must? "AudioBufferSourceNode': cannot call start more than once." so we must create a new one.
+        var request = new XMLHttpRequest();
+        request.open('GET', url, true); //path
+        request.responseType = 'arraybuffer';
+        request.onload = function () {
+          var res = request.response;
+          var msg = "data loaded, will decode it. typeof:" + typeof (res) + " type:" + request.responseType;
+          msg += " arraybuffer:" + (res instanceof ArrayBuffer);
+          msg += " string:" + (res instanceof String);
+          // msg += " domstring:" + (res instanceof DOMString); //ReferenceError: DOMString is not defined
+          msg += " doc:" + (res instanceof Document);
+          msg += " blob:" + (res instanceof Blob);
+          // console.log(msg); //why false?
+          // console.log(res);
+          self.dataAudio = request.response;
+          resolve(request.response);
+          // if(self.preloadNext){
+          //   self.dataPreloaded=request.response;
+          // }
+          // self.decodeData(request.response);
+
+        };
+        // request.onFailed;  //TODO: ....
+        request.send();
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
 };
 var user = {
   name: "jack",
