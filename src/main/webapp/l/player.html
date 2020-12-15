@@ -67,28 +67,28 @@
         <button class="stop">Stop</button> stop is not needed  -->
   <br />
 
-  <p>
-    time location:
-    <span id="tsCurrent">No context exists</span>.
-  </p>
-
-
 
   <!-- Set the rate for playback speed. 1: the original speed, 2: faster, 0.5: slower -->
   <input class="playback-rate-control" type="range" min="0.25" max="3" step="0.05" value="1">
   <span class="playback-rate-value">1.0</span>
 
   <!-- Set loop start and loop end -->
-  <br />Range of
+  <br />Time:
+  <span id="tsCurrent">No context exists</span>
   <span id="songLength"></span>
   <br />
   <label for="loopstart-control">loop Start:</label>
-  <input class="loop-control" id="loopstart-control" type="range" min="0" max="100" step="0.1" value="0">
   <span class="loopstart-value">0</span>
-  <br>
+  <span id="loopstart-inc" onclick="player.changeLoopStart(true)">increase</span>
+  <span id="loopstart-dec" onclick="player.changeLoopStart(false)">decrease</span>
   <label for="loopend-control">loop End:</label>
-  <input class="loop-control" id="loopend-control" type="range" min="0" max="100" step="0.1" value="100">
   <span class="loopend-value">100</span>
+  <span id="loopend-inc" onclick="player.changeLoopEnd(true)">increase</span>
+  <span id="loopend-dec" onclick="player.changeLoopEnd(false)">decrease</span>
+  <br />
+  <input class="loop-control" id="loopstart-control" type="range" min="0" max="100" step="0.1" value="0">
+  <br>
+  <input class="loop-control" id="loopend-control" type="range" min="0" max="100" step="0.1" value="100">
   <br />
 
   <button id="result_good">I know, good</button>

@@ -13,7 +13,7 @@ var player = {
   e_loopstartValue: null,
   e_loopendControl: null,
   e_loopendValue: null,
-  delayUponEnded: 1000, //1 second delay. TODO: should be adjustable by the user.
+  delayUponEnded: 2000, //1 second delay. TODO: should be adjustable by the user.
   // define variables
   // pathCurrent: null, //TODO: rename it to pathCurrent.
   dataReady: false, //loaded and decoded, so ready to be played
@@ -34,6 +34,7 @@ var player = {
 
   init: function () {
     var self = this;
+    self.displayTime_b = self.displayTime.bind(self);
     self.play = document.querySelector('#pauseCtx'); //class  .play
     // var stop = document.querySelector('.stop');
 
@@ -86,11 +87,16 @@ var player = {
       var v = self.e_loopstartControl.value; //it is a %. no! it is not a %
       self.onLoopStartChanged(v);
     };
-
-    self.e_loopendControl.onchange = function () {
-      // self.source.loopEnd = self.loopEnd = self.e_loopendControl.value;
-      var v = self.e_loopendControl.value; //it is a %. not is not a %, but *10
-      self.onLoopEndChanged(v);
+    //when I drag the bar, oninput will continue update, onchange does not update untill I release the bar.
+    //so onchange is not good.
+    self.e_loopendControl.oninput = function () {
+      try {
+        // self.source.loopEnd = self.loopEnd = self.e_loopendControl.value;
+        var v = self.e_loopendControl.value; //it is a %. not is not a %, but *10
+        self.onLoopEndChanged(v);
+      } catch (e) {
+        console.log("98", e);
+      }
     };
 
 
@@ -157,7 +163,20 @@ var player = {
     //   });
     // };
   },
+  changeLoopStart: function (tf) {
+    var self = this;
+    var step = self.rangeGranularity;
+    if (tf) { } else step = 0 - step;
+    this.onLoopStartChanged((self.loopStartNext + step) / self.rangeGranularity);
+  },
+  changeLoopEnd: function (tf) {
+    var self = this;
+    var step = self.rangeGranularity;
+    if (tf) { } else step = 0 - step;
+    this.onLoopEndChanged((self.loopEnd + step) / self.rangeGranularity);
+  },
   number4present: function (v) { //turn 14.000000000001 into "14.0"
+    //TODO: (3).toFixed(1);
     var s = "" + v;
     var iloc = s.indexOf(".");
     if (iloc != -1) {
@@ -165,17 +184,23 @@ var player = {
     }
     return s;
   },
-  onLoopStartChanged: function (v) {
+  onLoopStartChanged: function (v) { //should not take effect right away.
     var self = this;
-    self.loopStart = v * self.rangeGranularity;// Math.floor(v * self.songLength / 100);
-    self.e_loopstartValue.innerHTML = self.number4present(self.loopStart);
+    self.loopStartNext = v * self.rangeGranularity;// Math.floor(v * self.songLength / 100);
+    self.e_loopstartValue.innerHTML = self.number4present(self.loopStartNext);
   },
-  onLoopEndChanged: function (v) {
+  onLoopEndChanged: function (v) { //should take effect right away
     var self = this;
     self.loopEnd = v * self.rangeGranularity; //Math.ceil(v * self.songLength / 100);
+    self.loopDuration = self.loopEnd - self.loopStart;
     //I can not set it to self.source.loopEnd since at this point in time, source might be null
     if (self.source) {
-      self.source.loopEnd = self.loopEnd;
+      if (self.useBuiltinLoop) {
+        self.source.loopEnd = self.loopEnd;
+        //TODO: why this does not work right away?  it works if its build in loop mechanism is used.
+      } else {
+        self.source.stop(self.tsStartCtx + self.loopDuration);
+      }
     }
     //now present the loopEnd
     self.e_loopendValue.innerHTML = self.number4present(self.loopEnd);
@@ -208,7 +233,9 @@ var player = {
   },
   triggerStart: function () {
     var self = this;
-    self.tsStartCtx = self.audioCtx.currentTime + 1;
+    self.loopStart = self.loopStartNext;
+    self.loopDuration = self.loopEnd - self.loopStart;
+    self.tsStartCtx = self.audioCtx.currentTime + 2; //get the system time, and schedule to play after 2 seconds.
     var startSucceeded = false;
     if (false) {
       // console.log(when + " " + source.loopStart + "->" + source.loopEnd);
@@ -242,39 +269,50 @@ var player = {
       self.source.loop = false;
       self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
       // console.log("play speed:" + self.source.playbackRate.value);
-      var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
+      var when = self.tsStartCtx, offset = self.loopStart;
       // console.log(when + " " + offset + "+" + duration);
       self.isStopped = false;
-      self.source.start(when, offset, duration); //with this, does not do loop
+      self.source.start(when, offset, self.loopDuration); //with this, does not do loop
       startSucceeded = true;
     }
     if (startSucceeded) {
       self.onPlayStarted();
     }
   },
+  displayTime_b: null, //bound
   displayTime: function () {
-    if (true) { //discard all stuff related to this. since it is not meaningful.
-      return;
-    }
-    if (audioCtx && audioCtx.state !== 'closed') {
-      var tsStart = loopStart;
-      var duration = loopEnd - loopStart;
-      var dt = audioCtx.currentTime - tsStart;
+    var self = this;
+    // if (true) { //discard all stuff related to this. since it is not meaningful.
+    //   return;
+    // }
+    if (self.audioCtx && self.audioCtx.state !== 'closed') {
+      var ts;
       if (false) {
-        dt %= duration;
+        var tsStart = self.loopStart;
+        var duration = self.loopEnd - self.loopStart;
+        var dt = self.audioCtx.currentTime - tsStart;
+        if (false) {
+          dt %= duration;
+        } else {
+          //this logic is just not good. I need other approach. I need event when loop starts and loop ends.
+          //   with web Audio specification, there is no events, so this should be discarded.
+          var n = Math.floor(dt / duration);
+          dt -= n * duration;
+        }
+        ts = (tsStart + dt);
       } else {
-        //this logic is just not good. I need other approach. I need event when loop starts and loop ends.
-        //   with web Audio specification, there is no events, so this should be discarded.
-        var n = Math.floor(dt / duration);
-        dt -= n * duration;
+        var v = self.audioCtx.currentTime - self.tsStartCtx;
+        if (v < 0) v = 0;
+        else if (v > self.loopDuration) v = self.loopDuration;
+        ts = self.loopStart + v;
       }
-      e_timeDisplay.textContent = '' + (tsStart + dt).toFixed(3);
+      self.e_timeDisplay.innerHTML = '' + ts.toFixed(0); //3, 1, no point to blink, so set it to 0
     } else {
-      e_timeDisplay.textContent = 'No context exists.'
+      self.e_timeDisplay.innerHTML = 'No context exists.'
     }
-    if (isStopped) {
+    if (self.isStopped) {
     } else {
-      requestAnimationFrame(displayTime);
+      requestAnimationFrame(self.displayTime_b);
     }
   },
   onDataReady: function () {
@@ -405,11 +443,11 @@ var player = {
       // self.e_playbackControl.removeAttribute('disabled'); //the rate
       // self.e_loopstartControl.removeAttribute('disabled');
       // self.e_loopendControl.removeAttribute('disabled');
-      self.e_timeDisplay = document.querySelector('#tsCurrent'); //TODO: use id instead //tag 'p'
+      self.e_timeDisplay = document.querySelector('#tsCurrent'); //TODO: can be moved to init
       self.play.textContent = 'Suspend context'; //susresBtn
       if (self.caller)
         self.caller.onAudioStarted();
-      // self.displayTime();
+      self.displayTime_b();
     } catch (e) {
       console.log(e);
     }
@@ -495,7 +533,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
     var self = this;
     self.e_good = document.querySelector('#result_good');
     self.e_good.onclick = function () {
-      player.pauseCtx();
+      self.pauseCtx();
       document.querySelector('#testkey').focus();
     };
     self.e_bad = document.querySelector('#result_bad');
