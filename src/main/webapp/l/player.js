@@ -85,6 +85,7 @@ var player = {
     self.e_loopstartControl.oninput = function () {
       // self.source.loopStart = loopStart = self.e_loopstartControl.value;
       var v = self.e_loopstartControl.value; //it is a %. no! it is not a %
+      v *= self.rangeGranularity;
       self.onLoopStartChanged(v);
     };
     //when I drag the bar, oninput will continue update, onchange does not update untill I release the bar.
@@ -93,6 +94,7 @@ var player = {
       try {
         // self.source.loopEnd = self.loopEnd = self.e_loopendControl.value;
         var v = self.e_loopendControl.value; //it is a %. not is not a %, but *10
+        v *= self.rangeGranularity;
         self.onLoopEndChanged(v);
       } catch (e) {
         console.log("98", e);
@@ -168,13 +170,12 @@ var player = {
     var ts;
     if (tf === 0) {
       ts = self.currentPosition();
+      self.e_loopstartControl.value = ts / self.rangeGranularity;
     } else {
       var step = self.rangeGranularity;
       if (tf === 1) { } else step = 0 - step;
       ts = self.loopStartNext + step;
     }
-    ts /= self.rangeGranularity;
-    self.e_loopstartControl.value = ts;
     this.onLoopStartChanged(ts);
   },
   changeLoopEnd: function (tf) {
@@ -182,13 +183,12 @@ var player = {
     var ts;
     if (tf === 0) {
       ts = self.currentPosition();
+      self.e_loopendControl.value = ts / self.rangeGranularity;
     } else {
       var step = self.rangeGranularity;
       if (tf === 1) { } else step = 0 - step;
       ts = self.loopEnd + step;
     }
-    ts /= self.rangeGranularity;
-    self.e_loopendControl.value = ts;
     this.onLoopEndChanged(ts);
   },
   number4present: function (v) { //turn 14.000000000001 into "14.0"
@@ -202,12 +202,13 @@ var player = {
   },
   onLoopStartChanged: function (v) { //should not take effect right away.
     var self = this;
-    self.loopStartNext = v * self.rangeGranularity;// Math.floor(v * self.songLength / 100);
+    self.loopStartNext = v;// * self.rangeGranularity;// Math.floor(v * self.songLength / 100);
     self.e_loopstartValue.innerHTML = self.number4present(self.loopStartNext);
   },
   onLoopEndChanged: function (v) { //should take effect right away
     var self = this;
-    self.loopEnd = v * self.rangeGranularity; //Math.ceil(v * self.songLength / 100);
+    if (v > self.songLength) v = self.songLength;
+    self.loopEnd = v;// * self.rangeGranularity; //Math.ceil(v * self.songLength / 100);
     self.loopDuration = self.loopEnd - self.loopStart;
     //I can not set it to self.source.loopEnd since at this point in time, source might be null
     if (self.source) {
@@ -351,12 +352,14 @@ var player = {
     self.e_playbackControl.removeAttribute('disabled'); //the rate
     self.e_loopstartControl.removeAttribute('disabled');
     self.e_loopstartControl.setAttribute('max', rangeMax);
-    self.onLoopStartChanged(self.e_loopstartControl.value = 0);
+    var loc = self.e_loopstartControl.value = 0;
+    self.onLoopStartChanged(loc * self.rangeGranularity);
     self.e_loopendControl.removeAttribute('disabled');
     self.e_loopendControl.setAttribute('max', rangeMax);
     //self.e_loopendControl.setAttribute('value', rangeMax);
     //self.e_loopendControl.onchange();  
-    self.onLoopEndChanged(self.e_loopendControl.value = rangeMax);
+    loc = self.e_loopendControl.value = rangeMax;
+    self.onLoopEndChanged(loc * self.rangeGranularity);
     document.querySelector('#songLength').innerHTML = "/" + self.songLength.toFixed(2);
     self.nTimes = 0;
     // self.startPlay();
