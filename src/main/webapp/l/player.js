@@ -30,6 +30,7 @@ var player = {
   p_stop_resolve: null, //when really stopped, this should be called if succeeded
   p_reject_resolve: null, //  this should be called if failed.
   stopRequested: false, //user wanted to stop playing the current test.
+  rangeGranularity: 0.1,
 
   init: function () {
     var self = this;
@@ -38,15 +39,15 @@ var player = {
 
     self.e_playbackControl = document.querySelector('.playback-rate-control');
     self.e_playbackValue = document.querySelector('.playback-rate-value');
-    self.e_playbackControl.setAttribute('disabled', 'disabled');
+    // self.e_playbackControl.setAttribute('disabled', 'disabled');
 
     self.e_loopstartControl = document.querySelector('#loopstart-control');
     self.e_loopstartValue = document.querySelector('.loopstart-value');
-    self.e_loopstartControl.setAttribute('disabled', 'disabled');
+    // self.e_loopstartControl.setAttribute('disabled', 'disabled');
 
     self.e_loopendControl = document.querySelector('#loopend-control');
     self.e_loopendValue = document.querySelector('.loopend-value');
-    self.e_loopendControl.setAttribute('disabled', 'disabled');
+    // self.e_loopendControl.setAttribute('disabled', 'disabled');
     self.play.onclick = function () {
       try {
         self.onPauseResumeClicked();
@@ -82,17 +83,16 @@ var player = {
 
     self.e_loopstartControl.oninput = function () {
       // self.source.loopStart = loopStart = self.e_loopstartControl.value;
-      self.e_loopstartValue.innerHTML = self.loopStart = self.e_loopstartControl.value;
+      var v = self.e_loopstartControl.value; //it is a %. no! it is not a %
+      self.onLoopStartChanged(v);
     };
 
-    self.e_loopendControl.oninput = function () {
+    self.e_loopendControl.onchange = function () {
       // self.source.loopEnd = self.loopEnd = self.e_loopendControl.value;
-      self.e_loopendValue.innerHTML = self.loopEnd = self.e_loopendControl.value;
-      //I can not set it to self.source.loopEnd since at this point in time, source might be null
-      if (self.source) {
-        self.source.loopEnd = self.loopEnd;
-      }
+      var v = self.e_loopendControl.value; //it is a %. not is not a %, but *10
+      self.onLoopEndChanged(v);
     };
+
 
     // e_startBtn = document.querySelector('button:nth-of-type(1)');
     // // susresBtn = document.querySelector('#pauseCtx'); //button:nth-of-type(2).   the pause and resume is useless for this application.
@@ -156,6 +156,29 @@ var player = {
     //     e_stopBtn.setAttribute('disabled', 'disabled');
     //   });
     // };
+  },
+  number4present: function (v) { //turn 14.000000000001 into "14.0"
+    var s = "" + v;
+    var iloc = s.indexOf(".");
+    if (iloc != -1) {
+      s = s.substring(0, iloc + 2);
+    }
+    return s;
+  },
+  onLoopStartChanged: function (v) {
+    var self = this;
+    self.loopStart = v * self.rangeGranularity;// Math.floor(v * self.songLength / 100);
+    self.e_loopstartValue.innerHTML = self.number4present(self.loopStart);
+  },
+  onLoopEndChanged: function (v) {
+    var self = this;
+    self.loopEnd = v * self.rangeGranularity; //Math.ceil(v * self.songLength / 100);
+    //I can not set it to self.source.loopEnd since at this point in time, source might be null
+    if (self.source) {
+      self.source.loopEnd = self.loopEnd;
+    }
+    //now present the loopEnd
+    self.e_loopendValue.innerHTML = self.number4present(self.loopEnd);
   },
   onPauseResumeClicked: function () {
     var self = this;
@@ -258,19 +281,24 @@ var player = {
     self.p_reject_resolve = null;
     self.songLength = self.buffer.duration;
     console.log("decoded length:" + self.songLength);
-    var length = Math.ceil(self.songLength); //floor
+    //I don't use percentage, the granularity is 0.1 second
+    var rangeMax = Math.ceil(self.songLength * 10); //floor
     self.e_playbackControl.removeAttribute('disabled'); //the rate
     self.e_loopstartControl.removeAttribute('disabled');
-    self.e_loopstartControl.setAttribute('max', length);
-    self.loopStart = 0;
+    self.e_loopstartControl.setAttribute('max', rangeMax);
+    self.onLoopStartChanged(self.e_loopstartControl.value = 0);
     self.e_loopendControl.removeAttribute('disabled');
-    self.e_loopendControl.setAttribute('max', length);
-    self.loopEnd = self.songLength;
+    self.e_loopendControl.setAttribute('max', rangeMax);
+    //self.e_loopendControl.setAttribute('value', rangeMax);
+    //self.e_loopendControl.onchange();  
+    self.onLoopEndChanged(self.e_loopendControl.value = rangeMax);
     document.querySelector('#songLength').innerHTML = "/" + self.songLength.toFixed(2);
     self.nTimes = 0;
     // self.startPlay();
   },
-  decodeDataAndPlay: function (audioData) {
+  decodeDataAndPlay: function (audioData) { //do not pass the test object into the player.
+    //as a player, we don't need to know the test object.
+    //what we need to know is the audio data.
     var self = this;
     self.dataReady = false;
     if (false) {
@@ -360,9 +388,10 @@ var player = {
     try {
       self.isStarted = true;
       // play.setAttribute('disabled', 'disabled');
-      self.e_playbackControl.removeAttribute('disabled'); //the rate
-      self.e_loopstartControl.removeAttribute('disabled');
-      self.e_loopendControl.removeAttribute('disabled');
+      //enable them when the length of the song is known.
+      // self.e_playbackControl.removeAttribute('disabled'); //the rate
+      // self.e_loopstartControl.removeAttribute('disabled');
+      // self.e_loopendControl.removeAttribute('disabled');
       self.e_timeDisplay = document.querySelector('#tsCurrent'); //TODO: use id instead //tag 'p'
       self.play.textContent = 'Suspend context'; //susresBtn
       tester.presentTestInfo();
