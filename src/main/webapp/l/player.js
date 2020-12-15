@@ -192,58 +192,64 @@ var player = {
           console.log("unprocessed state:" + self.audioCtx.state);
         }
       } else {
-        self.tsStartCtx = self.audioCtx.currentTime + 1;
-        var startSucceeded = false;
-        if (false) {
-          // console.log(when + " " + source.loopStart + "->" + source.loopEnd);
-          /* be noted that: loop start and end works after play started.
-           but seems not working when set before play started.
-           it works. according to the web audio api specification, the offset & duration is always being used.
-           if the loop region is inside the start region, then it will be looped.
-           */
-          // source.start(when); //, offset, duration
-          //the built in loop is not good. there is no delay before rewind to the loopStart
-          var doLoop = true; //TODO: get it from control
-          if (doLoop) {
-            self.source.loopStart = self.loopStart;  //put it off
-            self.source.loopEnd = self.loopEnd;// songLength;
-            self.source.loop = true;
-          } else {
-            self.source.loopStart = self.loopStart;  //put it off
-            self.source.loopEnd = self.loopEnd;// songLength;
-            self.source.loop = false;
-          }
-          self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
-          var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
-          console.log(when + " " + offset + "+" + duration);
-          // source.start(when, offset, duration); //with this, does not do loop
-          self.isStopped = false;
-          self.source.start(when); //with this, do loop?
+        if (self.source) {
+          self.triggerStart();
         } else {
-          //the built in loop is not good. there is no delay before rewind to the loopStart
-          //TODO: sometimes, self.source is null. 
-          //since every time, self.source is reinited, at that time, it is null
-          if (self.source) {
-            self.source.loop = false;
-            self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
-            // console.log("play speed:" + self.source.playbackRate.value);
-            var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
-            // console.log(when + " " + offset + "+" + duration);
-            self.isStopped = false;
-            self.source.start(when, offset, duration); //with this, does not do loop
-            startSucceeded = true;
-          } else {
-            console.log("self.source is null");
-          }
-        }
-        if (startSucceeded) {
-          self.onPlayStarted();
+          //this happened pretty often, it happens when the play is ended, but before next start.
+          self.pauseRequested = true;
+          console.log("self.source is null");
         }
       }
     } else {
       var msg = "please load data before play";
       console.log(msg);   //TODO: some times, this is printed. why??
       // alert(msg);
+    }
+  },
+  triggerStart: function () {
+    var self = this;
+    self.tsStartCtx = self.audioCtx.currentTime + 1;
+    var startSucceeded = false;
+    if (false) {
+      // console.log(when + " " + source.loopStart + "->" + source.loopEnd);
+      /* be noted that: loop start and end works after play started.
+       but seems not working when set before play started.
+       it works. according to the web audio api specification, the offset & duration is always being used.
+       if the loop region is inside the start region, then it will be looped.
+       */
+      // source.start(when); //, offset, duration
+      //the built in loop is not good. there is no delay before rewind to the loopStart
+      var doLoop = true; //TODO: get it from control
+      if (doLoop) {
+        self.source.loopStart = self.loopStart;  //put it off
+        self.source.loopEnd = self.loopEnd;// songLength;
+        self.source.loop = true;
+      } else {
+        self.source.loopStart = self.loopStart;  //put it off
+        self.source.loopEnd = self.loopEnd;// songLength;
+        self.source.loop = false;
+      }
+      self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
+      var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
+      console.log(when + " " + offset + "+" + duration);
+      // source.start(when, offset, duration); //with this, does not do loop
+      self.isStopped = false;
+      self.source.start(when); //with this, do loop?
+    } else {
+      //the built in loop is not good. there is no delay before rewind to the loopStart
+      //TODO: sometimes, self.source is null. 
+      //since every time, self.source is reinited, at that time, it is null
+      self.source.loop = false;
+      self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
+      // console.log("play speed:" + self.source.playbackRate.value);
+      var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
+      // console.log(when + " " + offset + "+" + duration);
+      self.isStopped = false;
+      self.source.start(when, offset, duration); //with this, does not do loop
+      startSucceeded = true;
+    }
+    if (startSucceeded) {
+      self.onPlayStarted();
     }
   },
   displayTime: function () {
@@ -380,8 +386,14 @@ var player = {
     //      if (fnReady) {
     //        fnReady();
     //      }
-    self.play.onclick();
-    self.resumeCtx();
+    //self.play.onclick();
+    if (self.isStarted) {
+    } else {
+      self.triggerStart();
+      if (self.pauseRequested) { } else {
+        self.resumeCtx();
+      }
+    }
   },
   onPlayStarted: function () {
     var self = this;
@@ -394,9 +406,8 @@ var player = {
       // self.e_loopendControl.removeAttribute('disabled');
       self.e_timeDisplay = document.querySelector('#tsCurrent'); //TODO: use id instead //tag 'p'
       self.play.textContent = 'Suspend context'; //susresBtn
-      tester.presentTestInfo();
+      tester.onAudioStarted();
       // self.displayTime();
-      // tester.presentTiming(); //memory retention curve related stuff
     } catch (e) {
       console.log(e);
     }
@@ -475,6 +486,7 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
   testNext: null,
   testCurrent: null, //the test is being played.
   idtestLoading: -1,
+  testsDone: [], //TODO: to save those are done. so we can go back
   // pathPlaying: null, //the one is being played. TODO: remove this one.
   init: function () {
     var self = this;
@@ -1444,8 +1456,13 @@ flagsLoad: use 0,1,2,3,4. 1: loading info, 2: load info Succeeded, 4: load info 
       console.log("exception 1274");
       console.log(ex);
     });
-
   },
+  onAudioStarted: function () {
+    var tester = this;
+    tester.presentTestInfo();
+    // tester.presentTiming(); //memory retention curve related stuff
+  },
+
 };
 var user = {
   name: "jack",
