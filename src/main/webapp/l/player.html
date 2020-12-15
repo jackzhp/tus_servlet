@@ -1,121 +1,134 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <title>Testing</title>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <link rel="stylesheet" href="">
-        <!--[if lt IE 9]>
+  <title>Testing</title>
+
+  <link rel="stylesheet" href="">
+  <!--[if lt IE 9]>
           <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
         <![endif]-->
-        <style>
-            h1   {color: blue;}
-            p    {color: red;}
-            .loop-control{
-                width: 100%;
-                color: red;
-            }
-            #result_good{
-                width: 50px;
-                height: 50px;
-            }
-#kpsLR {
-  float: left;
-  width: 100%;
-}
-#kpsL, #kpsR {
-  width: 50%;
-  float: left; 
-}
+  <style>
+    h1 {
+      color: blue;
+    }
 
-        </style>
-        <script type="text/javascript" src="player.js"></script>        
+    p {
+      color: red;
+    }
 
-    </head>
+    .loop-control {
+      width: 100%;
+      color: red;
+    }
 
-    <body onload="onload();">
-        <!--
+    #result_good {
+      width: 50px;
+      height: 50px;
+    }
+
+    #kpsLR {
+      float: left;
+      width: 100%;
+    }
+
+    #kpsL,
+    #kpsR {
+      width: 50%;
+      float: left;
+    }
+  </style>
+  <script type="text/javascript" src="player.js"></script>
+
+</head>
+
+<body onload="onload();">
+  <!--
           <button>Create context</button>
           <button>Stop context</button> -->
 
-        <span id="levelsys"></span> Level: <span id="levela"></span> → <span id="levelL"></span>→ <span id="levelt"></span>
-        <br/>
-        <br/>
-        <br/>
-        <br/>
-        <h1>A test</h1>
-<input type="checkbox" id="startReview"/><label for="startReview">Start Review</label>
-<span id="todo"></span>
-<!--        <button id="loadData"> load data </button> -->
-        <button id="presentTest" onclick="tester.presentTestNext()"> startTest </button>
-<input type="text" id="testid"/> <button id="loadTest" onclick="tester.loadTest()">load Test</button>
-        <!-- <button class="play">Play</button> 
+  <span id="levelsys"></span> Level: <span id="levela"></span> → <span id="levelL"></span>→ <span id="levelt"></span>
+  <br />
+  <br />
+  <br />
+  <br />
+  <h1>A test</h1>
+  <input type="checkbox" id="startReview" /><label for="startReview">Start Review</label>
+  <span id="todo"></span>
+  <!--        <button id="loadData"> load data </button> -->
+  <button id="presentTest" onclick="tester.presentTestNext()"> startTest </button>
+  <input type="text" id="testid" /> <button id="loadTest" onclick="tester.loadTest()">load Test</button>
+  <!-- <button class="play">Play</button> 
         <button class="stop">Stop</button> stop is not needed  -->
-        <br/>
+  <br />
 
-        <p>
-            time location:
-            <span id="tsCurrent">No context exists</span>.</p>
-
-
-        <!-- Set loop start and loop end -->
-        <span id="songLength"></span>
-        <br/>
-
-        <!-- Set the rate for playback speed. 1: the original speed, 2: faster, 0.5: slower -->
-        <input class="playback-rate-control" type="range" min="0.25" max="3" step="0.05" value="1">
-        <span class="playback-rate-value">1.0</span>
-
-        <label for="loopstart-control">loop Start:</label>
-        <input class="loop-control" id="loopstart-control" type="range" min="0" max="100" step="1" value="0">
-        <span class="loopstart-value">0</span>
-        <br>
-        <label for="loopend-control">loop End:</label>
-        <input class="loop-control" id="loopend-control" type="range" min="0" max="100" step="1" value="0">
-        <span class="loopend-value">0</span>
-        <br/>
-
-        <button id="result_good">I know, good</button>
-        <button id="pauseCtx">Play/Pause</button>
-
-        <input id="testkey" type="text">  <button id="testkey_check">check key</button>
-        <label id="testkey_given"></label> <button id="testkey_assign">take mine</button>
-
-        <br/>
-        <button id="result_bad">forgot, do not understand, bad</button>
-List history(ETest in reverse order with time)
-        <br/>
-        <br/>
-        <br/>
-        <div id="infodiv">
-            <p id="info"></p>
-            Knowledge Points:
-            <br/>
-            which ones are new? <button id="selectAll" onclick="tester.selectAllKPs();">select All</button> 
-            <button id="submitNew" onclick="tester.submitNew();">submit new</button>
-            <button id="mergeSelected" onclick="tester.mergeSelected();">mergeSelected</button> 
-            <button onclick="tester.newKP();">new KP</button>
-            <div id="kpsLR">
-            <div id="kpsL">
-            <ul id="kpsA">
-            </ul>
-            </div>
-            <div id="kpsR">
-            <ul id="kpsB">
-            </ul>
-            </div>
-            </div>
-        </div>
-        <br/>
-        <br/>
-        <br/>
+  <p>
+    time location:
+    <span id="tsCurrent">No context exists</span>.
+  </p>
 
 
 
+  <!-- Set the rate for playback speed. 1: the original speed, 2: faster, 0.5: slower -->
+  <input class="playback-rate-control" type="range" min="0.25" max="3" step="0.05" value="1">
+  <span class="playback-rate-value">1.0</span>
+
+  <!-- Set loop start and loop end -->
+  <br />Range of
+  <span id="songLength"></span>
+  <br />
+  <label for="loopstart-control">loop Start:</label>
+  <input class="loop-control" id="loopstart-control" type="range" min="0" max="100" step="1" value="0">
+  <span class="loopstart-value">0</span>
+  <br>
+  <label for="loopend-control">loop End:</label>
+  <input class="loop-control" id="loopend-control" type="range" min="0" max="100" step="1" value="0">
+  <span class="loopend-value">0</span>
+  <br />
+
+  <button id="result_good">I know, good</button>
+  <button id="pauseCtx">Play/Pause</button>
+
+  <input id="testkey" type="text"> <button id="testkey_check">check key</button>
+  <label id="testkey_given"></label> <button id="testkey_assign">take mine</button>
+
+  <br />
+  <button id="result_bad">forgot, do not understand, bad</button>
+  List history(ETest in reverse order with time)
+  <br />
+  <br />
+  <br />
+  <div id="infodiv">
+    <p id="info"></p>
+    Knowledge Points:
+    <br />
+    which ones are new? <button id="selectAll" onclick="tester.selectAllKPs();">select All</button>
+    <button id="submitNew" onclick="tester.submitNew();">submit new</button>
+    <button id="mergeSelected" onclick="tester.mergeSelected();">mergeSelected</button>
+    <button onclick="tester.newKP();">new KP</button>
+    <div id="kpsLR">
+      <div id="kpsL">
+        <ul id="kpsA">
+        </ul>
+      </div>
+      <div id="kpsR">
+        <ul id="kpsB">
+        </ul>
+      </div>
+    </div>
+  </div>
+  <br />
+  <br />
+  <br />
 
 
-    </body>
+
+
+
+</body>
+
 </html>

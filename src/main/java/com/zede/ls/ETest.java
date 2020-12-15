@@ -57,7 +57,7 @@ public class ETest implements OID {
     info should be replaced with info0 and infos.
      */
     String info0; //text in learning language. at present, it is Japanese.
-    HashMap<String, String> infos; //indexed by language code, value is the translation of info0.
+    HashMap<String, String> infos = new HashMap<>(); //indexed by language code, value is the translation of info0.
     //flags: 1: intended to be deleted.  32: it is safe to reuse this id.
     int deleted; //boolean isDeleted; //set at last step. when this is true, this ETest does not have to be saved.
     int idReplacedBy = -1; //I want to implement staged deletion, so I need this.
@@ -1012,7 +1012,7 @@ public class ETest implements OID {
         g.writeStringField("fnAudio", fnAudio);
         g.writeStringField("fsha", fsha);
         g.writeStringField("info", info0); //the key word of the record.
-        g.writeObjectFieldStart("info");
+        g.writeObjectFieldStart("infos");
         Set<Map.Entry<String, String>> s = infos.entrySet();
         for (Map.Entry<String, String> me : s) {
             g.writeStringField(me.getKey(), me.getValue());

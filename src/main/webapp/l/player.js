@@ -1,5 +1,7 @@
 //  "use strict";
 var webPath = "/Receiver/";
+//the built in loop is not good. there is no delay before rewind to the loopStart
+// because of this, the structure of the code will be changed accordingly.
 var player = {
   audioCtx: null,
   e_startBtn: null, //susresBtn,   TODO: add prefix e_ to this type of variables.
@@ -46,7 +48,11 @@ var player = {
     self.e_loopendValue = document.querySelector('.loopend-value');
     self.e_loopendControl.setAttribute('disabled', 'disabled');
     self.play.onclick = function () {
-      self.onPauseResumeClicked();
+      try {
+        self.onPauseResumeClicked();
+      } catch (e) {
+        console.log("52", e);
+      }
     };
 
     //stop is not really needed for this application.
@@ -69,18 +75,23 @@ var player = {
     // };
 
     self.e_playbackControl.oninput = function () {
-      self.source.playbackRate.value = self.e_playbackControl.value; //TODO: this should be put off
+      //TODO: better to have a reset button.
+      self.source.playbackRate.value = self.playSpeed = self.e_playbackControl.value; //TODO: this should be put off
       self.e_playbackValue.innerHTML = self.e_playbackControl.value;
     };
 
     self.e_loopstartControl.oninput = function () {
       // self.source.loopStart = loopStart = self.e_loopstartControl.value;
-      self.e_loopstartValue.innerHTML = self.e_loopstartControl.value;
+      self.e_loopstartValue.innerHTML = self.loopStart = self.e_loopstartControl.value;
     };
 
     self.e_loopendControl.oninput = function () {
       // self.source.loopEnd = self.loopEnd = self.e_loopendControl.value;
-      self.e_loopendValue.innerHTML = self.e_loopendControl.value;
+      self.e_loopendValue.innerHTML = self.loopEnd = self.e_loopendControl.value;
+      //I can not set it to self.source.loopEnd since at this point in time, source might be null
+      if (self.source) {
+        self.source.loopEnd = self.loopEnd;
+      }
     };
 
     // e_startBtn = document.querySelector('button:nth-of-type(1)');
@@ -154,9 +165,12 @@ var player = {
           self.pauseCtx();
         } else if (self.audioCtx.state === 'suspended') {
           self.resumeCtx();
+        } else {
+          console.log("unprocessed state:" + self.audioCtx.state);
         }
       } else {
         self.tsStartCtx = self.audioCtx.currentTime + 1;
+        var startSucceeded = false;
         if (false) {
           // console.log(when + " " + source.loopStart + "->" + source.loopEnd);
           /* be noted that: loop start and end works after play started.
@@ -184,14 +198,24 @@ var player = {
           self.source.start(when); //with this, do loop?
         } else {
           //the built in loop is not good. there is no delay before rewind to the loopStart
-          self.source.loop = false;
-          self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
-          var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
-          // console.log(when + " " + offset + "+" + duration);
-          self.isStopped = false;
-          self.source.start(when, offset, duration); //with this, does not do loop
+          //TODO: sometimes, self.source is null. 
+          //since every time, self.source is reinited, at that time, it is null
+          if (self.source) {
+            self.source.loop = false;
+            self.source.playbackRate.value = self.playSpeed; // self.e_playbackControl.value; //TODO: put this off
+            // console.log("play speed:" + self.source.playbackRate.value);
+            var when = self.tsStartCtx, offset = self.loopStart, duration = self.loopEnd - self.loopStart;
+            // console.log(when + " " + offset + "+" + duration);
+            self.isStopped = false;
+            self.source.start(when, offset, duration); //with this, does not do loop
+            startSucceeded = true;
+          } else {
+            console.log("self.source is null");
+          }
         }
-        self.onPlayStarted();
+        if (startSucceeded) {
+          self.onPlayStarted();
+        }
       }
     } else {
       var msg = "please load data before play";
@@ -316,7 +340,7 @@ var player = {
     // self.loopStart = 0;  //put this off
     // self.loopEnd = self.songLength;
     self.audioCtx.destination.disconnect();
-    self.source = self.audioCtx.createBufferSource();
+    self.source = self.audioCtx.createBufferSource(); //is this the only place to create one? Yes!
     self.source.buffer = self.buffer;
     self.source.connect(self.audioCtx.destination);
     self.source.onended = function () {
