@@ -79,12 +79,14 @@
   <br />
   <label for="loopstart-control">loop Start:</label>
   <span class="loopstart-value">0</span>
-  <span id="loopstart-inc" onclick="player.changeLoopStart(true)">increase</span>
-  <span id="loopstart-dec" onclick="player.changeLoopStart(false)">decrease</span>
+  <span onclick="player.changeLoopStart(0)">pick</span>
+  <span onclick="player.changeLoopStart(1)">increase</span>
+  <span onclick="player.changeLoopStart(-1)">decrease</span>
   <label for="loopend-control">loop End:</label>
   <span class="loopend-value">100</span>
-  <span id="loopend-inc" onclick="player.changeLoopEnd(true)">increase</span>
-  <span id="loopend-dec" onclick="player.changeLoopEnd(false)">decrease</span>
+  <span onclick="player.changeLoopEnd(0)">pick</span>
+  <span onclick="player.changeLoopEnd(1)">increase</span>
+  <span onclick="player.changeLoopEnd(-1)">decrease</span>
   <br />
   <input class="loop-control" id="loopstart-control" type="range" min="0" max="100" step="0.1" value="0">
   <br>

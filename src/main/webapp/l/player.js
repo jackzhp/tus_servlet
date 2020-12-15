@@ -165,15 +165,31 @@ var player = {
   },
   changeLoopStart: function (tf) {
     var self = this;
-    var step = self.rangeGranularity;
-    if (tf) { } else step = 0 - step;
-    this.onLoopStartChanged((self.loopStartNext + step) / self.rangeGranularity);
+    var ts;
+    if (tf === 0) {
+      ts = self.currentPosition();
+    } else {
+      var step = self.rangeGranularity;
+      if (tf === 1) { } else step = 0 - step;
+      ts = self.loopStartNext + step;
+    }
+    ts /= self.rangeGranularity;
+    self.e_loopstartControl.value = ts;
+    this.onLoopStartChanged(ts);
   },
   changeLoopEnd: function (tf) {
     var self = this;
-    var step = self.rangeGranularity;
-    if (tf) { } else step = 0 - step;
-    this.onLoopEndChanged((self.loopEnd + step) / self.rangeGranularity);
+    var ts;
+    if (tf === 0) {
+      ts = self.currentPosition();
+    } else {
+      var step = self.rangeGranularity;
+      if (tf === 1) { } else step = 0 - step;
+      ts = self.loopEnd + step;
+    }
+    ts /= self.rangeGranularity;
+    self.e_loopendControl.value = ts;
+    this.onLoopEndChanged(ts);
   },
   number4present: function (v) { //turn 14.000000000001 into "14.0"
     //TODO: (3).toFixed(1);
@@ -279,6 +295,14 @@ var player = {
       self.onPlayStarted();
     }
   },
+  currentPosition: function () {
+    var self = this;
+    var v = self.audioCtx.currentTime - self.tsStartCtx;
+    if (v < 0) v = 0;
+    else if (v > self.loopDuration) v = self.loopDuration;
+    var ts = self.loopStart + v;
+    return ts;
+  },
   displayTime_b: null, //bound
   displayTime: function () {
     var self = this;
@@ -301,10 +325,7 @@ var player = {
         }
         ts = (tsStart + dt);
       } else {
-        var v = self.audioCtx.currentTime - self.tsStartCtx;
-        if (v < 0) v = 0;
-        else if (v > self.loopDuration) v = self.loopDuration;
-        ts = self.loopStart + v;
+        ts = self.currentPosition();
       }
       self.e_timeDisplay.innerHTML = '' + ts.toFixed(0); //3, 1, no point to blink, so set it to 0
     } else {
