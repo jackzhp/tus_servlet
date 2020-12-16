@@ -170,12 +170,12 @@ var player = {
     var ts;
     if (tf === 0) {
       ts = self.currentPosition();
-      self.e_loopstartControl.value = ts / self.rangeGranularity;
     } else {
       var step = self.rangeGranularity;
       if (tf === 1) { } else step = 0 - step;
       ts = self.loopStartNext + step;
     }
+    self.e_loopstartControl.value = ts / self.rangeGranularity;
     this.onLoopStartChanged(ts);
   },
   changeLoopEnd: function (tf) {
@@ -183,12 +183,12 @@ var player = {
     var ts;
     if (tf === 0) {
       ts = self.currentPosition();
-      self.e_loopendControl.value = ts / self.rangeGranularity;
     } else {
       var step = self.rangeGranularity;
       if (tf === 1) { } else step = 0 - step;
       ts = self.loopEnd + step;
     }
+    self.e_loopendControl.value = ts / self.rangeGranularity;
     this.onLoopEndChanged(ts);
   },
   number4present: function (v) { //turn 14.000000000001 into "14.0"
