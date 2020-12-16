@@ -78,14 +78,18 @@
   <br />Time:
   <span id="tsCurrent">No context exists</span>
   <span id="songLength"></span>
+  <span onclick="player.disableRangeBar(true)">disableBar</span>
+  <span onclick="player.disableRangeBar(false)">enableBar</span>
   <br />
-  <label for="loopstart-control">loop Start:</label>
-  <span class="loopstart-value">0</span>
+  loop range:
+  <span class="loopstart-value">0</span>->
+  <span class="loopend-value">100</span>
+  <br />
+  <label for="loopstart-control">loopStart:</label>
   <span onclick="player.changeLoopStart(0)">pick</span>
   <span onclick="player.changeLoopStart(1)">increase</span>
   <span onclick="player.changeLoopStart(-1)">decrease</span>
   <label for="loopend-control">loop End:</label>
-  <span class="loopend-value">100</span>
   <span onclick="player.changeLoopEnd(0)">pick</span>
   <span onclick="player.changeLoopEnd(1)">increase</span>
   <span onclick="player.changeLoopEnd(-1)">decrease</span>

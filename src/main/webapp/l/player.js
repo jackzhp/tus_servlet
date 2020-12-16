@@ -242,13 +242,15 @@ var player = {
     }
     self.presentSpeed();
   },
-  onLoopStartChanged: function (v) { //should not take effect right away.
+  onLoopStartChanged: function (v0) { //should not take effect right away.
     var self = this;
+    var v=+v0;
     self.loopStartNext = v;// * self.granularity_range;// Math.floor(v * self.songLength / 100);
     self.e_loopstartValue.innerHTML = self.loopStartNext.toFixed(self.decimal_range);// self.number4present(self.loopStartNext);
   },
-  onLoopEndChanged: function (v) { //should take effect right away
+  onLoopEndChanged: function (v0) { //should take effect right away
     var self = this;
+    var v=+v0;
     if (v > self.songLength) v = self.songLength;
     self.loopEnd = v;// * self.granularity_range; //Math.ceil(v * self.songLength / 100);
     self.loopDuration = self.loopEnd - self.loopStart;
