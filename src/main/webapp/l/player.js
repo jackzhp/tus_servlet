@@ -31,6 +31,7 @@ var player = {
   p_reject_resolve: null, //  this should be called if failed.
   stopRequested: false, //user wanted to stop playing the current test.
   rangeGranularity: 0.1,
+  speedGranularity: 0.05,
 
   init: function () {
     var self = this;
@@ -39,6 +40,7 @@ var player = {
     // var stop = document.querySelector('.stop');
 
     self.e_playbackControl = document.querySelector('.playback-rate-control');
+    self.e_playbackControl.setAttribute('step', self.speedGranularity.toFixed(2));
     self.e_playbackValue = document.querySelector('.playback-rate-value');
     // self.e_playbackControl.setAttribute('disabled', 'disabled');
 
@@ -78,8 +80,8 @@ var player = {
 
     self.e_playbackControl.oninput = function () {
       //TODO: better to have a reset button.
-      self.source.playbackRate.value = self.playSpeed = self.e_playbackControl.value; //TODO: this should be put off
-      self.e_playbackValue.innerHTML = self.e_playbackControl.value;
+      var v = self.e_playbackControl.value;
+      self.onSpeedChanged(v)
     };
 
     self.e_loopstartControl.oninput = function () {
@@ -165,6 +167,15 @@ var player = {
     //   });
     // };
   },
+  changeSpeed: function (tf) {
+    var self = this;
+    var ts;
+    var step = self.speedGranularity;
+    if (tf === 1) { } else step = 0 - step;
+    ts = self.playSpeed + step;
+    self.e_playbackControl.value = ts; //what if it is less than min or greater than max?
+    self.onSpeedChanged(ts);
+  },
   changeLoopStart: function (tf) {
     var self = this;
     var ts;
@@ -199,6 +210,30 @@ var player = {
       s = s.substring(0, iloc + 2);
     }
     return s;
+  },
+  presentSpeed: function () {
+    var self = this;
+    var decimal = 2;
+    var s = self.playSpeed.toFixed(decimal);
+    if (self.source) { //only for the future round
+      var snow = self.source.playbackRate.value.toFixed(decimal);
+      if (s != snow) {
+        s += "->" + snow;
+      }
+    }
+    self.e_playbackValue.innerHTML = s;
+  },
+  onSpeedChanged: function (v) {
+    var self = this;
+    var decimal = 2; // decimal for presentation.
+    self.playSpeed = v;
+    var snow = "";
+    if (self.source) { //only for the future round
+      snow = self.source.playbackRate.value;
+      if (false)
+        self.source.playbackRate.value = self.playSpeed;
+    }
+    self.presentSpeed();
   },
   onLoopStartChanged: function (v) { //should not take effect right away.
     var self = this;
@@ -461,6 +496,7 @@ var player = {
   onPlayStarted: function () {
     var self = this;
     try {
+      self.presentSpeed();
       self.isStarted = true;
       // play.setAttribute('disabled', 'disabled');
       //enable them when the length of the song is known.
