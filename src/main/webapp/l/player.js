@@ -30,8 +30,10 @@ var player = {
   p_stop_resolve: null, //when really stopped, this should be called if succeeded
   p_reject_resolve: null, //  this should be called if failed.
   stopRequested: false, //user wanted to stop playing the current test.
-  rangeGranularity: 0.1,
-  speedGranularity: 0.05,
+  granularity_range: 0.1,
+  decimal_range: 1,
+  granularity_speed: 0.05,
+  decimal_speed: 2,
 
   init: function () {
     var self = this;
@@ -40,15 +42,17 @@ var player = {
     // var stop = document.querySelector('.stop');
 
     self.e_playbackControl = document.querySelector('.playback-rate-control');
-    self.e_playbackControl.setAttribute('step', self.speedGranularity.toFixed(2));
+    self.e_playbackControl.setAttribute('step', self.granularity_speed.toFixed(self.decimal_speed));
     self.e_playbackValue = document.querySelector('.playback-rate-value');
     // self.e_playbackControl.setAttribute('disabled', 'disabled');
-
+    var stepRange = self.granularity_range.toFixed(self.decimal_range);
     self.e_loopstartControl = document.querySelector('#loopstart-control');
+    self.e_loopstartControl.setAttribute('step', stepRange);
     self.e_loopstartValue = document.querySelector('.loopstart-value');
     // self.e_loopstartControl.setAttribute('disabled', 'disabled');
 
     self.e_loopendControl = document.querySelector('#loopend-control');
+    self.e_loopendControl.setAttribute('step', stepRange);
     self.e_loopendValue = document.querySelector('.loopend-value');
     // self.e_loopendControl.setAttribute('disabled', 'disabled');
     self.play.onclick = function () {
@@ -87,7 +91,7 @@ var player = {
     self.e_loopstartControl.oninput = function () {
       // self.source.loopStart = loopStart = self.e_loopstartControl.value;
       var v = self.e_loopstartControl.value; //it is a %. no! it is not a %
-      v *= self.rangeGranularity;
+      // v *= self.granularity_range;
       self.onLoopStartChanged(v);
     };
     //when I drag the bar, oninput will continue update, onchange does not update untill I release the bar.
@@ -96,7 +100,7 @@ var player = {
       try {
         // self.source.loopEnd = self.loopEnd = self.e_loopendControl.value;
         var v = self.e_loopendControl.value; //it is a %. not is not a %, but *10
-        v *= self.rangeGranularity;
+        // v *= self.granularity_range;
         self.onLoopEndChanged(v);
       } catch (e) {
         console.log("98", e);
@@ -170,7 +174,7 @@ var player = {
   changeSpeed: function (tf) {
     var self = this;
     var ts;
-    var step = self.speedGranularity;
+    var step = self.granularity_speed;
     if (tf === 1) { } else step = 0 - step;
     ts = self.playSpeed + step;
     self.e_playbackControl.value = ts; //what if it is less than min or greater than max?
@@ -193,11 +197,11 @@ var player = {
     if (tf === 0) {
       ts = self.currentPosition();
     } else {
-      var step = self.rangeGranularity;
+      var step = self.granularity_range;
       if (tf === 1) { } else step = 0 - step;
       ts = self.loopStartNext + step;
     }
-    self.e_loopstartControl.value = ts / self.rangeGranularity;
+    self.e_loopstartControl.value = ts;// / self.granularity_range;
     this.onLoopStartChanged(ts);
   },
   changeLoopEnd: function (tf) {
@@ -207,25 +211,16 @@ var player = {
     if (tf === 0) {
       ts = self.currentPosition();
     } else {
-      var step = self.rangeGranularity;
+      var step = self.granularity_range;
       if (tf === 1) { } else step = 0 - step;
       ts = self.loopEnd + step;
     }
-    self.e_loopendControl.value = ts / self.rangeGranularity;
+    self.e_loopendControl.value = ts;// / self.granularity_range;
     this.onLoopEndChanged(ts);
-  },
-  number4present: function (v) { //turn 14.000000000001 into "14.0"
-    //TODO: (3).toFixed(1);
-    var s = "" + v;
-    var iloc = s.indexOf(".");
-    if (iloc != -1) {
-      s = s.substring(0, iloc + 2);
-    }
-    return s;
   },
   presentSpeed: function () {
     var self = this;
-    var decimal = 2;
+    var decimal = self.decimal_speed;
     var s = self.playSpeed.toFixed(decimal);
     if (self.source) { //only for the future round
       var snow = self.source.playbackRate.value.toFixed(decimal);
@@ -249,13 +244,13 @@ var player = {
   },
   onLoopStartChanged: function (v) { //should not take effect right away.
     var self = this;
-    self.loopStartNext = v;// * self.rangeGranularity;// Math.floor(v * self.songLength / 100);
-    self.e_loopstartValue.innerHTML = self.number4present(self.loopStartNext);
+    self.loopStartNext = v;// * self.granularity_range;// Math.floor(v * self.songLength / 100);
+    self.e_loopstartValue.innerHTML = self.loopStartNext.toFixed(self.decimal_range);// self.number4present(self.loopStartNext);
   },
   onLoopEndChanged: function (v) { //should take effect right away
     var self = this;
     if (v > self.songLength) v = self.songLength;
-    self.loopEnd = v;// * self.rangeGranularity; //Math.ceil(v * self.songLength / 100);
+    self.loopEnd = v;// * self.granularity_range; //Math.ceil(v * self.songLength / 100);
     self.loopDuration = self.loopEnd - self.loopStart;
     //I can not set it to self.source.loopEnd since at this point in time, source might be null
     if (self.source) {
@@ -267,7 +262,7 @@ var player = {
       }
     }
     //now present the loopEnd
-    self.e_loopendValue.innerHTML = self.number4present(self.loopEnd);
+    self.e_loopendValue.innerHTML = self.loopEnd.toFixed(self.decimal_range);// self.number4present(self.loopEnd);
   },
   onPauseResumeClicked: function () {
     var self = this;
@@ -395,19 +390,19 @@ var player = {
     self.songLength = self.buffer.duration;
     console.log("decoded length:" + self.songLength);
     //I don't use percentage, the granularity is 0.1 second
-    var rangeMax = Math.ceil(self.songLength * 10); //floor
+    var rangeMax = self.songLength;// Math.ceil(self.songLength / self.granularity_range); //floor
     self.e_playbackControl.removeAttribute('disabled'); //the rate
     self.e_loopstartControl.removeAttribute('disabled');
     self.e_loopstartControl.setAttribute('max', rangeMax);
     var loc = self.e_loopstartControl.value = 0;
-    self.onLoopStartChanged(loc * self.rangeGranularity);
+    self.onLoopStartChanged(loc);
     self.e_loopendControl.removeAttribute('disabled');
     self.e_loopendControl.setAttribute('max', rangeMax);
     //self.e_loopendControl.setAttribute('value', rangeMax);
     //self.e_loopendControl.onchange();  
     loc = self.e_loopendControl.value = rangeMax;
-    self.onLoopEndChanged(loc * self.rangeGranularity);
-    document.querySelector('#songLength').innerHTML = "/" + self.songLength.toFixed(2);
+    self.onLoopEndChanged(loc);
+    document.querySelector('#songLength').innerHTML = "/" + self.songLength.toFixed(self.decimal_range);
     self.nTimes = 0;
     // self.startPlay();
   },
