@@ -462,7 +462,7 @@ var player = {
     // console.log("played " + self.nTimes + " times");
     try {
       // self.source.stop(0);
-      self.source.disconnect(self.audioCtx.destination);
+      self.source.disconnect(self.audioCtx.destination); //occasionally self.source is null. I guess because onended is called more than once.
       self.source = null;
     } catch (e) {
       console.log(e);
