@@ -176,9 +176,20 @@ var player = {
     self.e_playbackControl.value = ts; //what if it is less than min or greater than max?
     self.onSpeedChanged(ts);
   },
+  disableRangeBar: function (tf) {
+    var self = this;
+    if (tf) {
+      self.e_loopstartControl.setAttribute('disabled', 'disabled');
+      self.e_loopendControl.setAttribute('disabled', 'disabled');
+    } else { //enable
+      self.e_loopstartControl.removeAttribute('disabled');
+      self.e_loopendControl.removeAttribute('disabled');
+    }
+  },
   changeLoopStart: function (tf) {
     var self = this;
     var ts;
+    self.disableRangeBar(true);
     if (tf === 0) {
       ts = self.currentPosition();
     } else {
@@ -192,6 +203,7 @@ var player = {
   changeLoopEnd: function (tf) {
     var self = this;
     var ts;
+    self.disableRangeBar(true);
     if (tf === 0) {
       ts = self.currentPosition();
     } else {
