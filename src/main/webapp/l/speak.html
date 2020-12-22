@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Testing</title>
+
+    <link rel="stylesheet" href="">
+    <!--[if lt IE 9]>
+          <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+    <style>
+        h1 {
+            color: blue;
+        }
+
+        /* p {
+            color: red;
+        }
+ */
+        .loop-control {
+            width: 100%;
+            color: red;
+        }
+
+        #result_good {
+            width: 50px;
+            height: 50px;
+        }
+
+        #kpsLR {
+            float: left;
+            width: 100%;
+        }
+
+        #kpsL,
+        #kpsR {
+            width: 50%;
+            float: left;
+        }
+
+        #text_input {
+            width: 100%;
+        }
+    </style>
+    <script type="text/javascript" src="speak.js"></script>
+
+</head>
+
+<body onload="onload();">
+    <input id="text_input" type="text" width="100%">
+    <p id="text2speak"></p>
+    <p id="textDiscarded">asfaf</p>
+
+    <br />
+    <span onclick="o.doSentencePrevious();">Previous</span>
+    <span onclick="o.doSentenceNext();">Next</span>
+    <span onclick="o.clearAndStart();">Clear</span>
+    <span onclick="o.toggleAutoDiscard();">Enable auto discard</span>
+</body>
+
+</html>
