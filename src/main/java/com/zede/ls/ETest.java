@@ -34,6 +34,9 @@ import java.util.logging.Logger;
 //import javax.jdo.annotations.Unique;
 
 /**
+ * TODO: if it is ESentenceAndBelow related, then it should refer to that.
+ *
+ *
  *
  */
 //@PersistenceCapable

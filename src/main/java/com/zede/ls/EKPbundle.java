@@ -27,6 +27,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
+ *  why do I have this class?
+ *  since I can not put each EKP into separate file.
+ *  so I put for example 1000 KP into one file. this is a bundle.
+ *  there is no inner logic among this KP, randomly put them together.
+ *
+ *
+ * TODO: this file should be moved into com.zede.ls.store.file package.
  *
  */
 public class EKPbundle {

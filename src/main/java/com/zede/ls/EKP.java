@@ -36,6 +36,41 @@ import java.util.function.Function;
  * 4096.
  *
  *
+ *  seems too much not really relevant information(leve, test, etc) put into this class.
+ *  
+ *  and seems some relevant information is missing. for example, for japanese no(english of),
+ *  in this class, I need to state it is a relation "A of B".  
+ *
+ *  then for a SentenceAndBelow instance, when it is associated to this KP. its A and B should take their corresponding value.
+ *  for storage, this instantiate of KP could go with the SentenceAndBelow.
+ *  
+ *  To avoid much change, I use another class EKP0 for the KnowledgePoint
+ *  and let this EKP to be instantiate of EKP0.
+ *  
+ *  another way around. EKP to be KnowledgePoint,
+ *  and EKP_a to be its application.
+ *
+ *
+ *  As for the relationship between EKPs:
+ *  Do not forget that some EKPs are a more clear understanding of a vague EKP.
+ *
+ * do I really want to store every piece of knowledge?
+ * 
+ * how many verbs in Japanese?
+ * for each verb, it has 16*2*3 variants. Do I really want to assign an id to them,
+ * and store them?
+ * http://www.japaneseverbconjugator.com/JVerbList.asp
+ * 
+ * https://www.quora.com/How-many-verbs-are-there-in-Japanese says:
+ * 
+ * Verbs are expressed by Kanji in Japanese language, and the sum of mono-word(one Kanji word) verbs seems 2083 words.
+
+You might think there are many two-word(two Kanji words) verbs, but unexpectedly those are only 1817 words. And those are a barely three-word verbs in Japanese.
+
+But Japanese language has honorifics, so it’s not so simple though.
+
+ * it this is trust worthy, then in total just 4K verbs, so total about less than 1M EKP for verbs.
+ * 
  *
  */
 //@PersistenceCapable
